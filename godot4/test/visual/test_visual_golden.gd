@@ -7,6 +7,7 @@ extends GutTest
 ## Failing comparisons save the actual image and a diff to user://visual/.
 
 const GALLERY := preload("res://ui/ComponentGallery.tscn")
+const FAKE_OPTIONS := preload("res://test/unit/fake_options_source.gd")
 const GALAXY_MAP_VIEW := preload("res://map/GalaxyMapView.tscn")
 const GOLDEN_DIR := "res://test/visual/golden/"
 const SIZE := Vector2i(1280, 800)
@@ -71,7 +72,7 @@ func _fill_pedia(screen: PediaScreen) -> void:
 
 func test_options_screen():
 	var screen := OptionsScreen.new()
-	screen.source = preload("res://test/unit/fake_options_source.gd").new()
+	screen.source = FAKE_OPTIONS.new()
 	await _check_scene(screen, "options_screen", func(s): s.refresh())
 
 
@@ -79,6 +80,16 @@ func test_government_screen():
 	var screen := GovernmentScreen.new()
 	screen.source = preload("res://test/unit/fake_government_source.gd").new()
 	await _check_scene(screen, "government_screen", func(s): s.refresh())
+
+
+func test_galaxy_setup_screen():
+	var setup := GalaxySetupScreen.new()
+	var fake: RefCounted = FAKE_OPTIONS.new()
+	fake.options["setup.galaxy.shape"] = {"value": "SPIRAL_3", "default": "DISC", "description": ""}
+	fake.options["setup.empire.name"] = {"value": "Terran Union", "default": "", "description": ""}
+	fake.options["setup.player.name"] = {"value": "Admiral", "default": "", "description": ""}
+	setup.source = fake
+	await _check_scene(setup, "galaxy_setup_screen", func(s): s.refresh())
 
 
 func _fill_shell(shell: GameShell) -> void:

@@ -465,3 +465,29 @@ Done since the starter tickets:
 3. Ship designer.
 4. Options screen.
 5. Galaxy setup and save/load.
+
+### 2026-11-15 (end of day): the fork's app stands on its own
+
+The app now runs entirely on fork screens:
+- Title screen with the seasonal splash, then galaxy setup, then the game shell.
+- Game shell screens:
+  - Map with the system, fleet and turn-event panels.
+  - Production, Research and Government.
+  - Pedia and Options.
+- `--quickstart` still starts a game straight away.
+
+Bridge additions since the last entry:
+- `FOGovernment`.
+- Ship views, plus fleet stance, split, merge and rename orders.
+- `FOOptions` can set enum-typed options (galaxy shape, age, frequencies, AI aggression) by name. It goes through a validated `SetFromXML`, because `OptionsDB` only parses strings privately.
+
+UI fixes:
+- Check boxes and switches now use generated glyphs; Godot's defaults are invisible on dark surfaces.
+- Fleet stance is a text segmented control; the GG stance icons are dark art made for light buttons.
+
+**Next**
+1. Ship designer.
+2. Save/load.
+3. Multiplayer lobby.
+4. Combat reports.
+5. Objects list.

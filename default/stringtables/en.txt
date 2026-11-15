@@ -1971,6 +1971,27 @@ Waiting…
 PANEL_CLOSE
 Close
 
+TITLE_NEW_GAME
+New game
+
+TITLE_QUICK_START
+Quick start
+
+TITLE_EXIT
+Exit
+
+TITLE_LOADING
+Loading game content…
+
+TITLE_STARTING
+Starting the game…
+
+TITLE_BACK
+Back
+
+TITLE_START_GAME
+Start game
+
 SYSTEM_PANEL_PLANETS
 Planets
 
