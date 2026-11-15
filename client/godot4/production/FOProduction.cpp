@@ -92,6 +92,7 @@ void FOProduction::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_points"), &FOProduction::get_points);
     ClassDB::bind_static_method(cls, D_METHOD("get_buildable", "location_id"), &FOProduction::get_buildable);
     ClassDB::bind_static_method(cls, D_METHOD("get_production_locations"), &FOProduction::get_production_locations);
+    ClassDB::bind_static_method(cls, D_METHOD("get_item_locations", "item"), &FOProduction::get_item_locations);
     ClassDB::bind_static_method(cls, D_METHOD("enqueue_building", "name", "location_id"), &FOProduction::enqueue_building);
     ClassDB::bind_static_method(cls, D_METHOD("enqueue_ship", "design_id", "location_id", "quantity"),
                                 &FOProduction::enqueue_ship, DEFVAL(1));
@@ -212,6 +213,35 @@ godot::PackedInt32Array FOProduction::get_production_locations() {
         result.push_back(id);
     for (int id : outposts)
         result.push_back(id);
+    return result;
+}
+
+godot::PackedInt32Array FOProduction::get_item_locations(const godot::Dictionary& item) {
+    godot::PackedInt32Array result;
+    const auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    if (!app || !empire)
+        return result;
+    const auto& context = app->GetContext();
+    const godot::String build_type = item.get("build_type", "");
+    const std::string name = godot::String(item.get("name", "")).utf8().get_data();
+    const int design_id = item.get("design_id", INVALID_DESIGN_ID);
+    try {
+        for (const int location_id : get_production_locations()) {
+            bool ok = false;
+            if (build_type == "building")
+                ok = empire->ProducibleItem(BuildType::BT_BUILDING, name, location_id, context) &&
+                     empire->EnqueuableItem(BuildType::BT_BUILDING, name, location_id, context);
+            else if (build_type == "ship")
+                ok = empire->ProducibleItem(BuildType::BT_SHIP, design_id, location_id, context);
+            else if (build_type == "stockpile")
+                ok = empire->ProducibleItem(BuildType::BT_STOCKPILE, location_id, context);
+            if (ok)
+                result.push_back(location_id);
+        }
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOProduction::get_item_locations: " << e.what();
+    }
     return result;
 }
 

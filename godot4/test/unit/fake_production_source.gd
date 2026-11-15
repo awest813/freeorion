@@ -88,6 +88,16 @@ func get_locations() -> Array:
 	return [{"id": 101, "name": "Hegira β I"}, {"id": 102, "name": "Mu Arae II"}]
 
 
+func get_item_locations(item: Dictionary) -> Array:
+	if item.get("build_type") == "ship":
+		return [
+			{"id": 101, "name": "Hegira β I"},
+			{"id": 102, "name": "Mu Arae II"},
+			{"id": 103, "name": "Vega III"}
+		]
+	return [{"id": 101, "name": "Hegira β I"}]
+
+
 func enqueue(item: Dictionary, location_id: int) -> bool:
 	calls.push_back(["enqueue", item.get("label"), location_id])
 	return true

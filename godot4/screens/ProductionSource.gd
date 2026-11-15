@@ -26,6 +26,16 @@ func get_locations() -> Array:
 	return locations
 
 
+## [{id, name}] of the locations where \a item can be built now.
+func get_item_locations(item: Dictionary) -> Array:
+	var locations: Array = []
+	for planet_id in FOProduction.get_item_locations(item):
+		var planet: FOPlanet = FOUniverse.get_planet(planet_id)
+		if planet:
+			locations.push_back({"id": planet_id, "name": planet.get_name()})
+	return locations
+
+
 func enqueue(item: Dictionary, location_id: int) -> bool:
 	if item.get("build_type") == "building":
 		return FOProduction.enqueue_building(item["name"], location_id)

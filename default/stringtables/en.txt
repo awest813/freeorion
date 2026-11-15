@@ -2497,6 +2497,16 @@ Search…
 PRODUCTION_ADD
 Add
 
+PRODUCTION_WHERE
+Where can this be built? Add it at several places at once.
+
+# %1% number of places
+PRODUCTION_WHERE_MESSAGE
+Places where this can be built now: %1%. Tick where to add it.
+
+PRODUCTION_ADD_AT_TICKED
+Add where ticked
+
 PRODUCTION_NEVER
 Never
 

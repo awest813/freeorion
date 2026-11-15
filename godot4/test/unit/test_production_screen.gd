@@ -113,3 +113,24 @@ func test_stockpile_project_and_line():
 	assert_string_contains(screen._stockpile.text, "PP")
 	var names := _texts(screen._catalog)
 	assert_has(names, tr("PROJECT_BT_STOCKPILE"), "The stockpile project is buildable")
+
+
+func test_where_can_it_be_built():
+	var scout_row := screen._catalog.get_child(2)
+	_button_in(scout_row, "⌖").pressed.emit()
+	var dialog: FODialog = screen.get_children().filter(func(c): return c is FODialog)[0]
+	var checks: Array = dialog.find_children("*", "CheckBox", true, false)
+	assert_eq(checks.map(func(c): return c.text), ["Hegira β I", "Mu Arae II", "Vega III"])
+	assert_eq(
+		checks.map(func(c): return c.button_pressed), [true, false, false], "Chosen location ticked"
+	)
+	checks[2].button_pressed = true
+	dialog.choose(0)
+	assert_eq(fake.calls, [["enqueue", "Scout", 101], ["enqueue", "Scout", 103]])
+
+
+func test_where_dialog_cancel_adds_nothing():
+	_button_in(screen._catalog.get_child(0), "⌖").pressed.emit()
+	var dialog: FODialog = screen.get_children().filter(func(c): return c is FODialog)[0]
+	dialog.choose(1)
+	assert_eq(fake.calls, [])

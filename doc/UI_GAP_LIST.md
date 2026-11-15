@@ -27,8 +27,8 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 7 | Tech tree graph; where to build; graphs; hotkey rebinding |
-| P3 | 17 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P2 | 6 | Tech tree graph; graphs; Pedia extras; hotkey rebinding |
+| P3 | 18 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -95,11 +95,11 @@ Closed:
 - **Sound and music:** the game's music plays in a loop; buttons click and sound on hover; new turns, ending a turn and dialogs have their sounds. Options has a Sound section to turn music and effects on or off and set their volumes (the GG client's `audio.*` options).
 - **Turn readiness check:** End turn first lists what may have been forgotten: unspent PP or RP (saying so when a queue is empty), fleets with colony ships but no orders, and new fleets without orders. Each entry goes to its screen or fleet; "End turn anyway" ends it. The check can be turned off in the dialog or in Options (`ui.turn.readiness.check`).
 - **Ship detail:** a ship's name in the fleet panel opens its details below: design, hull and species (linked to the Pedia), damage, fighters shot down, fighters, troops and colonists as the GG ship rows show them, its meters with next turn's change, maximum and effect breakdown, and its parts with their capacities. Ship links in turn events select the fleet and open the ship.
+- **Where can I build this:** ⌖ on each item in the production list lists every planet that can build it now, ticked where you are; one Add queues it at all the ticked ones. Highlighting those planets on the map is still open (P3).
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Tech tree graph | `TechTreeWnd`, `TechTreeLayout`, `TechTreeArcs` | L | The fork has the list view only. |
-| Production: where can I build this | `BuildDesignatorWnd` | M | Highlight valid locations on the map, build at several at once. |
 | Drag ships between fleets | `FleetWnd` | M | Split and merge exist; drag-and-drop doesn't. |
 | Graphs | `ui.map.graphs`, `GraphControl` | M | Empire statistics over time. |
 | Pedia extras | `EncyclopediaDetailPanel` | M | Graphs, the planet suitability table, "show on map". |
@@ -110,6 +110,7 @@ Closed:
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
 | Minimap, scale legend and circle | `MapWnd` | M | |
+| Build locations on the map | `BuildDesignatorWnd` | S | Highlight where the chosen production item can be built. |
 | Box-select fleets | Plan, phase 3 | M | |
 | Map modes (political, supply, detection, resources, threat) | Plan, phase 3 | L | |
 | Combat replay and charts | `CombatReport/GraphicalSummary`, plan phase 5 | L | |

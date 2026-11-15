@@ -27,6 +27,9 @@ public:
     static godot::Array get_buildable(int location_id);
     /** Locations (planet IDs) where the player can produce anything. */
     static godot::PackedInt32Array get_production_locations();
+    /** Of get_production_locations(), those where \a item (as get_buildable()
+      * describes it: build_type, name or design_id) can be built now. */
+    static godot::PackedInt32Array get_item_locations(const godot::Dictionary& item);
 
     static bool enqueue_building(const godot::String& name, int location_id);
     static bool enqueue_ship(int design_id, int location_id, int quantity = 1);

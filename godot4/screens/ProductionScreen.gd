@@ -250,12 +250,59 @@ func _catalog_row(item: Dictionary) -> Control:
 		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		info.pressed.connect(pedia_requested.emit.bind("buildingtype", item.get("name", "")))
 		row.add_child(info)
+	var where := ScreenKit.small_button("⌖", "PRODUCTION_WHERE")
+	where.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	where.pressed.connect(open_locations.bind(item))
+	row.add_child(where)
 	var add := Button.new()
 	add.text = tr("PRODUCTION_ADD")
 	add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	add.pressed.connect(func(): _order(source.enqueue(item, selected_location_id())))
 	row.add_child(add)
 	return row
+
+
+## Every location where \a item can be built, to add it at several at once;
+## the chosen location starts ticked.
+func open_locations(item: Dictionary) -> FODialog:
+	var locations: Array = source.get_item_locations(item)
+	var checks: Array[CheckBox] = []
+	var dialog := (
+		FODialog
+		. open_on(
+			self,
+			_display_name(item),
+			tr("PRODUCTION_WHERE_MESSAGE").replace("%1%", str(locations.size())),
+			[
+				[tr("PRODUCTION_ADD_AT_TICKED"), "PrimaryButton", _add_at.bind(item, checks)],
+				[tr("CANCEL"), "GhostButton"],
+			]
+		)
+	)
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 0)
+	for location: Dictionary in locations:
+		var check := CheckBox.new()
+		check.text = location["name"]
+		check.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		check.button_pressed = location["id"] == selected_location_id()
+		check.set_meta("location_id", location["id"])
+		list.add_child(check)
+		checks.push_back(check)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size.y = mini(locations.size(), 10) * 32
+	scroll.add_child(list)
+	dialog.add_content(scroll)
+	return dialog
+
+
+func _add_at(item: Dictionary, checks: Array[CheckBox]) -> void:
+	var added := false
+	for check in checks:
+		if check.button_pressed:
+			added = source.enqueue(item, check.get_meta("location_id")) or added
+	_order(added)
 
 
 func _order(ok: bool) -> void:
