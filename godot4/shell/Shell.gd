@@ -8,6 +8,7 @@ var title: TitleScreen
 var setup: GalaxySetupScreen
 var options: OptionsScreen
 var saves: SaveLoadScreen
+var credits: CreditsScreen
 var game: GameShell
 
 var _content_ready := false
@@ -74,6 +75,12 @@ func _build_menus() -> void:
 	saves.visible = false
 	saves.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(saves)
+	credits = CreditsScreen.new()
+	credits.visible = false
+	credits.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(credits)
+	credits.close_requested.connect(_show_title)
+	title.credits_requested.connect(_show_credits)
 
 	title.new_game_requested.connect(_show_setup)
 	title.quick_start_requested.connect(_start_game)
@@ -91,7 +98,15 @@ func _show_title() -> void:
 	setup.visible = false
 	options.visible = false
 	saves.visible = false
+	credits.visible = false
 	title.visible = true
+
+
+func _show_credits() -> void:
+	credits.refresh()
+	title.visible = false
+	credits.visible = true
+	FOUi.fade_in(credits)
 
 
 func _show_saves() -> void:
@@ -139,12 +154,13 @@ func _on_parsing_completed() -> void:
 func _on_start_game(_is_new_game: bool) -> void:
 	if game:
 		return
-	for child in [title, setup, options, saves]:
+	for child in [title, setup, options, saves, credits]:
 		child.queue_free()
 	game = GameShell.new()
 	game.leave_requested.connect(leave_game)
 	add_child(game)
 	game.map_view.refresh()
+	game.restore_view()
 
 
 # The server is gone after leave_game(): do what the player asked for.

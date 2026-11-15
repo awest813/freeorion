@@ -8,6 +8,9 @@ signal quick_start_requested
 signal load_requested
 signal options_requested
 signal exit_requested
+signal credits_requested
+
+const WEBSITE := "https://freeorion.org"
 
 const ART_DIR := "res://assets/art/"
 
@@ -98,6 +101,7 @@ func _build() -> void:
 	_content_buttons.push_back(_menu_button("TITLE_QUICK_START", quick_start_requested))
 	_content_buttons.push_back(_menu_button("GAME_MENU_LOAD", load_requested))
 	_menu_button("OPTIONS_TITLE", options_requested)
+	_menu_button("INTRO_BTN_CREDITS", credits_requested, "GhostButton")
 	_menu_button("TITLE_EXIT", exit_requested)
 	new_game.call_deferred("grab_focus")
 
@@ -109,6 +113,17 @@ func _build() -> void:
 	if is_instance_valid(GlobalFreeOrionNode):
 		version.text = GlobalFreeOrionNode.get_version()
 	add_child(version)
+	# The project's website, bottom left.
+	var website := LinkButton.new()
+	website.text = tr("INTRO_BTN_WEBSITE")
+	website.uri = WEBSITE
+	website.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+	website.add_theme_color_override("font_color", FOUi.tokens.text_secondary)
+	website.add_theme_font_size_override("font_size", FOUi.tokens.font_size_small)
+	website.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	website.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	website.position += Vector2(FOUi.tokens.space_4, -FOUi.tokens.space_2)
+	add_child(website)
 	set_content_ready(false)
 
 

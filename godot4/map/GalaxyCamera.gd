@@ -65,6 +65,19 @@ func center_on(world_pos: Vector2) -> void:
 	_pan_tween.tween_property(self, "position", world_pos, FOUi.tokens.motion * 2.0)
 
 
+## Jump to \a world_center at \a zoom (within the zoom limits), e.g. a
+## view saved with the game.
+func set_view(world_center: Vector2, zoom_value: float) -> void:
+	user_moved = true
+	_anchored = false
+	if _pan_tween:
+		_pan_tween.kill()
+	position = world_center
+	_target_zoom = clampf(zoom_value, min_zoom, max_zoom)
+	_set_zoom_now(_target_zoom)
+	_notify_view_change()
+
+
 ## True if the last right/middle button press-release moved less than the slop.
 func was_click() -> bool:
 	return drag_distance < CLICK_SLOP_PX

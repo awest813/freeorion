@@ -62,3 +62,23 @@ func test_eta_text():
 	assert_eq(GameShell.eta_text(1), tr("MAP_ROUTE_ETA_ONE"))
 	assert_eq(GameShell.eta_text(4), tr("MAP_ROUTE_ETA").replace("%1%", "4"))
 	assert_eq(GameShell.eta_text(-1), tr("MAP_ROUTE_UNREACHABLE"))
+
+
+func test_history_steps_through_earlier_turns():
+	feed.entries_provider = func(turn: int) -> Array:
+		return [{"text": "Turn %d report" % turn, "icon": "", "label": ""}] if turn != 10 else []
+	feed.show_entries(ENTRIES, 12)
+	assert_true(feed._next.disabled, "Already at the latest turn")
+	feed._prev.pressed.emit()
+	assert_eq(feed._turn, 11)
+	assert_eq(feed._entries[0]["text"], "Turn 11 report")
+	feed._prev.pressed.emit()
+	assert_true(feed.visible, "A quiet past turn keeps the feed open")
+	assert_eq(feed._entries, [])
+	feed._next.pressed.emit()
+	feed._next.pressed.emit()
+	assert_eq(feed._turn, 12)
+	assert_true(feed._next.disabled)
+	feed.show_turn(0)
+	assert_eq(feed._turn, 1, "Clamped to the first turn")
+	assert_true(feed._prev.disabled)

@@ -212,3 +212,12 @@ func test_detection_ranges_hidden_until_shown():
 	map.show_detection = true
 	assert_true(group.visible)
 	assert_eq(map._detection_radii[0], 75.0)
+
+
+func test_set_view_jumps_within_zoom_limits():
+	var cam := map.camera
+	cam.set_view(Vector2(300, 200), cam.zoom_level() * 2.0)
+	assert_eq(cam.position, Vector2(300, 200))
+	assert_true(cam.user_moved, "A restored view isn't refitted")
+	cam.set_view(Vector2(300, 200), 0.0001)
+	assert_almost_eq(cam.zoom_level(), cam.min_zoom, 0.0001, "Clamped to the limits")

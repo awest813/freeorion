@@ -209,6 +209,10 @@ func _catalog_row(tech: Dictionary) -> Control:
 		var add := Button.new()
 		var queued: bool = tech.get("in_queue", false)
 		add.text = tr("RESEARCH_QUEUED") if queued else tr("PRODUCTION_ADD")
+		# Missing prerequisites are queued first, in order.
+		if not queued and status in ["partial", "unresearchable"]:
+			add.text = tr("RESEARCH_ADD_WITH_PREREQS")
+			add.tooltip_text = tr("RESEARCH_ADD_WITH_PREREQS_TIP")
 		add.disabled = queued
 		add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		add.pressed.connect(func(): _order(source.enqueue(tech_name), true))

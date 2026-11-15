@@ -112,3 +112,14 @@ func _button_in(node: Node, text: String) -> Button:
 		if button.text == text:
 			return button
 	return null
+
+
+func test_techs_missing_prerequisites_offer_them_too():
+	screen._filter.current_tab = ResearchScreen.FILTERS.find("open")
+	var labels: Array = (
+		screen
+		. find_children("*", "Button", true, false)
+		. map(func(b): return b.text)
+		. filter(func(t): return t == tr("RESEARCH_ADD_WITH_PREREQS"))
+	)
+	assert_eq(labels.size(), 1, "SHP_WEAPON_1_2 still needs its prerequisites")

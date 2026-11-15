@@ -184,6 +184,7 @@ func _ready() -> void:
 	for panel in [system_panel, planet_panel, fleet_panel]:
 		panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	top_bar.resized.connect(_update_frame_margins)
+	map_view.map.camera.view_changed.connect(_report_view)
 
 	map_view.system_selected.connect(_on_system_selected)
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
@@ -278,6 +279,28 @@ func set_detection_shown(shown: bool) -> void:
 	if options and options.exists("ui.map.detection.shown"):
 		options.set_value("ui.map.detection.shown", shown)
 		options.commit()
+
+
+## Go back to the view saved with a loaded game. Views from other clients
+## (whose saved position means something else) or outside the galaxy are
+## ignored.
+func restore_view() -> void:
+	if not follow_game or not is_instance_valid(GlobalFreeOrionNode):
+		return
+	var view: Dictionary = GlobalFreeOrionNode.get_saved_view()
+	var map := map_view.map
+	if view.is_empty() or not map.bounds.has_area():
+		return
+	var center: Vector2 = view["center"]
+	if map.bounds.grow(map.bounds.size.length() * 0.1).has_point(center):
+		map.camera.set_view(center, view["zoom"])
+
+
+# The view goes with each turn's orders, so saves can restore it.
+func _report_view() -> void:
+	if follow_game and is_instance_valid(GlobalFreeOrionNode):
+		var camera := map_view.map.camera
+		GlobalFreeOrionNode.set_view(camera.position, camera.zoom_level())
 
 
 ## Open the in-game menu over the map (and any open screen).

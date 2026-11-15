@@ -6,6 +6,9 @@ extends RefCounted
 
 static func label(text: String, variation := "") -> Label:
 	var result := Label.new()
+	# Callers translate; names and numbers must not go through the stringtable
+	# (the label has no parent yet to inherit this from).
+	result.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	result.text = text
 	result.theme_type_variation = variation
 	return result
@@ -27,6 +30,7 @@ static func icon(path: String, size: int = -1, fallback: Texture2D = null) -> Te
 
 static func small_button(text: String, tooltip_key: String, enabled := true) -> Button:
 	var button := Button.new()
+	button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	button.text = text
 	button.theme_type_variation = "GhostButton"
 	button.tooltip_text = TranslationServer.translate(tooltip_key)

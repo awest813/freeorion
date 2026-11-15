@@ -22,6 +22,7 @@ var _status: Label
 var _list: VBoxContainer
 var _name: LineEdit
 var _action: Button
+var _delete: Button
 var _selected_path := ""
 var _saves: Array = []
 
@@ -97,6 +98,11 @@ func _build() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
+	_delete = Button.new()
+	_delete.text = tr("SAVES_DELETE")
+	_delete.theme_type_variation = "GhostButton"
+	_delete.pressed.connect(_on_delete)
+	footer.add_child(_delete)
 	_action = Button.new()
 	_action.theme_type_variation = "PrimaryButton"
 	_action.pressed.connect(_on_action)
@@ -154,11 +160,39 @@ func _select(save: Dictionary) -> void:
 		_action.grab_focus()
 
 
+# Deleting asks first: a save can't be got back.
+func _on_delete() -> void:
+	if _selected_path.is_empty():
+		return
+	var path := _selected_path
+	(
+		FODialog
+		. open_on(
+			self,
+			tr("SAVES_DELETE"),
+			tr("SAVES_DELETE_CONFIRM").replace("%1%", path.get_file()),
+			[
+				[tr("SAVES_DELETE"), "DangerButton", _delete_save.bind(path)],
+				[tr("CANCEL"), "GhostButton"],
+			]
+		)
+	)
+
+
+func _delete_save(path: String) -> void:
+	var deleted: bool = source.delete_save(path)
+	refresh()
+	_status.text = tr("SAVES_DELETED" if deleted else "SAVES_DELETE_FAILED").replace(
+		"%1%", path.get_file()
+	)
+
+
 func _update_action() -> void:
 	if mode == "save":
 		_action.disabled = _name.text.strip_edges().is_empty()
 	else:
 		_action.disabled = _selected_path.is_empty()
+	_delete.disabled = _selected_path.is_empty()
 
 
 func _on_action() -> void:

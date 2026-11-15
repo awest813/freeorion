@@ -2040,6 +2040,21 @@ Saving will replace this save.
 SAVES_AUTOSAVE
 Autosave
 
+SAVES_DELETE
+Delete
+
+# %1% save file name.
+SAVES_DELETE_CONFIRM
+Delete %1%? This can't be undone.
+
+# %1% save file name.
+SAVES_DELETED
+Deleted %1%.
+
+# %1% save file name.
+SAVES_DELETE_FAILED
+%1% couldn't be deleted.
+
 MENU_RESUME
 Resume
 
@@ -2387,6 +2402,12 @@ Unreachable
 NOTIFICATIONS_HEADER
 Turn %1% · %2% events
 
+NOTIFICATIONS_PREVIOUS_TURN
+Reports of the turn before
+
+NOTIFICATIONS_NEXT_TURN
+Reports of the turn after
+
 NOTIFICATIONS_HEADER_ONE
 Turn %1% · 1 event
 
@@ -2464,6 +2485,12 @@ RESEARCH_ITEM_COST
 
 RESEARCH_NEEDS_PREREQS
 adds prerequisites
+
+RESEARCH_ADD_WITH_PREREQS
+Add with prerequisites
+
+RESEARCH_ADD_WITH_PREREQS_TIP
+Queues the missing prerequisites first, then this tech.
 
 RESEARCH_QUEUED
 Queued

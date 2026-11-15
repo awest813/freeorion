@@ -37,3 +37,9 @@ func save_game(save_name: String) -> String:
 func load_game(path: String) -> bool:
 	calls.push_back(["load", path])
 	return true
+
+
+func delete_save(path: String) -> bool:
+	calls.push_back(["delete", path])
+	saves = saves.filter(func(s): return s["path"] != path)
+	return true

@@ -1,7 +1,8 @@
 class_name NotificationFeed
 extends PanelContainer
-## This turn's situation reports as a collapsible list of rich-text entries.
-## Links (planets, systems, fleets, techs, ...) emit link_activated.
+## A turn's situation reports as a collapsible list of rich-text entries;
+## ‹ and › step back through earlier turns. Links (planets, systems, fleets,
+## techs, ...) emit link_activated.
 ## Follows the running game unless follow_game is false; show_entries() then
 ## drives it directly (tests, previews).
 
@@ -11,12 +12,17 @@ const WIDTH := 380
 const MAX_HEIGHT := 320
 
 var follow_game := true
+## turn -> its entries, for stepping through history; the game by default.
+var entries_provider := func(turn: int) -> Array: return FOUniverse.get_sitreps(turn)
 
 var _header: Button
 var _scroll: ScrollContainer
 var _list: VBoxContainer
 var _entries: Array = []
 var _turn := 0
+var _latest_turn := 0
+var _prev: Button
+var _next: Button
 
 
 func _init() -> void:
@@ -37,17 +43,31 @@ func _ready() -> void:
 		_refresh_from_game()
 
 
-## Show \a entries ({text, icon, label}) for \a turn; hidden when empty.
+## Show \a entries ({text, icon, label}) for the latest turn \a turn;
+## hidden when empty.
 func show_entries(entries: Array, turn: int) -> void:
+	_latest_turn = turn
+	_show(entries, turn)
+
+
+## Show the reports of earlier turn \a turn (clamped to 1..latest).
+func show_turn(turn: int) -> void:
+	turn = clampi(turn, 1, maxi(1, _latest_turn))
+	_show(entries_provider.call(turn), turn)
+
+
+func _show(entries: Array, turn: int) -> void:
+	var was_visible := visible
 	_entries = entries
 	_turn = turn
-	visible = not entries.is_empty()
+	# Browsing history keeps the feed even on a quiet turn.
+	visible = not entries.is_empty() or turn != _latest_turn
 	for child in _list.get_children():
 		child.queue_free()
 	for entry: Dictionary in entries:
 		_list.add_child(_entry_row(entry))
 	_update_header()
-	if visible:
+	if visible and not was_visible:
 		FOUi.fade_in(self)
 
 
@@ -67,11 +87,20 @@ func _refresh_from_game() -> void:
 func _build() -> void:
 	var box := VBoxContainer.new()
 	add_child(box)
+	var header_row := HBoxContainer.new()
+	box.add_child(header_row)
 	_header = Button.new()
 	_header.theme_type_variation = "GhostButton"
 	_header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_header.pressed.connect(func(): set_expanded(not is_expanded()))
-	box.add_child(_header)
+	header_row.add_child(_header)
+	_prev = ScreenKit.small_button("‹", "NOTIFICATIONS_PREVIOUS_TURN")
+	_prev.pressed.connect(func(): show_turn(_turn - 1))
+	header_row.add_child(_prev)
+	_next = ScreenKit.small_button("›", "NOTIFICATIONS_NEXT_TURN")
+	_next.pressed.connect(func(): show_turn(_turn + 1))
+	header_row.add_child(_next)
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.custom_minimum_size.y = 0
@@ -120,3 +149,5 @@ func _update_header() -> void:
 	var key := "NOTIFICATIONS_HEADER_ONE" if _entries.size() == 1 else "NOTIFICATIONS_HEADER"
 	var title := tr(key).replace("%1%", str(_turn)).replace("%2%", str(_entries.size()))
 	_header.text = "%s  %s" % [arrow, title]
+	_prev.disabled = _turn <= 1
+	_next.disabled = _turn >= _latest_turn

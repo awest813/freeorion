@@ -27,8 +27,8 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 17 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
-| P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P2 | 12 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
+| P3 | 16 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -81,26 +81,26 @@ Closed:
 - **Detection ranges:** Ctrl+D shows your detection ranges as one faint tint. The choice is remembered (option `ui.map.detection.shown`).
 - **Fields on hover:** a field's name shows under the cursor; clicking it opens its Pedia article.
 - **Fleet waypoints:** Shift + right-click adds a move after the fleet's current route.
+- **Sitrep history:** ‹ and › in the turn-event feed step through earlier turns. Filtering by type is still open (P3).
+- **Queue a tech with its prerequisites:** this already worked; the button now says so ("Add with prerequisites").
+- **Delete a save:** from the save and load screens, after a confirmation.
+- **Credits and website:** on the title screen. Multiplayer belongs to the multiplayer item.
+- **Restore the view on load:** the map's centre and zoom go with each turn's orders and come back when a save loads. Saves from the GG client keep only their zoom, since it stores the map position differently.
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Tech tree graph | `TechTreeWnd`, `TechTreeLayout`, `TechTreeArcs` | L | The fork has the list view only. |
-| Queue a tech with its prerequisites | `ResearchWnd` add-with-prereqs | S | |
 | Design management | `DesignWnd` saved/premade/monster lists | M | Save designs to disk, mark obsolete or hide, delete, browse premade and monster designs. |
 | Compare a design with the current one | `DesignWnd` | S | |
 | Production: pause, stockpile | `QueueListBox`, `ProductionWnd` | M | Pause and resume items, allow the imperial stockpile, stockpile projects and limits. |
 | Production: where can I build this | `BuildDesignatorWnd` | M | Highlight valid locations on the map, build at several at once. |
 | Ship detail | `FleetWnd` ship data panel | M | Per-ship meters with breakdowns, parts, attack, fighters. |
 | Drag ships between fleets | `FleetWnd` | M | Split and merge exist; drag-and-drop doesn't. |
-| Sitrep history and filters | `SitRepPanel` prev/next turn, type filters, snooze | S | The feed shows the current turn only. |
 | Graphs | `ui.map.graphs`, `GraphControl` | M | Empire statistics over time. |
 | Pedia extras | `EncyclopediaDetailPanel` | M | Graphs, the planet suitability table, "show on map". |
 | Turn readiness check | Plan, phase 4 item 7 | M | Idle fleets, empty queues, unspent points before ending the turn. |
 | Hotkey rebinding | `OptionsWnd` hotkeys page | M | Fork shortcuts are fixed in code. |
 | Sound and music | `UI/Sound.cpp`, `PlaySound` calls | M | Fork screens are silent; no music. Volume options belong in Options. |
-| Intro extras | `IntroScreen` | S | Multiplayer, credits, website links. |
-| Restore view on load | `SaveGameUIData` | S | Camera and selection are lost on load. |
-| Delete a save | `SaveFileDialog` | S | |
 
 ## P3: polish and cut-over
 
@@ -111,6 +111,7 @@ Closed:
 | Map modes (political, supply, detection, resources, threat) | Plan, phase 3 | L | |
 | Combat replay and charts | `CombatReport/GraphicalSummary`, plan phase 5 | L | |
 | Object list filters, grouping, column chooser, actions | `ObjectListWnd` | M | |
+| Sitrep filters and snoozing | `SitRepPanel` | S | History is in; filtering by type and snoozing aren't. |
 | Moderator tools | `ModeratorActionsWnd` | M | |
 | Credits and About | `CreditsWnd`, `About` | S | |
 | Onboarding hints | Plan, phase 5 | M | |

@@ -76,3 +76,19 @@ func test_no_saves():
 func test_format_time():
 	assert_eq(SaveLoadScreen.format_time("2026-11-15T10:42:07Z"), "2026-11-15 10:42")
 	assert_eq(SaveLoadScreen.format_time("?"), "?")
+
+
+func test_delete_asks_then_deletes():
+	await _make("load")
+	assert_true(screen._delete.disabled, "Nothing picked")
+	screen._list.get_child(0).pressed.emit()
+	screen._delete.pressed.emit()
+	var dialogs: Array = screen.get_children().filter(func(c): return c is FODialog)
+	assert_eq(dialogs.size(), 1, "Asks first")
+	assert_eq(fake.calls, [])
+	dialogs[0].choose(0)
+	assert_eq(fake.calls, [["delete", "/saves/Terran_Imperium_turn_42.sav"]])
+	assert_eq(screen._saves.size(), 1)
+	assert_eq(
+		screen._status.text, tr("SAVES_DELETED").replace("%1%", "Terran_Imperium_turn_42.sav")
+	)

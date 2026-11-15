@@ -13,3 +13,7 @@ func save_game(save_name: String) -> String:
 
 func load_game(path: String) -> bool:
 	return FOSaves.load_game(path)
+
+
+func delete_save(path: String) -> bool:
+	return FOSaves.delete_save(path)
