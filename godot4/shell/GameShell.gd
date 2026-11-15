@@ -26,8 +26,12 @@ var save_screen: SaveLoadScreen
 var load_screen: SaveLoadScreen
 var game_menu: GameMenu
 var designer_screen: DesignerScreen
+var combat_screen: CombatScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
+
+## Newest combat the player has seen in the combat screen.
+var _seen_combat_id := -1
 
 
 func _init() -> void:
@@ -70,6 +74,8 @@ func _ready() -> void:
 	options_screen = OptionsScreen.new()
 	government_screen = GovernmentScreen.new()
 	designer_screen = DesignerScreen.new()
+	combat_screen = CombatScreen.new()
+	combat_screen.link_activated.connect(_on_link_activated)
 	save_screen = SaveLoadScreen.new()
 	save_screen.mode = "save"
 	load_screen = SaveLoadScreen.new()
@@ -84,6 +90,7 @@ func _ready() -> void:
 		research_screen,
 		government_screen,
 		designer_screen,
+		combat_screen,
 		pedia_screen,
 		options_screen,
 		save_screen,
@@ -149,11 +156,16 @@ func _ready() -> void:
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 		GlobalFreeOrionNode.save_completed.connect(_on_save_completed)
+		GlobalFreeOrionNode.combat_logs_updated.connect(_on_combat_logs_updated)
 
 
 # Esc on the map: clear the selection first, then open the menu. Screens and
 # the menu handle their own Esc before it gets here.
 func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F5:
+		show_screen("save")
+		get_viewport().set_input_as_handled()
+		return
 	if not event.is_action_pressed("ui_cancel") or not active_screen.is_empty():
 		return
 	if map_view.map.selected_system_id() != GalaxyMap.NO_SYSTEM:
@@ -196,6 +208,9 @@ func show_screen(screen_name: String) -> void:
 		return
 	if follow_game:
 		_prepare_screen(screen_name)
+	if screen_name == "combat":
+		_seen_combat_id = maxi(_seen_combat_id, CombatScreen.newest_id(combat_screen.combats()))
+		top_bar.set_badge("combat", 0)
 	FOUi.fade_in(screens[screen_name])
 
 
@@ -205,6 +220,7 @@ func _screens() -> Dictionary:
 		"research": research_screen,
 		"government": government_screen,
 		"design": designer_screen,
+		"combat": combat_screen,
 		"pedia": pedia_screen,
 		"options": options_screen,
 		"save": save_screen,
@@ -308,6 +324,22 @@ func _on_save_completed(filename: String, _bytes: int) -> void:
 	save_screen.on_save_completed(filename)
 
 
+# Combat logs arrive from the server shortly after a turn starts.
+func _on_combat_logs_updated() -> void:
+	if combat_screen.visible:
+		combat_screen.refresh()
+	update_combat_badge(FOCombat.list_combats(), GlobalFreeOrionNode.get_current_turn())
+
+
+## Count, on the Combat button, the combats of the last turn not seen yet.
+func update_combat_badge(combats: Array, current_turn: int) -> void:
+	var count := 0
+	for combat: Dictionary in combats:
+		if combat["turn"] >= current_turn - 1 and combat["id"] > _seen_combat_id:
+			count += 1
+	top_bar.set_badge("combat", 0 if active_screen == "combat" else count)
+
+
 func _on_turn_update() -> void:
 	system_panel.refresh()
 	if fleet_panel.visible:
@@ -348,6 +380,10 @@ func _on_link_activated(kind: String, arg: String) -> void:
 	if PediaScreen.is_article_kind(kind):
 		open_pedia(kind, arg)
 		return
+	if kind == "combat" and arg.is_valid_int():
+		show_screen("combat")
+		combat_screen.open(arg.to_int())
+		return
 	if not follow_game or not arg.is_valid_int():
 		return
 	show_screen("")
@@ -358,8 +394,12 @@ func _on_link_activated(kind: String, arg: String) -> void:
 		"planet":
 			var planet: FOPlanet = FOUniverse.get_planet(arg.to_int())
 			system_id = planet.get_system_id() if planet else -1
-		"fleet":
-			var fleet: FOFleet = FOUniverse.get_fleet(arg.to_int())
+		"ship", "fleet":
+			var fleet_id := arg.to_int()
+			if kind == "ship":
+				var ship: FOShip = FOUniverse.get_ship(fleet_id)
+				fleet_id = ship.get_fleet_id() if ship else -1
+			var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
 			if fleet:
 				system_id = fleet.get_system_id()
 				if system_id < 0:

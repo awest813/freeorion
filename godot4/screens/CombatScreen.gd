@@ -1,0 +1,404 @@
+class_name CombatScreen
+extends PanelContainer
+## Combat reports: the player's combats on the left, newest first, with
+## losses at a glance; the chosen one on the right: each side's strength,
+## losses and damage dealt, its ships and planets, and the log by round.
+## Attacks expand into the individual shots. Links (ships, planets, parts)
+## emit link_activated, as in the turn events.
+
+signal close_requested
+signal link_activated(kind: String, arg: String)
+
+const SIDE_MIN_WIDTH := 300
+## Markers before log lines, by event kind.
+const KIND_MARKERS := {"attack": "›", "destroyed": "✕", "fighters": "»"}
+## Ships whose design has no icon (monsters).
+const FALLBACK_SHIP_ICON := "icons/ship_hulls/generic-medium-hull_small.png"
+
+var source: Variant = CombatSource.new()
+
+var _info: Label
+var _list: VBoxContainer
+var _detail: VBoxContainer
+var _detail_scroll: ScrollContainer
+var _combats: Array = []
+var _selected_id := -1
+
+
+func _init() -> void:
+	# Texts are translated with tr() where needed; never auto-translate names.
+	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	theme_type_variation = "BackgroundPanel"
+	_build()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if visible and event.is_action_pressed("ui_cancel"):
+		close_requested.emit()
+		get_viewport().set_input_as_handled()
+
+
+## Reload the combats; keeps the shown one, or shows the newest.
+func refresh() -> void:
+	_combats = source.list_combats()
+	var pending: int = source.get_pending_count()
+	_info.text = tr("COMBAT_REPORTS_FETCHING") if pending > 0 else ""
+	ScreenKit.clear(_list)
+	for combat: Dictionary in _combats:
+		_list.add_child(_combat_card(combat))
+	if _combats.is_empty():
+		var empty := ScreenKit.label(
+			tr("COMBAT_REPORTS_FETCHING" if pending > 0 else "COMBAT_REPORTS_EMPTY"),
+			"SecondaryLabel"
+		)
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_list.add_child(empty)
+	var ids: Array = _combats.map(func(c): return c["id"])
+	open(_selected_id if ids.has(_selected_id) else (ids[0] if not ids.is_empty() else -1))
+
+
+## Show combat \a log_id (-1: none).
+func open(log_id: int) -> void:
+	_selected_id = log_id
+	for card in _list.get_children():
+		if card is Button:
+			card.set_pressed_no_signal(card.get_meta("id") == log_id)
+	ScreenKit.clear(_detail)
+	var combat: Dictionary = source.get_combat(log_id) if log_id >= 0 else {}
+	if combat.is_empty():
+		return
+	_build_detail(combat)
+	_detail_scroll.scroll_vertical = 0
+
+
+## The combats from the last refresh(), as list_combats() returns them.
+func combats() -> Array:
+	return _combats
+
+
+## Newest combat id in \a combats (from list_combats()), or -1.
+static func newest_id(combats: Array) -> int:
+	var newest := -1
+	for combat: Dictionary in combats:
+		newest = maxi(newest, combat["id"])
+	return newest
+
+
+## Units lost by the player's side and by everyone else.
+static func losses(combat: Dictionary) -> Vector2i:
+	var result := Vector2i.ZERO
+	for side: Dictionary in combat.get("sides", []):
+		if side.get("own", false):
+			result.x += side.get("destroyed", 0)
+		else:
+			result.y += side.get("destroyed", 0)
+	return result
+
+
+func _build() -> void:
+	var margin := MarginContainer.new()
+	add_child(margin)
+	var box := VBoxContainer.new()
+	margin.add_child(box)
+	_info = ScreenKit.header(box, "COMBAT_REPORT_TITLE", close_requested.emit)
+	var columns := HBoxContainer.new()
+	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	columns.add_theme_constant_override("separation", FOUi.tokens.space_6)
+	box.add_child(columns)
+	_list = ScreenKit.list()
+	var list_scroll := ScreenKit.scrolling(_list)
+	list_scroll.custom_minimum_size.x = 300
+	list_scroll.size_flags_horizontal = Control.SIZE_FILL
+	columns.add_child(list_scroll)
+	_detail = ScreenKit.list()
+	_detail.add_theme_constant_override("separation", FOUi.tokens.space_3)
+	_detail_scroll = ScreenKit.scrolling(_detail)
+	_detail_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	columns.add_child(_detail_scroll)
+
+
+func _combat_card(combat: Dictionary) -> Button:
+	var card := Button.new()
+	card.toggle_mode = true
+	card.set_meta("id", combat["id"])
+	card.custom_minimum_size.y = 72
+	card.pressed.connect(open.bind(combat["id"]))
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = FOUi.tokens.space_3
+	box.offset_right = -FOUi.tokens.space_3
+	box.offset_top = FOUi.tokens.space_2
+	box.offset_bottom = -FOUi.tokens.space_2
+	box.add_theme_constant_override("separation", 0)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(box)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(top)
+	var title := ScreenKit.label(combat.get("system_name", ""))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	top.add_child(title)
+	top.add_child(
+		ScreenKit.label(
+			tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(combat.get("turn", 0))), "SmallLabel"
+		)
+	)
+	var lost := losses(combat)
+	var outcome := ScreenKit.label(
+		tr("COMBAT_REPORT_LOSSES").replace("%1%", str(lost.x)).replace("%2%", str(lost.y)),
+		"SecondaryLabel"
+	)
+	if lost.x > 0:
+		outcome.add_theme_color_override("font_color", FOUi.tokens.negative)
+	box.add_child(outcome)
+	box.add_child(_side_strip(combat.get("sides", [])))
+	return card
+
+
+# A thin bar split by side, in the sides' colours and sized by unit count.
+func _side_strip(sides: Array) -> Control:
+	var strip := HBoxContainer.new()
+	strip.add_theme_constant_override("separation", 2)
+	strip.custom_minimum_size.y = FOUi.tokens.space_1
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side: Dictionary in sides:
+		var part := ColorRect.new()
+		part.color = side.get("color", Color.GRAY)
+		part.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		part.size_flags_stretch_ratio = maxf(1.0, side.get("units", 1))
+		part.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		part.tooltip_text = side.get("name", "")
+		strip.add_child(part)
+	return strip
+
+
+func _build_detail(combat: Dictionary) -> void:
+	var title := _rich(
+		tr("COMBAT_REPORT_AT").replace(
+			"%1%", "<system %d>%s</system>" % [combat["system_id"], combat["system_name"]]
+		),
+		"HeadingLabel"
+	)
+	_detail.add_child(title)
+	_detail.add_child(
+		ScreenKit.label(
+			tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(combat.get("turn", 0))), "SecondaryLabel"
+		)
+	)
+	var sides := HFlowContainer.new()
+	sides.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
+	sides.add_theme_constant_override("v_separation", FOUi.tokens.space_3)
+	_detail.add_child(sides)
+	for side: Dictionary in combat.get("sides", []):
+		sides.add_child(_side_card(side))
+
+	_detail.add_child(ScreenKit.label(tr("COMBAT_LOG"), "TitleLabel"))
+	var events := without_empty_bouts(combat.get("events", []))
+	if events.is_empty():
+		_detail.add_child(ScreenKit.label(tr("COMBAT_REPORT_NO_EVENTS"), "SecondaryLabel"))
+	var log_box := VBoxContainer.new()
+	log_box.add_theme_constant_override("separation", FOUi.tokens.space_1)
+	_detail.add_child(log_box)
+	for event: Dictionary in events:
+		log_box.add_child(_event_row(event))
+
+
+func _side_card(side: Dictionary) -> Control:
+	var card := PanelContainer.new()
+	card.custom_minimum_size.x = SIDE_MIN_WIDTH
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", FOUi.tokens.space_1)
+	card.add_child(box)
+	var color: Color = side.get("color", Color.GRAY)
+	var top := HBoxContainer.new()
+	box.add_child(top)
+	var swatch := ColorRect.new()
+	swatch.color = color
+	swatch.custom_minimum_size = Vector2(FOUi.tokens.space_3, FOUi.tokens.space_3)
+	swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(swatch)
+	var side_name := ScreenKit.label(side.get("name", ""), "TitleLabel")
+	side_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(side_name)
+
+	var max_health: float = side.get("max_health", 0.0)
+	box.add_child(_health_bar(side.get("health", 0.0), max_health, color, FOUi.tokens.space_2))
+	var facts: PackedStringArray = [
+		tr("COMBAT_REPORT_LOST").replace("%1%", str(side.get("destroyed", 0))).replace(
+			"%2%", str(side.get("units", 0))
+		),
+		tr("COMBAT_REPORT_DAMAGE").replace("%1%", "%.0f" % side.get("damage_dealt", 0.0)),
+	]
+	box.add_child(ScreenKit.label("  ·  ".join(facts), "SecondaryLabel"))
+	var units: Array = side.get("unit_list", [])
+	if not units.is_empty():
+		box.add_child(HSeparator.new())
+	for unit: Dictionary in units:
+		box.add_child(_unit_row(unit, color))
+	return card
+
+
+func _unit_row(unit: Dictionary, color: Color) -> Control:
+	var row := HBoxContainer.new()
+	var art: Texture2D = null
+	if unit.get("type", "") == "planet":
+		art = FOArt.planet_type_icon(unit.get("planet_type", ""))
+	var icon := ScreenKit.icon(
+		unit.get("icon", ""), FOUi.tokens.icon, art if art else FOArt.icon(FALLBACK_SHIP_ICON)
+	)
+	row.add_child(icon)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 0)
+	row.add_child(text)
+	var link_kind: String = unit.get("type", "")
+	var unit_name := _rich("<%s %d>%s</%s>" % [link_kind, unit["id"], unit["name"], link_kind])
+	text.add_child(unit_name)
+	var destroyed: bool = unit.get("destroyed", false)
+	if destroyed:
+		icon.modulate = Color(1, 1, 1, 0.4)
+		var lost := ScreenKit.label(tr("COMBAT_REPORT_DESTROYED"), "SmallLabel")
+		lost.add_theme_color_override("font_color", FOUi.tokens.negative)
+		text.add_child(lost)
+	elif unit.get("max_health", 0.0) > 0.0:
+		var bar := _health_bar(
+			unit.get("health", 0.0), unit["max_health"], color, FOUi.tokens.space_1
+		)
+		bar.tooltip_text = (
+			"%s %.0f / %.0f" % [tr("FLEET_PANEL_STRUCTURE"), unit["health"], unit["max_health"]]
+		)
+		text.add_child(bar)
+	return row
+
+
+func _health_bar(value: float, max_value: float, color: Color, height: int) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.max_value = maxf(max_value, 1.0)
+	bar.value = clampf(value, 0.0, bar.max_value)
+	bar.show_percentage = false
+	bar.custom_minimum_size.y = height
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = color
+	fill.set_corner_radius_all(FOUi.tokens.radius_small)
+	bar.add_theme_stylebox_override("fill", fill)
+	return bar
+
+
+func _event_row(event: Dictionary) -> Control:
+	var kind: String = event.get("kind", "other")
+	if kind == "bout":
+		return _indented(
+			ScreenKit.label(event.get("text", ""), "TitleLabel"), 0, FOUi.tokens.space_2
+		)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 0)
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	var children: Array = event.get("children", [])
+	var details: String = event.get("details", "")
+	var expandable := not (children.is_empty() and details.is_empty())
+	# The marker column: the event's kind, or a toggle for its shots.
+	var marker: Control
+	if expandable:
+		marker = _shots_toggle()
+	else:
+		marker = ScreenKit.label(KIND_MARKERS.get(kind, "·"), "SecondaryLabel")
+		marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if kind == "destroyed":
+			marker.add_theme_color_override("font_color", FOUi.tokens.negative)
+	marker.custom_minimum_size.x = FOUi.tokens.space_6
+	marker.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(marker)
+	row.add_child(_rich(event.get("text", "")))
+	if not expandable:
+		return box
+	var shots := VBoxContainer.new()
+	shots.visible = false
+	shots.add_theme_constant_override("separation", 0)
+	box.add_child(shots)
+	# Shots are built on first expand: big combats have hundreds.
+	marker.toggled.connect(_on_shots_toggled.bind(marker, shots, event))
+	return box
+
+
+# A borderless ▸/▾ toggle, the size of the text beside it.
+func _shots_toggle() -> Button:
+	var toggle := Button.new()
+	toggle.text = "▸"
+	toggle.toggle_mode = true
+	toggle.tooltip_text = tr("COMBAT_REPORT_SHOW_SHOTS")
+	toggle.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+		toggle.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	for color in ["font_color", "font_pressed_color", "font_focus_color"]:
+		toggle.add_theme_color_override(color, FOUi.tokens.text_secondary)
+	toggle.add_theme_color_override("font_hover_color", FOUi.tokens.accent)
+	toggle.add_theme_color_override("font_hover_pressed_color", FOUi.tokens.accent)
+	return toggle
+
+
+func _on_shots_toggled(
+	pressed: bool, toggle: Button, shots: VBoxContainer, event: Dictionary
+) -> void:
+	toggle.text = "▾" if pressed else "▸"
+	if pressed and shots.get_child_count() == 0:
+		var details: String = event.get("details", "")
+		var indent := FOUi.tokens.space_6
+		if not details.is_empty():
+			shots.add_child(_indented(_rich(details, "SmallLabel"), indent))
+		for child: Dictionary in event.get("children", []):
+			shots.add_child(_indented(_rich(child.get("text", ""), "SmallLabel"), indent))
+			if not str(child.get("details", "")).is_empty():
+				shots.add_child(_indented(_rich(child["details"], "SmallLabel"), indent * 2))
+	shots.visible = pressed
+
+
+# \a control with \a left and \a top margins only (the theme's
+# MarginContainer default pads every side).
+static func _indented(control: Control, left: int, top := 0) -> MarginContainer:
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", left)
+	margin.add_theme_constant_override("margin_top", top)
+	margin.add_theme_constant_override("margin_right", 0)
+	margin.add_theme_constant_override("margin_bottom", 0)
+	margin.add_child(control)
+	return margin
+
+
+## Log events without rounds that have nothing in them.
+static func without_empty_bouts(events: Array) -> Array:
+	var result: Array = []
+	for i in events.size():
+		var event: Dictionary = events[i]
+		if event.get("kind", "") == "bout":
+			var next_is_bout: bool = (
+				i + 1 >= events.size() or events[i + 1].get("kind", "") == "bout"
+			)
+			if next_is_bout:
+				continue
+		result.push_back(event)
+	return result
+
+
+# Text with FreeOrion markup; links emit link_activated.
+func _rich(text: String, size_variation := "") -> RichTextLabel:
+	var label := RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	match size_variation:
+		"HeadingLabel":
+			label.add_theme_font_size_override("normal_font_size", FOUi.tokens.font_size_heading)
+		"SmallLabel":
+			label.add_theme_font_size_override("normal_font_size", FOUi.tokens.font_size_small)
+			label.add_theme_color_override("default_color", FOUi.tokens.text_secondary)
+	label.text = FORichText.to_bbcode(text, FOUi.tokens.icon_small)
+	label.meta_clicked.connect(_on_meta_clicked)
+	return label
+
+
+func _on_meta_clicked(meta: Variant) -> void:
+	var link := FORichText.parse_link(str(meta))
+	link_activated.emit(link["kind"], link["arg"])

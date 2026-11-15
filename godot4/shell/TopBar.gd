@@ -12,13 +12,14 @@ signal menu_requested
 ## Ctrl+Enter ends the turn, as a keyboard path to the primary action.
 const END_TURN_KEY := KEY_ENTER
 ## Screen buttons: name, label key, shortcut.
+## Save (F5) is in the in-game menu.
 const SCREENS := [
 	["production", "MAP_BTN_PRODUCTION", KEY_F2],
 	["research", "MAP_BTN_RESEARCH", KEY_F3],
 	["government", "GOVERNMENT_TAB", KEY_F4],
 	["design", "DESIGNER_TAB", KEY_F6],
+	["combat", "COMBAT_TAB", KEY_F7],
 	["pedia", "MAP_BTN_PEDIA", KEY_F1],
-	["save", "GAME_MENU_SAVE", KEY_F5],
 	["options", "OPTIONS_TITLE", KEY_F10],
 ]
 
@@ -64,6 +65,19 @@ func set_active_screen(screen_name: String) -> void:
 		_screen_buttons[key].set_pressed_no_signal(key == screen_name)
 
 
+## Show \a count new items on \a screen_name's button (0 clears it).
+func set_badge(screen_name: String, count: int) -> void:
+	var button: Button = _screen_buttons.get(screen_name)
+	if button == null:
+		return
+	var label: String = button.get_meta("label")
+	button.text = "%s (%d)" % [label, count] if count > 0 else label
+	if count > 0:
+		button.add_theme_color_override("font_color", FOUi.tokens.accent)
+	else:
+		button.remove_theme_color_override("font_color")
+
+
 func _on_screen_toggled(pressed: bool, screen_name: String) -> void:
 	screen_requested.emit(screen_name if pressed else "")
 
@@ -88,6 +102,7 @@ func _build() -> void:
 	for screen in SCREENS:
 		var button := Button.new()
 		button.text = tr(screen[1])
+		button.set_meta("label", button.text)
 		button.toggle_mode = true
 		button.theme_type_variation = "GhostButton"
 		button.tooltip_text = "%s (%s)" % [tr(screen[1]), OS.get_keycode_string(screen[2])]

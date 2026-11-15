@@ -114,6 +114,20 @@ func _select_first_save(screen: SaveLoadScreen) -> void:
 	screen._list.get_child(0).pressed.emit()
 
 
+func test_combat_screen():
+	var screen := CombatScreen.new()
+	screen.source = preload("res://test/unit/fake_combat_source.gd").new()
+	await _check_scene(screen, "combat_screen", _fill_combat)
+
+
+func _fill_combat(screen: CombatScreen) -> void:
+	screen.refresh()
+	var toggles: Array = screen._detail.find_children("*", "Button", true, false).filter(
+		func(b): return b.toggle_mode
+	)
+	toggles[1].button_pressed = true
+
+
 func test_designer_screen():
 	var screen := DesignerScreen.new()
 	screen.source = preload("res://test/unit/fake_designer_source.gd").new()

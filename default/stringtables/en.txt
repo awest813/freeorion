@@ -2037,6 +2037,43 @@ Leaving the game…
 TOPBAR_MENU
 Menu (Esc)
 
+COMBAT_TAB
+Combat
+
+COMBAT_REPORTS_EMPTY
+No combats involving your empire yet.
+
+COMBAT_REPORTS_FETCHING
+Fetching combat reports…
+
+# %1% system name.
+COMBAT_REPORT_AT
+Combat at %1%
+
+# %1% number of own units lost, %2% number of other units lost.
+COMBAT_REPORT_LOSSES
+You lost %1%, others %2%
+
+# %1% units lost, %2% units in the combat.
+COMBAT_REPORT_LOST
+Lost %1% of %2%
+
+# %1% total damage.
+COMBAT_REPORT_DAMAGE
+Damage dealt %1%
+
+COMBAT_REPORT_DESTROYED
+Destroyed
+
+COMBAT_REPORT_UNKNOWN_OBJECT
+Unknown object
+
+COMBAT_REPORT_SHOW_SHOTS
+Show each shot
+
+COMBAT_REPORT_NO_EVENTS
+Nothing happened that your empire could see.
+
 SYSTEM_PANEL_PLANETS
 Planets
 
