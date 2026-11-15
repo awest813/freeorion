@@ -6,6 +6,7 @@ extends Control
 
 ## Add the designs saved between games to a new game.
 const OPTION_SAVED_DESIGNS := "resource.shipdesign.saved.enabled"
+const OPTION_DEFAULT_DESIGNS := "resource.shipdesign.default.enabled"
 ## Time for the audio server to free stopped sounds before quitting.
 const AUDIO_STOP_SECONDS := 0.1
 
@@ -274,7 +275,13 @@ func _on_start_game(is_new_game: bool) -> void:
 		return
 	# A new game starts with the designs kept from earlier ones, as in the
 	# GG client (option resource.shipdesign.saved.enabled).
+	# Without the premade designs (resource.shipdesign.default.enabled off)
+	# the empire forgets those the server gave it, as GG does.
 	var option_db := Engine.get_singleton("FOOptions")
+	if is_new_game and option_db.exists(OPTION_DEFAULT_DESIGNS):
+		if not option_db.get_value(OPTION_DEFAULT_DESIGNS):
+			for design: Dictionary in FODesigner.get_designs("empire"):
+				FODesigner.delete_design(design["id"])
 	if is_new_game and option_db.exists(OPTION_SAVED_DESIGNS):
 		if option_db.get_value(OPTION_SAVED_DESIGNS):
 			FODesigner.add_all_saved()

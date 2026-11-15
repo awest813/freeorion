@@ -1,4 +1,5 @@
 #include "FOViews.h"
+#include "../orders/FOOrders.h"
 
 #include <set>
 #include <tuple>
@@ -157,6 +158,7 @@ void FOFleet::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_aggressive"), &FOFleet::is_aggressive);
     ClassDB::bind_method(D_METHOD("is_passive"), &FOFleet::is_passive);
     ClassDB::bind_method(D_METHOD("get_eta"), &FOFleet::get_eta);
+    ClassDB::bind_method(D_METHOD("get_etas"), &FOFleet::get_etas);
     ClassDB::bind_method(D_METHOD("get_aggression"), &FOFleet::get_aggression);
     ClassDB::bind_method(D_METHOD("preview_route", "dest_system_id", "append"), &FOFleet::preview_route,
                          DEFVAL(false));
@@ -344,6 +346,26 @@ int FOFleet::get_eta() const {
     if (eta == Fleet::ETA_NEVER || eta == Fleet::ETA_UNKNOWN || eta == Fleet::ETA_OUT_OF_RANGE)
         return -1;
     return static_cast<int>(eta);
+}
+
+godot::Dictionary FOFleet::get_etas() const {
+    godot::Dictionary result;
+    const auto* fleet = Lookup<Fleet>(m_id);
+    const auto* app = ClientApp::GetApp();
+    if (!fleet || !app || fleet->FinalDestinationID() == INVALID_OBJECT_ID)
+        return result;
+    const auto code = [](int eta) {
+        return eta == Fleet::ETA_NEVER ? -1 : eta == Fleet::ETA_UNKNOWN ? -2 :
+            eta == Fleet::ETA_OUT_OF_RANGE ? -3 : eta;
+    };
+    try {
+        const auto [eta_final, eta_next] = fleet->ETA(app->GetContext());
+        result["final"] = code(eta_final);
+        result["next"] = code(eta_next);
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOFleet::get_etas: " << e.what();
+    }
+    return result;
 }
 
 godot::String FOFleet::get_aggression() const {
@@ -692,6 +714,10 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     godot::PackedInt32Array fleet_ship_counts;
     godot::PackedByteArray fleet_stale;
     godot::PackedInt32Array system_owner_ids;
+    godot::Array system_owner_sets;
+    godot::PackedInt32Array supply_obstructed;
+    godot::PackedInt32Array supply_obstructed_owners;
+    godot::PackedByteArray field_stale;
     godot::Array fleet_paths;
     godot::Array fleet_turn_ends;
     godot::Array fleet_turn_etas;
@@ -721,16 +747,25 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
         }
 
         // Each system's owner: the empire owning its planets (the first one
-        // found when several do), for owner-coloured circles and names.
+        // found when several do), for owner-coloured circles and names; with
+        // several owners, all of them (GG splits the circle between them).
         for (const auto* sys : objects.allRaw<System>()) {
             int owner = ALL_EMPIRES;
+            std::vector<int> owners;
             for (const auto* planet : objects.findRaw<const Planet>(sys->PlanetIDs())) {
                 if (planet && !planet->Unowned()) {
-                    owner = planet->Owner();
-                    break;
+                    if (owner == ALL_EMPIRES)
+                        owner = planet->Owner();
+                    if (std::find(owners.begin(), owners.end(), planet->Owner()) == owners.end())
+                        owners.push_back(planet->Owner());
                 }
             }
             system_owner_ids.push_back(owner);
+            godot::PackedInt32Array set;
+            if (owners.size() > 1)
+                for (const int id : owners)
+                    set.push_back(id);
+            system_owner_sets.push_back(set);
         }
 
         // A lane may be known from one end only, so dedupe on the (lower, higher) index pair.
@@ -814,6 +849,9 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
             field_types.push_back(ToGodot(field->FieldTypeName()));
             field_graphics.push_back(ToGodot(type && !type->Graphic().empty() ? type->Graphic()
                                                                             : std::string{"fields/ion_storm.png"}));
+            // Out of sight now: GG draws scanlines over it.
+            field_stale.push_back(app->GetUniverse().GetObjectVisibilityByEmpire(field->ID(), app->EmpireID())
+                                  <= Visibility::VIS_BASIC_VISIBILITY ? 1 : 0);
         }
 
         // Detection ranges of every empire's objects the player knows, as
@@ -866,6 +904,19 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
                 supply_lane_owners.push_back(empire_id);
             }
         }
+        // Lanes supply can't go along (another empire's supply is stronger
+        // there): from where it stops, as GG's half lanes.
+        for (const auto& [empire_id, traversals] : supply.SupplyObstructedStarlaneTraversals()) {
+            for (const auto& [from_id, to_id] : traversals) {
+                const auto from = system_index.find(from_id);
+                const auto to = system_index.find(to_id);
+                if (from == system_index.end() || to == system_index.end())
+                    continue;
+                supply_obstructed.push_back(from->second);
+                supply_obstructed.push_back(to->second);
+                supply_obstructed_owners.push_back(empire_id);
+            }
+        }
     }
 
     godot::Dictionary snapshot;
@@ -882,6 +933,10 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["fleet_ship_counts"] = fleet_ship_counts;
     snapshot["fleet_stale"] = fleet_stale;
     snapshot["system_owner_ids"] = system_owner_ids;
+    snapshot["system_owner_sets"] = system_owner_sets;
+    snapshot["supply_obstructed"] = supply_obstructed;
+    snapshot["supply_obstructed_owners"] = supply_obstructed_owners;
+    snapshot["field_stale"] = field_stale;
     snapshot["fleet_turn_ends"] = fleet_turn_ends;
     snapshot["fleet_turn_etas"] = fleet_turn_etas;
     snapshot["fleet_turn_flags"] = fleet_turn_flags;
@@ -1093,6 +1148,7 @@ godot::Dictionary FOUniverse::get_planet_detail(int planet_id) {
         const auto* type = GetBuildingType(building->BuildingTypeName());
         entry["icon"] = type ? ToGodot(type->Icon()) : godot::String();
         entry["scrapping"] = IsScrapping(app->Orders(), building->ID());
+        entry["ghost"] = FOOrders::is_sensor_ghost(building->ID());
         entry["description"] = type ? ToGodot(type->Description()) : godot::String();
         buildings.push_back(entry);
     }

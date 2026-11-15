@@ -21,9 +21,16 @@ signal close_requested
 signal pedia_requested(kind: String, article_name: String)
 
 ## Own designs' menu.
-enum DesignAction { RENAME, KEEP, ASIDE, DELETE, PEDIA }
+enum DesignAction { RENAME, KEEP, ASIDE, DELETE, PEDIA, TOP, BOTTOM }
 ## Hulls' menu.
 enum HullAction { PEDIA, OBSOLETE }
+## The options adding premade or saved designs to each new game.
+const START_OPTIONS := {
+	"premade": "resource.shipdesign.default.enabled",
+	"saved": "resource.shipdesign.saved.enabled",
+}
+## Drag data type for reordering own designs.
+const DESIGN_ORDER_DRAG := "fo_design_order"
 
 const SLOT_SIZE := 56
 ## Design lists: kind for get_designs(), tab label key.
@@ -52,6 +59,8 @@ const STATS := [
 ]
 
 var source: Variant = DesignerSource.new()
+## Where the "add at game start" choices are kept.
+var options: Variant = OptionsSource.new()
 
 var hull_name := ""
 var parts := PackedStringArray()
@@ -64,6 +73,7 @@ var _parts: Array = []
 var _status: Label
 var _hull_list: VBoxContainer
 var _design_list: VBoxContainer
+var _design_ids: Array = []
 var _design_kind: OptionButton
 var _compare_label: Label
 ## The design started from, to compare against and update: {name, stats,
@@ -391,12 +401,32 @@ func _rebuild_design_list() -> void:
 	ScreenKit.clear(_design_list)
 	var kind: String = DESIGN_KINDS[maxi(_design_kind.selected, 0)][0]
 	var designs: Array = source.get_designs(kind)
+	# Premade and saved designs can be added to each new game's (as GG's
+	# list menus offer).
+	var at_start: String = START_OPTIONS.get(kind, "")
+	if not at_start.is_empty() and options.exists(at_start):
+		var toggle := CheckBox.new()
+		toggle.text = tr(
+			(
+				"DESIGN_WND_ADD_ALL_SAVED_START"
+				if kind == "saved"
+				else "DESIGN_WND_ADD_ALL_DEFAULT_START"
+			)
+		)
+		toggle.button_pressed = options.get_value(at_start)
+		toggle.toggled.connect(
+			func(on: bool):
+				options.set_value(at_start, on)
+				options.commit()
+		)
+		_design_list.add_child(toggle)
 	if kind == "saved" and not designs.is_empty():
 		var add_all := Button.new()
 		add_all.text = tr("DESIGN_WND_ADD_ALL_SAVED_NOW")
 		add_all.theme_type_variation = "GhostButton"
 		add_all.pressed.connect(func(): _design_order(source.add_all_saved() >= 0))
 		_design_list.add_child(add_all)
+	_design_ids = designs.map(func(d): return d.get("id", -1))
 	for design: Dictionary in designs:
 		_design_list.add_child(_design_row(design, kind))
 	if designs.is_empty():
@@ -423,6 +453,8 @@ func _design_menu(design: Dictionary) -> MenuButton:
 	if design.get("renamable", false):
 		popup.add_item(tr("DESIGNER_RENAME"), DesignAction.RENAME)
 	popup.add_item(tr("PEDIA_OPEN"), DesignAction.PEDIA)
+	popup.add_item(tr("PRODUCTION_MOVE_TOP"), DesignAction.TOP)
+	popup.add_item(tr("PRODUCTION_MOVE_BOTTOM"), DesignAction.BOTTOM)
 	popup.add_item(tr("DESIGNER_SAVE_TO_DISK"), DesignAction.KEEP)
 	popup.add_item(tr("DESIGNER_OBSOLETE"), DesignAction.ASIDE)
 	popup.add_separator()
@@ -444,6 +476,11 @@ func _design_menu(design: Dictionary) -> MenuButton:
 					confirm_delete(design)
 				DesignAction.PEDIA:
 					pedia_requested.emit("shipdesign", str(id))
+				DesignAction.TOP:
+					var first: int = _design_ids[0] if not _design_ids.is_empty() else -1
+					_design_order(source.move_design(id, first))
+				DesignAction.BOTTOM:
+					_design_order(source.move_design(id, -1))
 	)
 	return menu
 
@@ -467,6 +504,14 @@ func _design_row(design: Dictionary, kind: String) -> Control:
 	match kind:
 		"empire":
 			row.add_child(_design_menu(design))
+			# Drag to reorder (production lists them in this order); a
+			# design dropped on another goes before it.
+			button.set_drag_forwarding(
+				func(_at): return {"type": DESIGN_ORDER_DRAG, "id": id},
+				func(_at, data):
+					return data is Dictionary and data.get("type", "") == DESIGN_ORDER_DRAG,
+				func(_at, data): _design_order(source.move_design(data["id"], id))
+			)
 		"obsolete":
 			var back := ScreenKit.small_button("↺", "DESIGNER_RESTORE")
 			back.pressed.connect(func(): _design_order(source.set_obsolete(id, false)))

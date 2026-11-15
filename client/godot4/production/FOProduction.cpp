@@ -1,4 +1,5 @@
 #include "FOProduction.h"
+#include "../designer/FODesigner.h"
 
 #include <vector>
 
@@ -46,6 +47,13 @@ namespace {
             const auto* hull = design ? GetShipHull(design->Hull()) : nullptr;
             out["icon"] = design && !design->Icon().empty() ? ToGodot(design->Icon())
                         : hull ? ToGodot(hull->Icon()) : godot::String();
+            // For the catalogue's tooltip (GG lists a design's parts there).
+            out["hull"] = design ? ToGodot(design->Hull()) : godot::String();
+            godot::PackedStringArray parts;
+            if (design)
+                for (const auto& part : design->Parts())
+                    parts.push_back(ToGodot(part));
+            out["parts"] = parts;
         } else if (item.build_type == BuildType::BT_STOCKPILE) {
             out["build_type"] = "stockpile";
             out["name"] = "PROJECT_BT_STOCKPILE";
@@ -97,10 +105,10 @@ void FOProduction::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_group_points", "location_id"), &FOProduction::get_group_points);
     ClassDB::bind_static_method(cls, D_METHOD("get_production_locations"), &FOProduction::get_production_locations);
     ClassDB::bind_static_method(cls, D_METHOD("get_item_locations", "item"), &FOProduction::get_item_locations);
-    ClassDB::bind_static_method(cls, D_METHOD("enqueue_building", "name", "location_id", "position"),
-                                &FOProduction::enqueue_building, DEFVAL(-1));
-    ClassDB::bind_static_method(cls, D_METHOD("enqueue_ship", "design_id", "location_id", "quantity", "position"),
-                                &FOProduction::enqueue_ship, DEFVAL(1), DEFVAL(-1));
+    ClassDB::bind_static_method(cls, D_METHOD("enqueue_building", "name", "location_id", "position", "force"),
+                                &FOProduction::enqueue_building, DEFVAL(-1), DEFVAL(false));
+    ClassDB::bind_static_method(cls, D_METHOD("enqueue_ship", "design_id", "location_id", "quantity", "position", "force"),
+                                &FOProduction::enqueue_ship, DEFVAL(1), DEFVAL(-1), DEFVAL(false));
     ClassDB::bind_static_method(cls, D_METHOD("remove", "index"), &FOProduction::remove);
     ClassDB::bind_static_method(cls, D_METHOD("move", "index", "new_index"), &FOProduction::move);
     ClassDB::bind_static_method(cls, D_METHOD("set_quantity", "index", "quantity"), &FOProduction::set_quantity);
@@ -316,7 +324,8 @@ godot::Array FOProduction::get_buildable(int location_id, bool include_unavailab
                 BuildingFailedConditions(name, location_id, empire->EmpireID()));
         }
     }
-    for (const int design_id : empire->AvailableShipDesigns(universe)) {
+    // In the order the player set in the designer.
+    for (const int design_id : FODesigner::Ordered(empire->AvailableShipDesigns(universe))) {
         if (empire->ProducibleItem(BuildType::BT_SHIP, design_id, location_id, context)) {
             add(ProductionQueue::ProductionItem(BuildType::BT_SHIP, design_id, universe));
         } else if (include_unavailable) {
@@ -382,15 +391,16 @@ godot::PackedInt32Array FOProduction::get_item_locations(const godot::Dictionary
     return result;
 }
 
-bool FOProduction::enqueue_building(const godot::String& name, int location_id, int position) {
+bool FOProduction::enqueue_building(const godot::String& name, int location_id, int position, bool force) {
     auto* empire = PlayerEmpire();
     const auto* app = ClientApp::GetApp();
     if (!empire || !app)
         return false;
     std::string building = name.utf8().get_data();
     try {
-        if (!empire->ProducibleItem(BuildType::BT_BUILDING, building, location_id, app->GetContext()) ||
-            !empire->EnqueuableItem(BuildType::BT_BUILDING, building, location_id, app->GetContext()))
+        if (!force && (
+                !empire->ProducibleItem(BuildType::BT_BUILDING, building, location_id, app->GetContext()) ||
+                !empire->EnqueuableItem(BuildType::BT_BUILDING, building, location_id, app->GetContext())))
         { return false; }
     } catch (const std::exception& e) {
         ErrorLogger() << "FOProduction::enqueue_building: " << e.what();
@@ -401,13 +411,13 @@ bool FOProduction::enqueue_building(const godot::String& name, int location_id, 
                            1, location_id, position);
 }
 
-bool FOProduction::enqueue_ship(int design_id, int location_id, int quantity, int position) {
+bool FOProduction::enqueue_ship(int design_id, int location_id, int quantity, int position, bool force) {
     auto* empire = PlayerEmpire();
     const auto* app = ClientApp::GetApp();
     if (!empire || !app || quantity < 1)
         return false;
     try {
-        if (!empire->ProducibleItem(BuildType::BT_SHIP, design_id, location_id, app->GetContext()))
+        if (!force && !empire->ProducibleItem(BuildType::BT_SHIP, design_id, location_id, app->GetContext()))
             return false;
     } catch (const std::exception& e) {
         ErrorLogger() << "FOProduction::enqueue_ship: " << e.what();

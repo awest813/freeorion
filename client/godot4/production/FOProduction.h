@@ -37,8 +37,12 @@ public:
     static godot::PackedInt32Array get_item_locations(const godot::Dictionary& item);
 
     /** Add to the queue's end, or at \a position (0: the top). */
-    static bool enqueue_building(const godot::String& name, int location_id, int position = -1);
-    static bool enqueue_ship(int design_id, int location_id, int quantity = 1, int position = -1);
+    /** With \a force, items that can't be produced at \a location_id now are
+      * queued too (they wait there, as GG lets the player add them). */
+    static bool enqueue_building(const godot::String& name, int location_id, int position = -1,
+                                 bool force = false);
+    static bool enqueue_ship(int design_id, int location_id, int quantity = 1, int position = -1,
+                             bool force = false);
     static bool remove(int index);
     static bool move(int index, int new_index);
     static bool set_quantity(int index, int quantity);

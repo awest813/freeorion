@@ -4,15 +4,19 @@ extends PanelContainer
 ## whispered to one, and what happened to the game (turns begun, games
 ## saved, wars and treaties), in a window over the top left of the map. As
 ## the GG client's messages window, with its commands: /pedia [article],
-## /pm [player] [message], /help. Toggled from the top bar or with its
+## /pm [player] [message], /zoom [object], /help. Toggled from the top bar or with its
 ## hotkey; counts what arrived while it was closed.
 
 ## Unread messages changed (for the top bar's badge).
 signal unread_changed(count: int)
 ## "/pedia text": open the Pedia at what \a text names (or its index).
 signal pedia_requested(text: String)
+## "/zoom text": show the system, planet or fleet \a text names on the map.
+signal zoom_requested(text: String)
 
 const EVERYONE := -1
+const COMMANDS := ["/help", "/pedia", "/pm", "/zoom"]
+const OPTION_TIMESTAMPS := "ui.map.messages.timestamp.shown"
 
 var source: Variant = LobbySource.new()
 var chat: ChatPanel
@@ -22,6 +26,7 @@ var unread := 0
 var events: Array = []
 
 var _seen := 0
+var _times: CheckBox
 
 
 func _init() -> void:
@@ -35,6 +40,7 @@ func _init() -> void:
 	chat = ChatPanel.new()
 	chat.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	chat.message_sent.connect(_send)
+	chat.completions = completions
 	box.add_child(chat)
 	var row := HBoxContainer.new()
 	box.add_child(row)
@@ -43,6 +49,14 @@ func _init() -> void:
 	recipient.fit_to_longest_item = false
 	recipient.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(recipient)
+	# Times before the lines, or not (kept in the options).
+	var times := CheckBox.new()
+	times.text = "⏱"
+	times.tooltip_text = tr("OPTIONS_DB_DISPLAY_TIMESTAMP")
+	times.button_pressed = chat.show_time
+	times.toggled.connect(set_show_time)
+	row.add_child(times)
+	_times = times
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -53,9 +67,27 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func open() -> void:
 	visible = true
+	var options := _options()
+	if options and options.exists(OPTION_TIMESTAMPS):
+		chat.show_time = options.get_value(OPTION_TIMESTAMPS)
+		_times.set_pressed_no_signal(chat.show_time)
 	refresh()
 	FOUi.fade_in(self)
 	chat.input.grab_focus()
+
+
+## Show the time each line was sent, or not.
+func set_show_time(shown: bool) -> void:
+	chat.show_time = shown
+	var options := _options()
+	if options and options.exists(OPTION_TIMESTAMPS):
+		options.set_value(OPTION_TIMESTAMPS, shown)
+		options.commit()
+	refresh()
+
+
+static func _options() -> Object:
+	return Engine.get_singleton("FOOptions") if Engine.has_singleton("FOOptions") else null
 
 
 func close() -> void:
@@ -141,6 +173,8 @@ func run_command(text: String) -> void:
 	match command:
 		"pedia":
 			pedia_requested.emit(params)
+		"zoom":
+			zoom_requested.emit(params)
 		"pm":
 			var target := _player_named(params)
 			var message := params.substr(str(target.get("name", "")).length()).strip_edges()
@@ -150,6 +184,15 @@ func run_command(text: String) -> void:
 				source.send_chat(message, PackedInt32Array([target["player_id"]]))
 		_:
 			add_event(tr("MESSAGES_HELP_COMMAND"))
+
+
+## What Tab completes: the commands and the players' names.
+func completions() -> PackedStringArray:
+	var words := PackedStringArray(COMMANDS)
+	for player: Dictionary in source.players():
+		if not str(player.get("name", "")).is_empty():
+			words.push_back(player["name"])
+	return words
 
 
 # The player whose name \a text starts with (the longest such name).

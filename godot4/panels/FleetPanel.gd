@@ -23,7 +23,7 @@ signal merge_all_requested(fleet_id: int)
 signal new_fleet_stance_changed(stance: String)
 ## Give the fleet to empire \a empire_id (-1: cancel a gift).
 signal give_requested(fleet_id: int, empire_id: int)
-## Forget sensor ghost \a fleet_id.
+## Forget sensor ghost \a fleet_id (or one of its ships).
 signal forget_requested(fleet_id: int)
 ## Send the fleet exploring on its own, or stop it.
 signal explore_requested(fleet_id: int, exploring: bool)
@@ -60,6 +60,8 @@ const MENU := [
 ]
 ## Menu ids of "give to empire N" are GIVE_MENU_BASE + N.
 const GIVE_MENU_BASE := 1000
+## Menu ids of "split off design N's ships" are DESIGN_MENU_BASE + N.
+const DESIGN_MENU_BASE := 100000
 ## Fleet totals: key, icon, tooltip key.
 const TOTALS := [
 	["count", "icons/sitrep/fleet_arrived.png", "FW_FLEET_COUNT_SUMMARY"],
@@ -150,18 +152,7 @@ func show_data(data: Dictionary) -> void:
 	_scrap_row.visible = own
 	_menu.visible = own or data.get("ghost", false)
 	_fill_totals(fleet_totals(data.get("ships", [])))
-	var destination: String = data.get("destination", "")
-	_route.text = (
-		(
-			tr("SYSTEM_PANEL_FLEET_DESTINATION").replace("%1%", destination)
-			+ "  ·  "
-			+ GameShell.eta_text(data.get("eta", 0))
-		)
-		if not destination.is_empty()
-		else tr("FLEET_PANEL_STATIONARY")
-	)
-	if data.get("exploring", false):
-		_route.text += "  ·  " + tr("FLEET_PANEL_EXPLORING")
+	_route.text = route_text(data)
 	var blockade: Dictionary = data.get("blockade", {})
 	_route.tooltip_text = ""
 	if blockade.get("blockaded", false):
@@ -269,6 +260,7 @@ static func from_universe(id: int) -> Dictionary:
 		"aggression": fleet.get_aggression(),
 		"destination": destination,
 		"eta": fleet.get_eta(),
+		"etas": fleet.get_etas(),
 		"ships": ships,
 		"merge_targets": merge_targets,
 	}
@@ -418,6 +410,12 @@ func _ship_row(ship: Dictionary) -> Control:
 			"%s %.0f / %.0f" % [tr("FLEET_PANEL_STRUCTURE"), structure.value, max_structure]
 		)
 		text.add_child(structure)
+	# One ship of a sensor ghost fleet can be dismissed on its own.
+	if _data.get("ghost", false) and _data.get("ships", []).size() > 1:
+		var forget := ScreenKit.small_button("✕", "FW_ORDER_DISMISS_SENSOR_GHOST")
+		forget.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		forget.pressed.connect(forget_requested.emit.bind(ship["id"]))
+		row.add_child(forget)
 	return row
 
 
@@ -561,6 +559,53 @@ static func split_groups(ships: Array) -> Dictionary:
 	return groups
 
 
+## Where fleet \a data (from_universe()) is going, as GG's fleet status:
+## the destination with the turns there and to the next system on the way
+## (or never, unknown, out of range); exploring fleets waiting say for what.
+static func route_text(data: Dictionary) -> String:
+	var destination: String = data.get("destination", "")
+	var exploring: bool = data.get("exploring", false)
+	if destination.is_empty():
+		if not exploring:
+			return TranslationServer.translate("FLEET_PANEL_STATIONARY")
+		var fueled: bool = data.get("ships", []).all(
+			func(s):
+				return (
+					s.get("stats", {}).get("fuel", 0.0) >= s.get("stats", {}).get("max_fuel", 0.0)
+				)
+		)
+		return TranslationServer.translate(
+			"FW_FLEET_EXPLORING_WAITING" if fueled else "FW_FLEET_EXPLORING_REFUEL"
+		)
+	var etas: Dictionary = data.get("etas", {})
+	var text := TranslationServer.translate("SYSTEM_PANEL_FLEET_DESTINATION").replace(
+		"%1%", destination
+	)
+	text += "  ·  " + eta_word(etas.get("final", data.get("eta", 0)))
+	var next: int = etas.get("next", 0)
+	if next != 0 and next != etas.get("final", 0):
+		text += (
+			"  ·  "
+			+ TranslationServer.translate("FLEET_PANEL_NEXT_SYSTEM").replace("%1%", eta_word(next))
+		)
+	if exploring:
+		text += "  ·  " + TranslationServer.translate("FLEET_PANEL_EXPLORING")
+	return text
+
+
+## An ETA from FOFleet.get_etas(): turns, or never (-1), unknown (-2), out
+## of range (-3).
+static func eta_word(eta: int) -> String:
+	match eta:
+		-1:
+			return TranslationServer.translate("FW_FLEET_ETA_NEVER")
+		-2:
+			return TranslationServer.translate("FW_FLEET_ETA_UNKNOWN")
+		-3:
+			return TranslationServer.translate("FW_FLEET_ETA_OUT_OF_RANGE")
+	return GameShell.eta_text(eta)
+
+
 ## GG's blockade tooltip for \a blockade (FOFleet.get_blockade()).
 static func blockade_text(blockade: Dictionary) -> String:
 	if blockade.get("monster", false):
@@ -648,6 +693,14 @@ func _fill_menu() -> void:
 	for entry in MENU:
 		if entry[0] in actions:
 			popup.add_item(tr(entry[1]), entry[0])
+	# Ships of one design can be split off (GG's "this design" entry).
+	if 5 in actions:
+		var designs: Dictionary = split_groups(_data.get("ships", []))["designs"]
+		for design: int in designs:
+			popup.add_item(
+				"%s: %s" % [tr("FW_SPLIT_SHIPS_THIS_DESIGN"), _design_name(design)],
+				DESIGN_MENU_BASE + design
+			)
 	# Gifts to empires at peace with something here.
 	if is_own():
 		var give := tr("ORDER_GIVE_FLEET_TO_EMPIRE").trim_suffix("...").trim_suffix("…")
@@ -671,13 +724,26 @@ func _fill_menu() -> void:
 
 
 func _on_menu_id(id: int) -> void:
-	if id >= GIVE_MENU_BASE:
+	if id >= DESIGN_MENU_BASE:
+		var designs: Dictionary = split_groups(_data.get("ships", []))["designs"]
+		var ids: Array = designs.get(id - DESIGN_MENU_BASE, [])
+		if not ids.is_empty():
+			split_groups_requested.emit([PackedInt32Array(ids)])
+	elif id >= GIVE_MENU_BASE:
 		give_requested.emit(fleet_id, id - GIVE_MENU_BASE)
 	elif id >= STANCE_MENU_BASE:
 		new_fleet_stance = NEW_FLEET_STANCES[id - STANCE_MENU_BASE]
 		new_fleet_stance_changed.emit(new_fleet_stance)
 	else:
 		run_menu_action(id)
+
+
+# The name of design \a design_id among the shown fleet's ships.
+func _design_name(design_id: int) -> String:
+	for ship: Dictionary in _data.get("ships", []):
+		if ship.get("stats", {}).get("design_id", -1) == design_id:
+			return ship.get("design", "")
+	return ""
 
 
 func _fill_totals(totals: Dictionary) -> void:

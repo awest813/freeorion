@@ -60,12 +60,13 @@ func get_item_locations(item: Dictionary) -> Array:
 
 ## Add \a item at \a location_id: at the queue's end, or at \a position
 ## (0: the top).
-func enqueue(item: Dictionary, location_id: int, position := -1) -> bool:
+## With \a force, an item that can't be built there now is queued anyway.
+func enqueue(item: Dictionary, location_id: int, position := -1, force := false) -> bool:
 	if item.get("build_type") == "building":
-		return FOProduction.enqueue_building(item["name"], location_id, position)
+		return FOProduction.enqueue_building(item["name"], location_id, position, force)
 	if item.get("build_type") == "stockpile":
 		return FOProduction.enqueue_stockpile_project(location_id, position)
-	return FOProduction.enqueue_ship(item["design_id"], location_id, 1, position)
+	return FOProduction.enqueue_ship(item["design_id"], location_id, 1, position, force)
 
 
 func remove(index: int) -> bool:

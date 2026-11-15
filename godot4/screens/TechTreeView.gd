@@ -9,6 +9,8 @@ signal tech_selected(tech_name: String)
 signal tech_activated(tech_name: String)
 ## Shift+click on a tech: queue it (at the end).
 signal tech_queued(tech_name: String)
+## Right-click on \a tech_name's card, at the screen point \a at.
+signal tech_context(tech_name: String, at: Vector2)
 
 const NODE_SIZE := Vector2(212, 54)
 const GAP := Vector2(64, 12)
@@ -226,6 +228,13 @@ func _gui_input(event: InputEvent) -> void:
 				if event.pressed:
 					var factor := 1.1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.1
 					zoom_at(event.position, zoom * factor)
+				accept_event()
+			MOUSE_BUTTON_RIGHT:
+				var tech_name := tech_at(event.position)
+				if event.pressed and not tech_name.is_empty():
+					selected = tech_name
+					tech_selected.emit(tech_name)
+					tech_context.emit(tech_name, event.global_position)
 				accept_event()
 			MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE:
 				if event.pressed and overview_rect().has_point(event.position):

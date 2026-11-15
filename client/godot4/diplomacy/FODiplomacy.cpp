@@ -116,6 +116,13 @@ godot::Array FODiplomacy::get_empires() {
         entry["outgoing"] = other ? ToGodot(ProposalName(PendingType(empires, self, id))) : godot::String();
         entry["actions"] = other && !empire->Eliminated() ? Actions(empires, self, id) : godot::PackedStringArray();
         entry["won"] = empire->Won();
+        // Its status with every other empire, so the log can tell wars and
+        // treaties between others too, as GG's messages window does.
+        godot::Dictionary statuses;
+        for (const auto& [other_id, other] : empires)
+            if (other && other_id != id)
+                statuses[other_id] = ToGodot(StatusName(empires.GetDiplomaticStatus(id, other_id)));
+        entry["statuses"] = statuses;
         // What this client knows of it, as GG's player list counts it:
         // ships and planets, and the planets' output.
         const auto& context = app->GetContext();

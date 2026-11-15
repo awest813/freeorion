@@ -2,6 +2,7 @@
 #define _FODesigner_h_
 
 #include <set>
+#include <vector>
 #include <string>
 
 #include <godot_cpp/classes/object.hpp>
@@ -76,6 +77,15 @@ public:
 
     /** IDs put aside as obsolete, kept with the save's UI data. */
     static std::set<int>& ObsoleteDesigns();
+
+    /** Move own design \a design_id before \a before_id (-1: to the end):
+      * the designs list and production's catalogue follow this order, kept
+      * with the save's UI data as the GG client keeps it. */
+    static bool move_design(int design_id, int before_id);
+    /** The order the player set (designs not in it go after, by id). */
+    static std::vector<int>& DesignOrder();
+    /** \a ids sorted by DesignOrder(). */
+    static std::vector<int> Ordered(std::vector<int> ids);
 
 protected:
     static void _bind_methods();

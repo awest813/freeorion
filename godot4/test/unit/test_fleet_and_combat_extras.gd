@@ -38,7 +38,8 @@ func test_explore_from_the_fleet_menu():
 		{"id": 7, "name": "Scouts", "own": true, "exploring": true, "in_system": false, "ships": []}
 	)
 	assert_eq(panel.menu_actions()[0], 12, "stop exploring")
-	assert_string_contains(panel._route.text, tr("FLEET_PANEL_EXPLORING"))
+	# Exploring but not moving: waiting for somewhere to go (GG's status).
+	assert_eq(panel._route.text, tr("FW_FLEET_EXPLORING_WAITING"))
 
 
 func test_damage_tooltip_lists_weapons():

@@ -1,13 +1,23 @@
 class_name ChatPanel
 extends VBoxContainer
 ## Multiplayer chat: the messages so far (each sender in their empire's
-## colour) over a line to type in. Enter sends; the owner passes the lines
-## and does the sending (LobbyScreen, GameShell's chat window).
+## colour) over a line to type in. Enter sends; Up and Down go through what
+## was sent before, Tab completes the word typed from `completions` (as
+## GG's messages window). The owner passes the lines and does the sending
+## (LobbyScreen, GameShell's chat window).
 
 signal message_sent(text: String)
 
 var log_view: RichTextLabel
 var input: LineEdit
+## Whether lines start with the time they were sent.
+var show_time := true
+## Words Tab completes (player names, commands): () -> PackedStringArray.
+var completions := Callable()
+## What was sent, oldest first.
+var history := PackedStringArray()
+
+var _history_at := -1
 
 
 func _init() -> void:
@@ -24,6 +34,7 @@ func _init() -> void:
 	input.placeholder_text = tr("CHAT_PLACEHOLDER")
 	input.max_length = 1000
 	input.text_submitted.connect(_on_submitted)
+	input.gui_input.connect(_on_input_key)
 	add_child(input)
 
 
@@ -33,7 +44,11 @@ func set_lines(lines: Array) -> void:
 	for i in lines.size():
 		if i > 0:
 			log_view.newline()
-		log_view.append_text(format_line(lines[i]))
+		var line: Dictionary = lines[i]
+		if not show_time:
+			line = line.duplicate()
+			line.erase("time")
+		log_view.append_text(format_line(line))
 
 
 ## One message as BBCode, the text escaped: "12:03 [Name] text"; the
@@ -91,4 +106,56 @@ func _on_submitted(text: String) -> void:
 	if message.is_empty():
 		return
 	input.clear()
+	if history.is_empty() or history[history.size() - 1] != message:
+		history.push_back(message)
+	_history_at = -1
 	message_sent.emit(message)
+
+
+## Go \a step (-1 older, 1 newer) through what was sent; past the newest
+## the line is empty again.
+func recall(step: int) -> void:
+	if history.is_empty():
+		return
+	var at := history.size() if _history_at < 0 else _history_at
+	at = clampi(at + step, 0, history.size())
+	_history_at = -1 if at == history.size() else at
+	input.text = "" if _history_at < 0 else history[_history_at]
+	input.caret_column = input.text.length()
+
+
+## Complete the word before the caret from \a words: the common start of
+## those it begins (all of it if only one does).
+static func complete(text: String, caret: int, words: PackedStringArray) -> String:
+	var start := caret
+	while start > 0 and text[start - 1] != " ":
+		start -= 1
+	var typed := text.substr(start, caret - start).to_lower()
+	if typed.is_empty():
+		return text
+	var matches := Array(words).filter(func(w: String): return w.to_lower().begins_with(typed))
+	if matches.is_empty():
+		return text
+	var common: String = matches[0]
+	for word: String in matches:
+		while not word.to_lower().begins_with(common.to_lower()):
+			common = common.left(-1)
+	if matches.size() == 1:
+		common += " "
+	return text.left(start) + common + text.substr(caret)
+
+
+func _on_input_key(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key == null or not key.pressed:
+		return
+	match key.keycode:
+		KEY_UP, KEY_DOWN:
+			recall(-1 if key.keycode == KEY_UP else 1)
+			input.accept_event()
+		KEY_TAB:
+			if completions.is_valid():
+				var before := input.text.length()
+				input.text = complete(input.text, input.caret_column, completions.call())
+				input.caret_column += input.text.length() - before
+			input.accept_event()

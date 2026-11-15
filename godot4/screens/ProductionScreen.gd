@@ -399,7 +399,7 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	stockpile.tooltip_text = tr("PRODUCTION_STOCKPILE_USE")
 	stockpile.toggled.connect(func(on: bool): _order(source.set_stockpile_allowed(index, on)))
 	toggles.add_child(stockpile)
-	if entry.get("build_type") == "ship":
+	if entry.get("build_type") in ["ship", "stockpile"]:
 		var quantity := SpinBox.new()
 		quantity.min_value = 1
 		quantity.max_value = 99
@@ -556,22 +556,23 @@ func _catalog_row(item: Dictionary) -> Control:
 	where.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	where.pressed.connect(open_locations.bind(item))
 	row.add_child(where)
+	# Items that can't be built here now can still be queued, to wait for it
+	# (as GG allows).
 	var add := Button.new()
-	add.text = tr("PRODUCTION_ADD")
-	add.tooltip_text = tr("QUEUE_ADD_TOP_TIP")
-	add.disabled = not available
+	add.text = tr("PRODUCTION_ADD" if available else "PRODUCTION_ADD_ANYWAY")
+	add.tooltip_text = tr("QUEUE_ADD_TOP_TIP" if available else "PRODUCTION_ADD_ANYWAY_TIP")
+	add.disabled = not available and item.get("build_type") == "stockpile"
 	add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	add.pressed.connect(add_item.bind(item))
 	row.add_child(add)
 	# Double-click adds too (Shift: at the top), as the tech list and tree.
-	if available:
-		row.gui_input.connect(
-			func(event: InputEvent):
-				var click := event as InputEventMouseButton
-				if click and click.double_click and click.button_index == MOUSE_BUTTON_LEFT:
-					add_item(item)
-					row.accept_event()
-		)
+	row.gui_input.connect(
+		func(event: InputEvent):
+			var click := event as InputEventMouseButton
+			if click and click.double_click and click.button_index == MOUSE_BUTTON_LEFT:
+				add_item(item)
+				row.accept_event()
+	)
 	return row
 
 
@@ -590,7 +591,8 @@ func settle(value: float, spinner: SpinBox, apply: Callable) -> void:
 ## the top.
 func add_item(item: Dictionary) -> void:
 	var top := Input.is_key_pressed(KEY_SHIFT)
-	_order(source.enqueue(item, selected_location_id(), 0 if top else -1))
+	var forced: bool = not item.get("available", true)
+	_order(source.enqueue(item, selected_location_id(), 0 if top else -1, forced))
 
 
 ## Tooltip of queue \a entry: total cost, a turn's share, minimum time and
@@ -631,6 +633,26 @@ func turns_label(entry: Dictionary) -> String:
 
 ## Tooltip of catalogue \a item: cost per turn and time here, description,
 ## and why it can't be built here when it can't.
+## \a parts by name with counts ("2× Mass Driver, Armor Plating"); empty
+## slots are left out.
+static func parts_summary(parts: Variant) -> String:
+	var counts := {}
+	for part: String in parts:
+		if not part.is_empty():
+			counts[part] = counts.get(part, 0) + 1
+	var names := PackedStringArray()
+	for part: String in counts:
+		var count: int = counts[part]
+		names.push_back(
+			(
+				("%d× %s" % [count, TranslationServer.translate(part)])
+				if count > 1
+				else TranslationServer.translate(part)
+			)
+		)
+	return ", ".join(names) if not names.is_empty() else "—"
+
+
 func catalog_tooltip(item: Dictionary) -> String:
 	var lines: PackedStringArray = [_display_name(item)]
 	lines.push_back(
@@ -639,6 +661,12 @@ func catalog_tooltip(item: Dictionary) -> String:
 		)
 	)
 	lines.push_back(tr("PRODUCTION_TIP_MIN_TURNS").replace("%1%", str(item.get("turns", 0))))
+	if item.get("build_type") == "ship" and not item.get("hull", "").is_empty():
+		lines.push_back(
+			tr("PRODUCTION_TIP_DESIGN").replace("%1%", tr(item["hull"])).replace(
+				"%2%", parts_summary(item.get("parts", []))
+			)
+		)
 	var description: String = item.get("description", "")
 	if not description.is_empty():
 		lines.push_back(FORichText.plain_text(tr(description)).left(400))

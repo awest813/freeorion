@@ -139,3 +139,21 @@ func on_planet_action(planet_id: int, action: String) -> void:
 		_shell.system_panel.show_notice(_shell.tr(FOPlanetActions.last_refusal()))
 	if _shell.fleet_panel.visible:
 		_shell.fleet_panel.refresh()
+
+
+## Forget the sensor ghosts \a object_ids (fleets, ships, buildings) and
+## show what is left.
+func on_forget(object_ids: Variant) -> void:
+	if not _shell.follow_game:
+		return
+	var forgot := false
+	for object_id: int in object_ids:
+		forgot = FOOrders.forget(object_id) or forgot
+	if not forgot:
+		return
+	_shell.map_view.refresh()
+	_shell.system_panel.refresh()
+	if _shell.fleet_panel.visible:
+		_shell.fleet_panel.refresh()
+	if _shell.planet_panel.visible:
+		_shell.planet_panel.refresh()

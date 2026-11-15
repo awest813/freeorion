@@ -126,7 +126,11 @@ func test_new_fleet_stance_from_the_menu():
 	watch_signals(panel)
 	panel._fill_menu()
 	var popup := panel._menu.get_popup()
-	assert_eq(popup.item_count, 10, "eight actions, a separator and the stance submenu")
+	assert_eq(
+		popup.item_count,
+		12,
+		"eight actions, a split for each of the two designs, a separator and the stance submenu"
+	)
 	panel._on_menu_id(FleetPanel.STANCE_MENU_BASE + 1)
 	assert_eq(panel.new_fleet_stance, "passive")
 	assert_signal_emitted_with_parameters(panel, "new_fleet_stance_changed", ["passive"])

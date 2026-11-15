@@ -3372,6 +3372,25 @@ Not known: none of its ships or planets have been seen.
 MODERATOR_FOLD
 Fold the tools away, or open them
 
+RESEARCH_ADD_TOP
+Add to the top of the queue
+
+PRODUCTION_ADD_ANYWAY
+Add anyway
+
+PRODUCTION_ADD_ANYWAY_TIP
+It can't be built here now; it waits in the queue, getting no points, until it can.
+
+PRODUCTION_TIP_DESIGN
+'''Hull: %1%
+Parts: %2%'''
+
+FLEET_PANEL_NEXT_SYSTEM
+next system %1%
+
+MESSAGES_ZOOM_NOT_FOUND
+Nothing called %1% is known.
+
 OPTIONS_LANGUAGE_NAME
 Language
 

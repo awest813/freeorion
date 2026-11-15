@@ -121,8 +121,10 @@ func get_item_locations(item: Dictionary) -> Array:
 	return [{"id": 101, "name": "Hegira β I", "system_id": 11}]
 
 
-func enqueue(item: Dictionary, location_id: int, position := -1) -> bool:
-	if position < 0:
+func enqueue(item: Dictionary, location_id: int, position := -1, force := false) -> bool:
+	if force:
+		calls.push_back(["enqueue_forced", item.get("label"), location_id])
+	elif position < 0:
 		calls.push_back(["enqueue", item.get("label"), location_id])
 	else:
 		calls.push_back(["enqueue_at", item.get("label"), location_id, position])

@@ -25,6 +25,8 @@ signal planet_selected(planet_id: int)
 signal production_requested(planet_id: int)
 ## Ships dragged from the fleet panel were dropped on own fleet \a fleet_id.
 signal ships_dropped(fleet_id: int, ship_ids: PackedInt32Array)
+## Forget the sensor ghosts \a object_ids (fleets not seen this turn).
+signal forget_requested(object_ids: PackedInt32Array)
 
 const WIDTH := 340
 ## Planet meters summed for the system and shown per own planet: key,
@@ -215,6 +217,17 @@ func _rebuild_fleet_list(fleets: Array) -> void:
 			button.tooltip_text = fleet.get("owner_name", "")
 		_fleet_list.add_child(button)
 		still_listed = still_listed or fleet["id"] == _selected_fleet
+	# Fleets last seen on earlier turns can all be dismissed at once.
+	var ghosts := PackedInt32Array()
+	for fleet: Dictionary in fleets:
+		if fleet.get("ghost", false):
+			ghosts.push_back(fleet["id"])
+	if not ghosts.is_empty():
+		var forget := Button.new()
+		forget.text = tr("FW_ORDER_DISMISS_SENSOR_GHOST_ALL")
+		forget.theme_type_variation = "GhostButton"
+		forget.pressed.connect(forget_requested.emit.bind(ghosts))
+		_fleet_list.add_child(forget)
 	if _selected_fleet != -1 and not still_listed:
 		_selected_fleet = -1
 		fleet_selected.emit(-1)
@@ -369,6 +382,7 @@ static func from_universe(id: int) -> Dictionary:
 						else TranslationServer.translate("MONSTERS")
 					),
 					"destination": destination,
+					"ghost": not own and FOOrders.is_sensor_ghost(fleet_id),
 				}
 			)
 		)

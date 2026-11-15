@@ -215,6 +215,11 @@ func set_obsolete(design_id: int, obsolete: bool) -> bool:
 	return true
 
 
+func move_design(design_id: int, before_id: int) -> bool:
+	calls.push_back(["move_design", design_id, before_id])
+	return true
+
+
 func delete_design(design_id: int) -> bool:
 	calls.push_back(["delete_design", design_id])
 	return true

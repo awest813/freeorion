@@ -66,6 +66,9 @@ public:
     /** Turns until the fleet reaches its final destination: 0 if not moving,
       * -1 if it can't get there (no route, out of fuel range or unknown). */
     int get_eta() const;
+    /** {"final", "next"}: turns to the destination and to the next system on
+      * the way; -1 never, -2 unknown, -3 out of range (GG's fleet status). */
+    godot::Dictionary get_etas() const;
     /** "passive", "defensive", "obstructive" or "aggressive". */
     godot::String get_aggression() const;
     /** Where the fleet would go if ordered to \a dest_system_id (after its

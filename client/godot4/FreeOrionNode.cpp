@@ -309,7 +309,8 @@ void FreeOrionNode::start_turn() {
     auto& designs = m_ui_data.ordered_ship_design_ids_and_obsolete;
     designs.clear();
     if (const auto* empire = m_app->GetEmpire(m_app->EmpireID())) {
-        for (const int id : empire->ShipDesigns())
+        const auto& known = empire->ShipDesigns();
+        for (const int id : FODesigner::Ordered({known.begin(), known.end()}))
             if (!FODesigner::ObsoleteDesigns().contains(id))
                 designs.emplace_back(id, std::pair{false, 0});
     }
@@ -486,6 +487,7 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_loaded_ui_data.reset();
             m_ui_data = SaveGameUIData{};
             FODesigner::ObsoleteDesigns().clear();
+            FODesigner::DesignOrder().clear();
             FODesigner::ObsoleteParts().clear();
             FODesigner::ObsoleteHulls().clear();
             FOExplore::Exploring().clear();
@@ -494,9 +496,13 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                 m_ui_data = ui_data;
                 FOExplore::Exploring() = ui_data.fleets_exploring;
                 // Designs the player put aside, as the GG client saves them.
-                for (const auto& [design_id, obsolete] : ui_data.ordered_ship_design_ids_and_obsolete)
+                // ... and the order of the others.
+                for (const auto& [design_id, obsolete] : ui_data.ordered_ship_design_ids_and_obsolete) {
                     if (obsolete && obsolete->first)
                         FODesigner::ObsoleteDesigns().insert(design_id);
+                    else
+                        FODesigner::DesignOrder().push_back(design_id);
+                }
                 for (const auto& [part, event] : ui_data.obsolete_ship_parts)
                     FODesigner::ObsoleteParts().insert(part);
                 for (const auto& [hull, obsolete] : ui_data.ordered_ship_hull_and_obsolete)

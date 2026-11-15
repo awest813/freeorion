@@ -48,6 +48,10 @@ func set_obsolete(design_id: int, obsolete: bool) -> bool:
 	return FODesigner.set_obsolete(design_id, obsolete)
 
 
+func move_design(design_id: int, before_id: int) -> bool:
+	return FODesigner.move_design(design_id, before_id)
+
+
 func delete_design(design_id: int) -> bool:
 	return FODesigner.delete_design(design_id)
 

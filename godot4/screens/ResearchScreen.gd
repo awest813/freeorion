@@ -24,6 +24,16 @@ const SORTS := [
 	["turns", "RESEARCH_SORT_TURNS"],
 	["category", "RESEARCH_SORT_CATEGORY"],
 ]
+## Tech menu entries (right-click a queue card, list row or tree card, as
+## GG's queue and tree menus): id, label key.
+const TECH_MENU := [
+	[0, "PRODUCTION_MOVE_TOP"],
+	[1, "PRODUCTION_MOVE_BOTTOM"],
+	[2, "PRODUCTION_REMOVE"],
+	[3, "PRODUCTION_ADD"],
+	[4, "RESEARCH_ADD_TOP"],
+	[5, "PEDIA_OPEN"],
+]
 const QUEUE_DRAG := "fo_tech_queue"
 const TECH_DRAG := "fo_tech"
 
@@ -56,6 +66,9 @@ var _detail_add: Button
 var _detail_pedia: Button
 ## The tech whose details are shown under the tree.
 var _detail_tech := ""
+var _menu: PopupMenu
+var _menu_tech := ""
+var _queue_size := 0
 
 
 func _init() -> void:
@@ -204,7 +217,12 @@ func _build() -> void:
 	_tree.tech_activated.connect(_enqueue)
 	# Shift always means "at the top", as with Add and double-click.
 	_tree.tech_queued.connect(func(tech_name): _order(source.enqueue(tech_name, 0), true))
+	_tree.tech_context.connect(open_tech_menu)
 	frame.add_child(_tree)
+	_menu = PopupMenu.new()
+	_menu.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_menu.id_pressed.connect(_on_tech_menu)
+	add_child(_menu)
 	# Zoom out, fit, in, over the tree's top right.
 	var zoom_row := HBoxContainer.new()
 	zoom_row.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -257,6 +275,7 @@ func _refresh_queue() -> void:
 		_points.remove_theme_color_override("font_color")
 	ScreenKit.clear(_queue_list)
 	var queue: Array = source.get_queue()
+	_queue_size = queue.size()
 	var entries := {}
 	for entry: Dictionary in queue:
 		entries[entry.get("name", "")] = entry
@@ -365,7 +384,10 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 				card.accept_event()
 			# Clicking a queued tech shows it in the tree (GG centres on it).
 			var click := event as InputEventMouseButton
-			if click and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+			if click and click.pressed and click.button_index == MOUSE_BUTTON_RIGHT:
+				open_tech_menu(tech_name, click.global_position)
+				card.accept_event()
+			elif click and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
 				if _tree_view.visible:
 					_tree.selected = tech_name
 					_tree.center_on(tech_name)
@@ -441,14 +463,19 @@ func _catalog_row(tech: Dictionary) -> Control:
 		row.set_drag_forwarding(
 			func(_at): return {"type": TECH_DRAG, "name": tech_name}, Callable(), Callable()
 		)
-		# Double-click queues it, as in the tree (Shift: at the top).
-		row.gui_input.connect(
-			func(event: InputEvent):
-				var click := event as InputEventMouseButton
-				if click and click.double_click and click.button_index == MOUSE_BUTTON_LEFT:
+	# Double-click queues it, as in the tree (Shift: at the top); right-click
+	# for the tech menu.
+	row.gui_input.connect(
+		func(event: InputEvent):
+			var click := event as InputEventMouseButton
+			if click and click.pressed and click.button_index == MOUSE_BUTTON_RIGHT:
+				open_tech_menu(tech_name, click.global_position)
+				row.accept_event()
+			elif click and click.double_click and click.button_index == MOUSE_BUTTON_LEFT:
+				if status != "complete":
 					_enqueue(tech_name)
-					row.accept_event()
-		)
+				row.accept_event()
+	)
 	row.add_child(_tech_icon(tech))
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -551,6 +578,45 @@ func _show_tech_detail(tech_name: String) -> void:
 	_detail_add.text = tr("RESEARCH_QUEUED") if queued else tr("PRODUCTION_ADD")
 	if not queued and tech.get("status") in ["partial", "unresearchable"]:
 		_detail_add.text = tr("RESEARCH_ADD_WITH_PREREQS")
+
+
+## The menu entries (TECH_MENU ids) for \a tech: queued ones move or go,
+## others that aren't researched yet are added; all open the Pedia.
+static func tech_menu_ids(tech: Dictionary) -> Array:
+	if tech.get("in_queue", false):
+		return [0, 1, 2, 5]
+	if tech.get("status", "") == "complete" or not tech.has("status"):
+		return [5]
+	return [3, 4, 5]
+
+
+## Show the menu for \a tech_name at the screen point \a at.
+func open_tech_menu(tech_name: String, at: Vector2) -> void:
+	_menu_tech = tech_name
+	_menu.clear()
+	var ids := tech_menu_ids(_tech(tech_name))
+	for entry in TECH_MENU:
+		if entry[0] in ids:
+			_menu.add_item(tr(entry[1]), entry[0])
+	_menu.position = Vector2i(at)
+	_menu.reset_size()
+	_menu.popup()
+
+
+func _on_tech_menu(id: int) -> void:
+	match id:
+		0:
+			_order(source.move(_menu_tech, 0))
+		1:
+			_order(source.move(_menu_tech, maxi(_queue_size - 1, 0)))
+		2:
+			_order(source.remove(_menu_tech), true)
+		3:
+			_order(source.enqueue(_menu_tech, -1), true)
+		4:
+			_order(source.enqueue(_menu_tech, 0), true)
+		5:
+			pedia_requested.emit("tech", _menu_tech)
 
 
 # A queued tech moved to, or a tech added at, queue \a position.

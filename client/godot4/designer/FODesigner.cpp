@@ -1,5 +1,7 @@
 #include "FODesigner.h"
 
+#include <algorithm>
+
 #include <fstream>
 #include <boost/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
@@ -110,6 +112,7 @@ void FODesigner::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("set_hull_obsolete", "name", "obsolete"), &FODesigner::set_hull_obsolete);
     ClassDB::bind_static_method(cls, D_METHOD("get_designs", "kind"), &FODesigner::get_designs, DEFVAL("empire"));
     ClassDB::bind_static_method(cls, D_METHOD("set_obsolete", "design_id", "obsolete"), &FODesigner::set_obsolete);
+    ClassDB::bind_static_method(cls, D_METHOD("move_design", "design_id", "before_id"), &FODesigner::move_design);
     ClassDB::bind_static_method(cls, D_METHOD("delete_design", "design_id"), &FODesigner::delete_design);
     ClassDB::bind_static_method(cls, D_METHOD("rename_design", "design_id", "new_name"), &FODesigner::rename_design);
     ClassDB::bind_static_method(cls, D_METHOD("add_premade", "design_id"), &FODesigner::add_premade);
@@ -384,7 +387,8 @@ godot::Array FODesigner::get_designs(const godot::String& kind) {
         result.push_back(entry);
     };
     if (kind == "empire") {
-        for (const int id : empire->ShipDesigns())
+        const auto& known = empire->ShipDesigns();
+        for (const int id : Ordered({known.begin(), known.end()}))
             if (!ObsoleteDesigns().contains(id))
                 add(universe.GetShipDesign(id));
     } else if (kind == "obsolete") {
@@ -413,6 +417,41 @@ godot::Array FODesigner::get_designs(const godot::String& kind) {
         }
     }
     return result;
+}
+
+std::vector<int>& FODesigner::DesignOrder() {
+    static std::vector<int> order;
+    return order;
+}
+
+std::vector<int> FODesigner::Ordered(std::vector<int> ids) {
+    const auto& order = DesignOrder();
+    const auto rank = [&order](int id) {
+        const auto it = std::find(order.begin(), order.end(), id);
+        return it == order.end() ? order.size() : static_cast<std::size_t>(it - order.begin());
+    };
+    std::stable_sort(ids.begin(), ids.end(), [&rank](int a, int b) { return rank(a) < rank(b); });
+    return ids;
+}
+
+bool FODesigner::move_design(int design_id, int before_id) {
+    try {
+        const auto* app = ClientApp::GetApp();
+        const auto* empire = app ? app->GetEmpire(app->EmpireID()) : nullptr;
+        if (!empire || !empire->ShipDesigns().contains(design_id) || design_id == before_id)
+            return false;
+        // Start from the order as shown, so designs not yet placed keep theirs.
+        const auto& known = empire->ShipDesigns();
+        auto order = Ordered({known.begin(), known.end()});
+        order.erase(std::remove(order.begin(), order.end(), design_id), order.end());
+        const auto at = std::find(order.begin(), order.end(), before_id);
+        order.insert(at, design_id);
+        DesignOrder() = std::move(order);
+        return true;
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FODesigner::move_design: " << e.what();
+        return false;
+    }
 }
 
 std::set<int>& FODesigner::ObsoleteDesigns() {

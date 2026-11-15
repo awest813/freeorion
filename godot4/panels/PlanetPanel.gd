@@ -12,6 +12,8 @@ signal close_requested
 signal link_activated(kind: String, arg: String)
 ## Scrap own building \a building_id, or cancel it.
 signal scrap_requested(building_id: int)
+## Forget sensor ghost \a object_id (a building not seen this turn).
+signal forget_requested(object_id: int)
 ## An own planet was renamed (Enter in its name).
 signal rename_requested(planet_id: int, new_name: String)
 ## Give own planet \a planet_id to empire \a empire_id (-1: cancel a gift).
@@ -315,6 +317,10 @@ func _fill_buildings(buildings: Array, own: bool) -> void:
 			var note := ScreenKit.label(tr("FLEET_PANEL_SCRAPPING"), "SmallLabel")
 			note.add_theme_color_override("font_color", FOUi.tokens.negative)
 			row.add_child(note)
+		if building.get("ghost", false):
+			var forget := ScreenKit.small_button("✕", "FW_ORDER_DISMISS_SENSOR_GHOST")
+			forget.pressed.connect(forget_requested.emit.bind(building.get("id", -1)))
+			row.add_child(forget)
 		if own:
 			var scrap := Button.new()
 			scrap.text = tr("PLANET_PANEL_CANCEL_SCRAP" if scrapping else "PLANET_PANEL_SCRAP")

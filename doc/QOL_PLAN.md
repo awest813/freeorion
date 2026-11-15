@@ -52,14 +52,14 @@ All are minor. None blocks playing.
 | R3 ✅ | Detection ranges of every known empire in its colour, not only the player's (`MapWnd.cpp:4118`) | medium | S |
 | R4 ✅ | A dedicated server going hostless sends players back to the lobby; Godot clients stay in a dead game (`HumanClientFSM.cpp:898`) | medium (MP) | S |
 | R5 ✅ | Tech tooltips with queued state, progress, RP this turn, ETA; queue rows get a tooltip; clicking a queued tech centres the tree on it (`TechTreeWnd.cpp:172`, `ResearchWnd.cpp:690`) | medium | S |
-| R6 | Research queue item menu (top, bottom, Pedia); right-click on tree cards (`ResearchWnd.cpp:316`, `TechTreeWnd.cpp:921`) | low | S |
-| R7 | Reorder designs, which sets the production catalogue's order (`DesignWnd.cpp:3047`) | low | S |
-| R8 | "Add premade designs at game start" toggle (`resource.shipdesign.default.enabled`) | low | S |
-| R9 | Quantity and batch size for the stockpile project; force-add unavailable items; ship catalogue tooltip with parts | low | S |
-| R10 | Dismiss sensor ghosts of single ships and buildings, and all in a map fleet marker | low | S |
-| R11 | Split off ships of one design; detailed fleet status (refuelling, ETA to next system, out of range) | low | S |
-| R12 | Obstructed supply half-lanes; systems split-coloured by several owners; scanlines over out-of-sight fields | low | M |
-| R13 | Chat: Up/Down history, Tab completion, `/zoom`, timestamps option; third-party diplomacy in the log | low | S |
+| R6 ✅ | Research queue item menu (top, bottom, Pedia); right-click on tree cards (`ResearchWnd.cpp:316`, `TechTreeWnd.cpp:921`) | low | S |
+| R7 ✅ | Reorder designs, which sets the production catalogue's order (`DesignWnd.cpp:3047`) | low | S |
+| R8 ✅ | "Add premade designs at game start" toggle (`resource.shipdesign.default.enabled`) | low | S |
+| R9 ✅ | Quantity and batch size for the stockpile project; force-add unavailable items; ship catalogue tooltip with parts | low | S |
+| R10 ✅ | Dismiss sensor ghosts of single ships and buildings, and all in a map fleet marker | low | S |
+| R11 ✅ | Split off ships of one design; detailed fleet status (refuelling, ETA to next system, out of range) | low | S |
+| R12 ✅ | Obstructed supply half-lanes; systems split-coloured by several owners; scanlines over out-of-sight fields | low | M |
+| R13 ✅ | Chat: Up/Down history, Tab completion, `/zoom`, timestamps option; third-party diplomacy in the log | low | S |
 | R14 | Mid-turn partial updates shown; lobby shows the server's progress while it generates | low | S |
 | R15 | `--auto-quit` flag; monster designs in the Pedia index; pausing music when the window loses focus | low | S |
 

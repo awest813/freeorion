@@ -66,6 +66,8 @@ var show_scale_circle := false:
 var own_empire_id := -2
 ## The fleets: markers, movement lines, the route preview.
 var fleets: FleetLayer
+## Supply half lanes, split owner rings, scanlines (as GG draws them).
+var details := MapDetails.new()
 ## The map options (GG's map menu): owner-coloured system circles, fields,
 ## background stars, supply.
 var show_system_circles := true:
@@ -220,35 +222,15 @@ func load_from_universe() -> void:
 	for system_id in snapshot["system_ids"]:
 		var system: FOSystem = FOUniverse.get_system(system_id)
 		names.push_back(system.get_name() if system else "")
-	var colors := PackedColorArray()
 	var color_by_owner := {}
-	for owner_id in snapshot["fleet_owner_ids"]:
-		if not color_by_owner.has(owner_id):
-			color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
-		colors.push_back(color_by_owner[owner_id])
-	var owner_colors := PackedColorArray()
-	for owner_id in snapshot.get("system_owner_ids", PackedInt32Array()):
-		if owner_id < 0:
-			owner_colors.push_back(Color(0, 0, 0, 0))
-			continue
-		if not color_by_owner.has(owner_id):
-			color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
-		owner_colors.push_back(color_by_owner[owner_id])
-	snapshot["system_owner_colors"] = owner_colors
-	var detection_colors := PackedColorArray()
-	for owner_id in snapshot.get("detection_owner_ids", PackedInt32Array()):
-		if not color_by_owner.has(owner_id):
-			color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
-		detection_colors.push_back(color_by_owner[owner_id])
-	snapshot["detection_colors"] = detection_colors
-	for kind in ["supply_lane", "supply_system"]:
-		var kind_colors := PackedColorArray()
-		for owner_id in snapshot.get(kind + "_owners", PackedInt32Array()):
+	MapDetails.add_colors(
+		snapshot,
+		func(owner_id: int) -> Color:
 			if not color_by_owner.has(owner_id):
 				color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
-			kind_colors.push_back(color_by_owner[owner_id])
-		snapshot[kind + "_colors"] = kind_colors
-	set_snapshot(snapshot, names, colors)
+			return color_by_owner[owner_id]
+	)
+	set_snapshot(snapshot, names, snapshot["fleet_colors"])
 
 
 ## Replace the map data. \a snapshot has the layout of FOUniverse.get_map_snapshot().
@@ -277,6 +259,7 @@ func set_snapshot(
 	_supply_system_colors = snapshot.get("supply_system_colors", PackedColorArray())
 	_names = names
 	_owner_colors = snapshot.get("system_owner_colors", PackedColorArray())
+	details.set_snapshot(snapshot)
 
 	_index_by_id.clear()
 	for i in _system_ids.size():
@@ -591,6 +574,7 @@ func _draw_fields(layer: CanvasItem) -> void:
 			Color(1, 1, 1, MapStyle.FIELD_ALPHA)
 		)
 	layer.draw_set_transform(Vector2.ZERO)
+	details.draw_scanlines(layer, _field_positions, _field_radii, view, 1.0 / camera.zoom_level())
 
 
 # Supplied systems: a disk each in the supplying empire's colour, opaque
@@ -636,6 +620,7 @@ func _draw_supply(layer: CanvasItem, view: Rect2) -> void:
 			_supply_lane_colors[owner] if owner < _supply_lane_colors.size() else Color.WHITE
 		)
 		layer.draw_line(a, b, Color(color, MapStyle.SUPPLY_LANE_ALPHA), width, true)
+	details.draw_obstructed(layer, _positions, view, width)
 
 
 func _draw_overlay(layer: CanvasItem) -> void:
@@ -691,12 +676,10 @@ func _draw_route(layer: CanvasItem, px: float) -> void:
 	layer.draw_circle(_route[_route.size() - 1], 4.0 * px, accent)
 
 
-# Owned systems ringed in their owner's colour (GG's system circles).
+# Owned systems ringed in their owners' colours (GG's system circles).
 func _draw_owner_circles(layer: CanvasItem, px: float, view: Rect2) -> void:
 	var radius := MapStyle.UNEXPLORED_RING_PX * 1.4 * px
-	for i in mini(_positions.size(), _owner_colors.size()):
-		if _owner_colors[i].a > 0.0 and view.has_point(_positions[i]):
-			layer.draw_arc(_positions[i], radius, 0, TAU, 24, _owner_colors[i], 2.0 * px, true)
+	details.draw_owner_rings(layer, _positions, _owner_colors, view, radius, px)
 
 
 func _draw_unexplored_rings(layer: CanvasItem, px: float, view: Rect2) -> void:

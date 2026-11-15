@@ -243,13 +243,9 @@ func _ready() -> void:
 	fleet_panel.ship_selected.connect(show_ship)
 	fleet_panel.split_groups_requested.connect(panel_orders.on_fleet_split_groups)
 	fleet_panel.give_requested.connect(panel_orders.on_give)
-	fleet_panel.forget_requested.connect(
-		func(fleet_id: int):
-			if follow_game and FOOrders.forget(fleet_id):
-				fleet_panel.show_data({})
-				map_view.refresh()
-				system_panel.refresh()
-	)
+	fleet_panel.forget_requested.connect(func(id: int): panel_orders.on_forget([id]))
+	planet_panel.forget_requested.connect(func(id: int): panel_orders.on_forget([id]))
+	system_panel.forget_requested.connect(panel_orders.on_forget)
 	planet_panel.give_requested.connect(panel_orders.on_give)
 	fleet_panel.explore_requested.connect(
 		func(fleet_id: int, exploring: bool):
