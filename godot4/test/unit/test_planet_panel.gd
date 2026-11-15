@@ -63,7 +63,7 @@ func test_header_says_what_the_planet_is():
 	assert_true(panel.visible)
 	assert_eq(panel._title.text, "Hegira β I")
 	assert_eq(
-		panel._subtitle.text,
+		panel._subtitle.get_parsed_text(),
 		(
 			"%s %s · %s (%s) · %s · Terran Imperium"
 			% [tr("SZ_LARGE"), tr("PT_TERRAN"), tr("SP_HUMAN"), tr("PE_GOOD"), tr("FOCUS_RESEARCH")]

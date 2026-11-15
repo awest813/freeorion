@@ -27,6 +27,17 @@ signal production_requested(planet_id: int)
 signal ships_dropped(fleet_id: int, ship_ids: PackedInt32Array)
 
 const WIDTH := 340
+## Planet meters summed for the system and shown per own planet: key,
+## icon (icons/meter/), label key, summed (else the highest counts).
+const SUMMARY := [
+	["industry", "industry", "METER_INDUSTRY", true],
+	["research", "research", "METER_RESEARCH", true],
+	["influence", "influence", "METER_INFLUENCE", true],
+	["stockpile", "stockpile", "METER_STOCKPILE", true],
+	["defense", "defense", "METER_DEFENSE", true],
+	["troops", "troops", "METER_TROOPS", true],
+	["supply", "supply", "METER_SUPPLY", false],
+]
 
 ## Systems to pick from: [[id, name]] by name; GameShell sets it.
 var systems_provider: Callable = func() -> Array: return []
@@ -35,6 +46,7 @@ var system_id := -1
 var _title: LineEdit
 var _subtitle: Label
 var _planets: VBoxContainer
+var _summary: HFlowContainer
 var _fleets: Label
 var _fleet_list: VBoxContainer
 var _notice: Label
@@ -94,6 +106,7 @@ func show_data(data: Dictionary) -> void:
 		_planets.add_child(_label(tr("SYSTEM_PANEL_NO_PLANETS"), "SecondaryLabel"))
 	for planet: Dictionary in planets:
 		_planets.add_child(_planet_row(planet))
+	_fill_summary(planets)
 	var fleets_total: int = data.get("fleets_total", 0)
 	var fleets_own: int = data.get("fleets_own", 0)
 	_fleets.text = (tr("SYSTEM_PANEL_FLEETS").replace("%1%", str(fleets_total)).replace(
@@ -222,6 +235,58 @@ func _update_hint() -> void:
 		show_notice(tr("SYSTEM_PANEL_MOVE_HINT"))
 
 
+## The own planets' meters added up (the highest for supply range):
+## {key: [total, [[planet name, value]]]}.
+static func system_summary(planets: Array) -> Dictionary:
+	var summary := {}
+	for planet: Dictionary in planets:
+		if not planet.get("own", false):
+			continue
+		var meters: Dictionary = planet.get("meters", {})
+		for entry in SUMMARY:
+			var value: float = meters.get(entry[0], 0.0)
+			if not summary.has(entry[0]):
+				summary[entry[0]] = [0.0, []]
+			summary[entry[0]][0] = (
+				summary[entry[0]][0] + value if entry[3] else maxf(summary[entry[0]][0], value)
+			)
+			if value > 0.0:
+				summary[entry[0]][1].push_back([planet.get("name", ""), value])
+	return summary
+
+
+func _fill_summary(planets: Array) -> void:
+	ScreenKit.clear(_summary)
+	var summary := system_summary(planets)
+	for entry in SUMMARY:
+		if not summary.has(entry[0]) or summary[entry[0]][0] <= 0.0:
+			continue
+		var lines: PackedStringArray = [tr(entry[2])]
+		for part: Array in summary[entry[0]][1]:
+			lines.push_back("%s: %.1f" % [part[0], part[1]])
+		_summary.add_child(_meter_chip(entry, "%.1f" % summary[entry[0]][0], "\n".join(lines)))
+	_summary.visible = _summary.get_child_count() > 0
+
+
+func _meter_chip(entry: Array, value: String, tooltip: String) -> Control:
+	var chip := HBoxContainer.new()
+	chip.add_theme_constant_override("separation", FOUi.tokens.space_1)
+	chip.tooltip_text = tooltip
+	chip.mouse_filter = Control.MOUSE_FILTER_PASS
+	chip.add_child(_icon(FOArt.meter_icon(entry[1]), FOUi.tokens.icon_small))
+	chip.add_child(_label(value, "SmallLabel"))
+	return chip
+
+
+static func _planet_meters(planet: FOPlanet) -> Dictionary:
+	if planet.get_owner_id() < 0 or planet.get_owner_id() != FOUniverse.get_empire_id():
+		return {}
+	var meters := {}
+	for entry in SUMMARY:
+		meters[entry[0]] = planet.get_meter("METER_" + entry[0].to_upper())
+	return meters
+
+
 ## Panel data for system \a id from the client universe.
 static func from_universe(id: int) -> Dictionary:
 	var system: FOSystem = FOUniverse.get_system(id)
@@ -249,6 +314,7 @@ static func from_universe(id: int) -> Dictionary:
 					"species": planet.get_species_name(),
 					"focus": planet.get_focus(),
 					"population": planet.get_meter("METER_POPULATION"),
+					"meters": _planet_meters(planet),
 				}
 			)
 		)
@@ -349,6 +415,11 @@ func _build() -> void:
 
 	box.add_child(HSeparator.new())
 	box.add_child(_label(tr("SYSTEM_PANEL_PLANETS"), "SmallLabel"))
+	# What the player's planets here make together (GG's system resource
+	# summary); each value's tooltip lists the planets.
+	_summary = HFlowContainer.new()
+	_summary.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
+	box.add_child(_summary)
 	_planets = VBoxContainer.new()
 	box.add_child(_planets)
 	box.add_child(HSeparator.new())
@@ -438,6 +509,20 @@ func _planet_row(planet: Dictionary) -> Control:
 	var detail_label := _label(" · ".join(details), "SmallLabel")
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text.add_child(detail_label)
+	# Own planets: what each makes (GG's per-planet meter summary).
+	var meters: Dictionary = planet.get("meters", {})
+	if planet.get("own", false) and not meters.is_empty():
+		var chips := HFlowContainer.new()
+		chips.add_theme_constant_override("h_separation", FOUi.tokens.space_2)
+		for entry in SUMMARY:
+			var value: float = meters.get(entry[0], 0.0)
+			if (
+				value > 0.0
+				and entry[0] in ["industry", "research", "influence", "defense", "troops"]
+			):
+				chips.add_child(_meter_chip(entry, "%.1f" % value, tr(entry[2])))
+		if chips.get_child_count() > 0:
+			text.add_child(chips)
 	var actions := _planet_actions(planet)
 	if actions.get_child_count() > 0:
 		text.add_child(actions)

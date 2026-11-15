@@ -856,6 +856,35 @@ godot::Dictionary FOUniverse::get_empire_resources() {
     result["influence"] = influence;
     result["influence_change"] = empire->GetInfluenceQueue().ExpectedNewStockpileAmount() - influence;
     result["population"] = empire->GetPopulationPool().Population();
+    // Census, as the GG population tooltip: population by species and by
+    // species tag.
+    {
+        godot::Dictionary by_species, by_tag;
+        for (const auto* planet : context.ContextObjects().allRaw<Planet>()) {
+            if (!planet->OwnedBy(empire->EmpireID()) || planet->SpeciesName().empty())
+                continue;
+            const auto* meter = planet->GetMeter(MeterType::METER_POPULATION);
+            const double pop = meter ? meter->Current() : 0.0;
+            if (pop <= 0.0)
+                continue;
+            const auto name = ToGodot(planet->SpeciesName());
+            by_species[name] = double(by_species.get(name, 0.0)) + pop;
+            if (const auto* species = context.species.GetSpecies(planet->SpeciesName())) {
+                for (const auto& tag : species->Tags()) {
+                    const auto key = ToGodot(tag);
+                    by_tag[key] = double(by_tag.get(key, 0.0)) + pop;
+                }
+            }
+        }
+        result["population_by_species"] = by_species;
+        result["population_by_tag"] = by_tag;
+    }
+    {
+        const auto& queue = empire->GetProductionQueue();
+        result["stockpile_capacity"] = queue.StockpileCapacity(context.ContextObjects());
+        result["stockpile_expected"] = queue.ExpectedNewStockpileAmount();
+        result["research_queue_spent"] = empire->GetResearchQueue().TotalRPsSpent();
+    }
     const auto& destroyed = context.ContextUniverse().EmpireKnownDestroyedObjectIDs(empire->EmpireID());
     // Ships, and how many are armed, carry troops or colonists, or fighters
     // (the GG top bar's ships tooltip).
@@ -904,7 +933,7 @@ godot::Dictionary FOUniverse::get_empire_resources() {
 namespace {
     // Meters the planet panel shows: the meter, and the target or maximum it
     // grows towards (METER_ENUM_END: none).
-    constexpr std::array<std::pair<MeterType, MeterType>, 13> PLANET_METERS{{
+    constexpr std::array<std::pair<MeterType, MeterType>, 14> PLANET_METERS{{
         {MeterType::METER_POPULATION,   MeterType::METER_TARGET_POPULATION},
         {MeterType::METER_INDUSTRY,     MeterType::METER_TARGET_INDUSTRY},
         {MeterType::METER_RESEARCH,     MeterType::METER_TARGET_RESEARCH},
@@ -916,6 +945,7 @@ namespace {
         {MeterType::METER_DEFENSE,      MeterType::METER_MAX_DEFENSE},
         {MeterType::METER_SHIELD,       MeterType::METER_MAX_SHIELD},
         {MeterType::METER_TROOPS,       MeterType::METER_MAX_TROOPS},
+        {MeterType::METER_REBEL_TROOPS, MeterType::NUM_METER_TYPES},
         {MeterType::METER_DETECTION,    MeterType::NUM_METER_TYPES},
         {MeterType::METER_STEALTH,      MeterType::NUM_METER_TYPES},
     }};
@@ -1001,9 +1031,96 @@ godot::Dictionary FOUniverse::get_planet_detail(int planet_id) {
         const auto* type = GetBuildingType(building->BuildingTypeName());
         entry["icon"] = type ? ToGodot(type->Icon()) : godot::String();
         entry["scrapping"] = IsScrapping(app->Orders(), building->ID());
+        entry["description"] = type ? ToGodot(type->Description()) : godot::String();
         buildings.push_back(entry);
     }
     result["buildings"] = buildings;
+
+    // Buildings queued here, with their progress (GG's buildings panel).
+    godot::Array producing;
+    if (const auto empire = context.GetEmpire(app->EmpireID())) {
+        for (const auto& element : empire->GetProductionQueue()) {
+            if (element.location != planet_id || element.item.build_type != BuildType::BT_BUILDING ||
+                element.to_be_removed)
+            { continue; }
+            godot::Dictionary entry;
+            entry["type"] = ToGodot(element.item.name);
+            const auto* type = GetBuildingType(element.item.name);
+            entry["icon"] = type ? ToGodot(type->Icon()) : godot::String();
+            entry["progress"] = element.progress;
+            entry["turns_left"] = element.turns_left_to_completion;
+            producing.push_back(entry);
+        }
+    }
+    result["producing"] = producing;
+
+    // Status (own planets), as the GG side panel's status icon.
+    godot::PackedStringArray status;
+    std::string status_icon;
+    if (planet->OwnedBy(app->EmpireID())) {
+        const auto name = planet->Name();
+        if (!context.supply.SystemHasFleetSupply(planet->SystemID(), planet->Owner(), true,
+                                                           context.diplo_statuses))
+        {
+            status.push_back(ToGodot(boost::io::str(FlexibleFormat(UserString("OPTIONS_DB_UI_PLANET_STATUS_NO_SUPPLY")) % name)));
+            status_icon = "icons/planet_status_supply.png";
+        }
+        if (planet->LastTurnAttackedByShip() == context.current_turn - 1) {
+            status.push_back(ToGodot(boost::io::str(FlexibleFormat(UserString("OPTIONS_DB_UI_PLANET_STATUS_ATTACKED")) % name)));
+            status_icon = "icons/planet_status_attacked.png";
+        }
+        if (planet->LastTurnConquered() == context.current_turn - 1) {
+            status.push_back(ToGodot(boost::io::str(FlexibleFormat(UserString("OPTIONS_DB_UI_PLANET_STATUS_CONQUERED")) % name)));
+            status_icon = "icons/planet_status_conquered.png";
+        }
+        const auto* happiness = planet->GetMeter(MeterType::METER_HAPPINESS);
+        const auto* population = planet->GetMeter(MeterType::METER_POPULATION);
+        if (happiness && population && happiness->Current() <= 5 && population->Current() > 0) {
+            status.push_back(ToGodot(boost::io::str(FlexibleFormat(UserString("OPTIONS_DB_UI_PLANET_STATUS_UNHAPPY")) % name)));
+            status_icon = "icons/planet_status_unhappy.png";
+        }
+        if (status.size() > 1)
+            status_icon = "icons/planet_status_warning.png";
+    }
+    result["status"] = status;
+    result["status_icon"] = ToGodot(status_icon);
+
+    // What is known of a planet not seen now (GG's planet stealth tooltip).
+    std::string visibility_text;
+    const int empire_id = app->EmpireID();
+    if (empire_id != ALL_EMPIRES) {
+        const auto& universe = context.ContextUniverse();
+        const auto visibility = universe.GetObjectVisibilityByEmpire(planet_id, empire_id);
+        const auto& turns = universe.GetObjectVisibilityTurnsByEmpire(planet_id, empire_id);
+        const auto empire = context.GetEmpire(empire_id);
+        const auto* strength_meter = empire ? empire->GetMeter("METER_DETECTION_STRENGTH") : nullptr;
+        const float strength = strength_meter ? strength_meter->Current() : 0.0f;
+        const auto* stealth_meter = planet->GetMeter(MeterType::METER_STEALTH);
+        const float stealth = stealth_meter ? stealth_meter->Initial() : 0.0f;
+        const auto turn_of = [&turns](Visibility vis)
+        { return vis == Visibility::VIS_BASIC_VISIBILITY ? turns.basic : turns.partial; };
+        const auto detection = [&]() {
+            if (stealth > strength)
+                return boost::io::str(FlexibleFormat(UserString("PL_APPARENT_STEALTH_EXCEEDS_DETECTION")) %
+                                      static_cast<int>(stealth) % static_cast<int>(strength));
+            return boost::io::str(FlexibleFormat(UserString("PL_APPARENT_STEALTH_DOES_NOT_EXCEED_DETECTION")) %
+                                  static_cast<int>(strength));
+        };
+        if (visibility == Visibility::VIS_NO_VISIBILITY) {
+            const int seen = turn_of(Visibility::VIS_BASIC_VISIBILITY);
+            visibility_text = UserString("PL_NO_VISIBILITY") + "  " + (seen != INVALID_GAME_TURN ?
+                boost::io::str(FlexibleFormat(UserString("PL_LAST_TURN_SEEN")) % seen) : UserString("PL_NEVER_SEEN"));
+            const auto* system = context.ContextObjects().getRaw<System>(planet->SystemID());
+            visibility_text += "\n" + (system && system->GetVisibility(empire_id, universe) <= Visibility::VIS_BASIC_VISIBILITY ?
+                UserString("PL_NOT_IN_RANGE") : detection());
+        } else if (visibility == Visibility::VIS_BASIC_VISIBILITY) {
+            const int scanned = turn_of(Visibility::VIS_PARTIAL_VISIBILITY);
+            visibility_text = UserString("PL_BASIC_VISIBILITY") + "  " + (scanned != INVALID_GAME_TURN ?
+                boost::io::str(FlexibleFormat(UserString("PL_LAST_TURN_SCANNED")) % scanned) : UserString("PL_NEVER_SCANNED"));
+            visibility_text += "\n" + detection();
+        }
+    }
+    result["visibility_text"] = ToGodot(visibility_text);
 
     godot::Array specials;
     for (const auto& [name, turn_capacity] : planet->Specials()) {
@@ -1012,6 +1129,7 @@ godot::Dictionary FOUniverse::get_planet_detail(int planet_id) {
         const auto* special = GetSpecial(name);
         entry["icon"] = special ? ToGodot(special->Graphic()) : godot::String();
         entry["capacity"] = turn_capacity.second;
+        entry["turn_added"] = turn_capacity.first;
         specials.push_back(entry);
     }
     result["specials"] = specials;

@@ -40,7 +40,11 @@ var _type_icon: TextureRect
 var _title: LineEdit
 var _give: MenuButton
 var _swatch: ColorRect
-var _subtitle: Label
+var _subtitle: RichTextLabel
+var _status: HBoxContainer
+var _status_text: RichTextLabel
+var _visibility: RichTextLabel
+var _producing: VBoxContainer
 var _meters: MeterGrid
 var _buildings_title: Label
 var _buildings: VBoxContainer
@@ -89,9 +93,18 @@ func show_data(data: Dictionary) -> void:
 	var owner_name: String = data.get("owner_name", "")
 	_swatch.visible = not owner_name.is_empty()
 	_swatch.color = data.get("owner_color", Color.WHITE)
-	_subtitle.text = subtitle(data)
+	_subtitle.text = FORichText.to_bbcode(subtitle(data, true))
+	var status: PackedStringArray = data.get("status", PackedStringArray())
+	_status.visible = not status.is_empty()
+	if _status.visible:
+		_status.get_child(0).texture = FOArt.icon(data.get("status_icon", ""))
+		_status_text.text = FORichText.to_bbcode("\n".join(status))
+	var visibility: String = data.get("visibility_text", "")
+	_visibility.visible = not visibility.is_empty()
+	_visibility.text = FORichText.to_bbcode(visibility)
 	_meters.fill(data.get("meters", []))
 	_fill_buildings(data.get("buildings", []), data.get("own", false))
+	_fill_producing(data.get("producing", []))
 	_fill_specials(data.get("specials", []))
 	# The suitability report is worked out on request: it tries every species.
 	ScreenKit.clear(_suitability)
@@ -122,8 +135,9 @@ func _fill_give_menu() -> void:
 		popup.set_item_disabled(0, true)
 
 
-## "Medium Terran · Human (Good) · Industry · Empire" for \a data.
-static func subtitle(data: Dictionary) -> String:
+## "Medium Terran · Human (Good) · Industry · Empire" for \a data; with
+## \a links, the species links to the Pedia (FORichText markup).
+static func subtitle(data: Dictionary, links := false) -> String:
 	var parts: PackedStringArray = []
 	var planet_size: String = data.get("size", "")
 	var planet_type: String = data.get("type", "")
@@ -134,11 +148,14 @@ static func subtitle(data: Dictionary) -> String:
 	var species: String = data.get("species", "")
 	if not species.is_empty():
 		var environment: String = data.get("environment", "")
+		var species_text := (
+			"<species %s>%s</species>" % [species, _tr(species)] if links else _tr(species)
+		)
 		parts.push_back(
 			(
-				"%s (%s)" % [_tr(species), _tr(environment)]
+				"%s (%s)" % [species_text, _tr(environment)]
 				if not environment.is_empty()
-				else _tr(species)
+				else species_text
 			)
 		)
 	if not str(data.get("focus", "")).is_empty():
@@ -200,20 +217,34 @@ func _build() -> void:
 	_give.about_to_popup.connect(_fill_give_menu)
 	_give.get_popup().id_pressed.connect(func(id): give_requested.emit(planet_id, id))
 	title_row.add_child(_give)
-	_subtitle = ScreenKit.label("", "SmallLabel")
-	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subtitle = _rich_small()
+	_subtitle.meta_clicked.connect(_on_meta_clicked)
 	titles.add_child(_subtitle)
 	var close := ScreenKit.small_button("✕", "PANEL_CLOSE")
 	close.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	close.pressed.connect(close_requested.emit)
 	header.add_child(close)
 
+	# Status (supply cut, attacked, ...) and, for planets not seen now, what
+	# is known of them.
+	_status = HBoxContainer.new()
+	_status.visible = false
+	_status.add_child(ScreenKit.icon("", FOUi.tokens.icon))
+	_status_text = _rich_small()
+	_status_text.add_theme_color_override("default_color", FOUi.tokens.warning)
+	_status.add_child(_status_text)
+	box.add_child(_status)
+	_visibility = _rich_small()
+	_visibility.visible = false
+	box.add_child(_visibility)
 	_meters = MeterGrid.new()
 	box.add_child(_meters)
 	_buildings_title = ScreenKit.label(tr("PLANET_PANEL_BUILDINGS"), "SecondaryLabel")
 	box.add_child(_buildings_title)
 	_buildings = VBoxContainer.new()
 	box.add_child(_buildings)
+	_producing = VBoxContainer.new()
+	box.add_child(_producing)
 	_specials_title = ScreenKit.label(tr("PLANET_PANEL_SPECIALS"), "SecondaryLabel")
 	box.add_child(_specials_title)
 	_specials = VBoxContainer.new()
@@ -271,7 +302,12 @@ func _fill_buildings(buildings: Array, own: bool) -> void:
 		var row := HBoxContainer.new()
 		row.add_child(ScreenKit.icon(building.get("icon", ""), FOUi.tokens.icon))
 		var type: String = building.get("type", "")
-		row.add_child(_link("buildingtype", type, building.get("name", tr(type))))
+		var link := _link("buildingtype", type, building.get("name", tr(type)))
+		# The building's description as its tooltip, as GG's building tooltip.
+		var description: String = building.get("description", "")
+		if not description.is_empty():
+			link.tooltip_text = FORichText.plain_text(tr(description))
+		row.add_child(link)
 		var scrapping: bool = building.get("scrapping", false)
 		if scrapping:
 			var note := ScreenKit.label(tr("FLEET_PANEL_SCRAPPING"), "SmallLabel")
@@ -295,10 +331,61 @@ func _fill_specials(specials: Array) -> void:
 		var special_name: String = special.get("name", "")
 		var link := _link("special", special_name, tr(special_name))
 		var capacity: float = special.get("capacity", 0.0)
+		var tips: PackedStringArray = []
 		if capacity > 0.0:
-			link.tooltip_text = tr("PLANET_PANEL_CAPACITY").replace("%1%", "%.1f" % capacity)
+			tips.push_back(tr("PLANET_PANEL_CAPACITY").replace("%1%", "%.1f" % capacity))
+		var turn: int = special.get("turn_added", -1)
+		if turn > 0:
+			tips.push_back(tr("PLANET_PANEL_SPECIAL_ADDED").replace("%1%", str(turn)))
+		link.tooltip_text = "\n".join(tips)
 		row.add_child(link)
 		_specials.add_child(row)
+
+
+# Buildings queued here: their progress and turns left.
+func _fill_producing(producing: Array) -> void:
+	ScreenKit.clear(_producing)
+	for entry: Dictionary in producing:
+		var row := HBoxContainer.new()
+		row.modulate = Color(1, 1, 1, 0.75)
+		row.add_child(ScreenKit.icon(entry.get("icon", ""), FOUi.tokens.icon_small))
+		var text := VBoxContainer.new()
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text.add_theme_constant_override("separation", 0)
+		row.add_child(text)
+		text.add_child(
+			ScreenKit.label(
+				tr("PLANET_PANEL_PRODUCING").replace("%1%", tr(entry.get("type", ""))).replace(
+					"%2%", ScreenKit.turns_text(entry.get("turns_left", -1))
+				),
+				"SmallLabel"
+			)
+		)
+		var progress := ProgressBar.new()
+		progress.max_value = 1.0
+		progress.value = entry.get("progress", 0.0)
+		progress.show_percentage = false
+		progress.custom_minimum_size.y = FOUi.tokens.space_1
+		text.add_child(progress)
+		_producing.add_child(row)
+	if not producing.is_empty():
+		_buildings_title.visible = true
+
+
+func _rich_small() -> RichTextLabel:
+	var label := RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("normal_font_size", FOUi.tokens.font_size_small)
+	label.add_theme_color_override("default_color", FOUi.tokens.text_secondary)
+	return label
+
+
+func _on_meta_clicked(meta: Variant) -> void:
+	var link := FORichText.parse_link(str(meta))
+	link_activated.emit(link["kind"], link["arg"])
 
 
 # A Pedia link: \a text for article \a arg of \a kind.

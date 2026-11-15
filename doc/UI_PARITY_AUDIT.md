@@ -38,14 +38,14 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] System picker drop-down with ◀ ▶ — S
 - [x] Rename own system or planet — S
 - [x] Give a planet or fleet to an empire at peace — S
-- [ ] Planet status (supply cut, attacked, recently conquered, unhappy) — S
-- [ ] Planet visibility (last seen, stealth against detection strength) — S
-- [ ] System resource summary (PP, RP, IP, stockpile, defence, troops, supply) with breakdowns — M
-- [ ] Per-planet meter summaries in the system panel — M
-- [ ] Rebel troops meter; meter and species names linked to the Pedia — S
-- [ ] Buildings being produced on a planet, with progress — S
-- [ ] Building tooltips; specials' turn added — S
-- [ ] Population census tooltip (per species and tag); fuller resource tooltips — S
+- [x] Planet status (supply cut, attacked, recently conquered, unhappy) — S
+- [x] Planet visibility (last seen, stealth against detection strength) — S
+- [x] System resource summary (PP, RP, IP, stockpile, defence, troops, supply) with breakdowns — M
+- [x] Per-planet meter summaries in the system panel — M
+- [x] Rebel troops meter; meter and species names linked to the Pedia (species now; meters with the meter articles below) — S
+- [x] Buildings being produced on a planet, with progress — S
+- [x] Building tooltips; specials' turn added — S
+- [x] Population census tooltip (per species and tag); fuller resource tooltips — S
 
 ## Fleets and ships (`FleetWnd`, `MeterBrowseWnd`)
 

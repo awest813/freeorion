@@ -235,12 +235,24 @@ func _fill_chip(chip: Button, entry: Array, data: Dictionary) -> void:
 				tooltip += "\n" + tr("TOPBAR_WASTED").replace("%1%", "%.1f" % (value - spent))
 				if key == "industry" and data.get("wasted_pp_system", -1) >= 0:
 					tooltip += "\n" + tr("TOPBAR_WASTED_SHOW")
+			if key == "industry" and data.has("stockpile_capacity"):
+				tooltip += (
+					"\n"
+					+ (
+						tr("TOPBAR_STOCKPILE_DETAIL")
+						. replace("%1%", "%.1f" % data.get("pp_stockpile", 0.0))
+						. replace("%2%", "%.1f" % data["stockpile_capacity"])
+						. replace("%3%", "%.1f" % data.get("stockpile_expected", 0.0))
+					)
+				)
 		"influence":
 			var change: float = data.get("influence_change", 0.0)
 			text = "%.1f (%+.1f)" % [value, change]
 			tooltip = tooltip.replace("%1%", "%.1f" % value).replace("%2%", "%+.1f" % change)
 			if change < 0.0:
 				color = FOUi.tokens.negative
+		"population":
+			tooltip += census_text(data)
 		"ships":
 			text = str(int(value))
 			for line in [
@@ -260,6 +272,25 @@ func _fill_chip(chip: Button, entry: Array, data: Dictionary) -> void:
 		chip.remove_theme_color_override("font_color")
 	else:
 		chip.add_theme_color_override("font_color", color)
+
+
+## The population tooltip's census: each species' population, then each
+## species tag's, largest first (as GG's census).
+static func census_text(data: Dictionary) -> String:
+	var text := ""
+	for group in [
+		["population_by_species", "TOPBAR_CENSUS_SPECIES"],
+		["population_by_tag", "TOPBAR_CENSUS_TAGS"]
+	]:
+		var counts: Dictionary = data.get(group[0], {})
+		if counts.is_empty():
+			continue
+		var keys := counts.keys()
+		keys.sort_custom(func(a, b): return counts[a] > counts[b])
+		text += "\n\n" + TranslationServer.translate(group[1])
+		for key in keys.slice(0, 12):
+			text += "\n%s: %.1f" % [ScreenKit.tr_or_name(key), counts[key]]
+	return text
 
 
 ## Mark \a screen_name ("" for the map) as shown, without emitting signals.

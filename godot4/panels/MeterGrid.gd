@@ -7,6 +7,7 @@ extends GridContainer
 
 ## Meter icons (icons/meter/*.png) where the file isn't the meter's name.
 const METER_ICONS := {
+	"METER_REBEL_TROOPS": "rebels",
 	"METER_POPULATION": "pop",
 	"METER_HAPPINESS": "happiness",
 	"METER_CONSTRUCTION": "construction",
