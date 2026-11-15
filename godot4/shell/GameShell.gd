@@ -489,9 +489,11 @@ func open_menu() -> void:
 		and is_instance_valid(GlobalFreeOrionNode)
 		and not GlobalFreeOrionNode.get_single_player_game()
 	)
+	game_menu.save_check = func() -> bool:
+		return not top_bar.is_waiting() and (not follow_game or FOSaves.can_save())
 	game_menu.open(
 		subtitle,
-		not top_bar.is_waiting() and (not follow_game or FOSaves.can_save()),
+		game_menu.save_check.call(),
 		is_multiplayer,
 		is_multiplayer and FOMultiplayer.can_concede()
 	)
@@ -857,7 +859,8 @@ func show_readiness(issues: Array) -> FODialog:
 		var link := LinkButton.new()
 		link.text = issue["text"]
 		link.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-		link.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+		# Always underlined: "pick one" must look like something to click.
+		link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
 		link.pressed.connect(
 			func():
 				dialog.choose(1)

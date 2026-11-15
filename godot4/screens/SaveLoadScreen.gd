@@ -8,6 +8,8 @@ signal close_requested
 ## Load mode: the game in \a path is being loaded (or, with defer_load, was
 ## chosen to be loaded).
 signal load_started(path: String)
+## A save this screen asked for was made (as \a filename).
+signal saved(filename: String)
 
 ## Sort orders: key, label key.
 const SORTS := [
@@ -26,6 +28,8 @@ var suggested_name := ""
 ## Load mode: only emit load_started and let the owner load, e.g. in game,
 ## where the running game has to end first.
 var defer_load := false
+## A save asked for here is on its way.
+var saving := false
 
 var _title: Label
 var _status: Label
@@ -131,6 +135,9 @@ static func galaxy_details(save: Dictionary) -> String:
 ## Report that the server wrote \a filename (FreeOrionNode.save_completed).
 func on_save_completed(filename: String) -> void:
 	_status.text = tr("SAVES_SAVED").replace("%1%", filename.get_file())
+	if saving:
+		saving = false
+		saved.emit(filename)
 	if visible:
 		var status := _status.text
 		refresh()
@@ -282,7 +289,8 @@ func _on_action() -> void:
 		return
 	if mode == "save":
 		var path: String = source.save_game(_name.text.strip_edges())
-		_status.text = tr("SAVES_SAVING") if not path.is_empty() else tr("SAVES_FAILED")
+		saving = not path.is_empty()
+		_status.text = tr("SAVES_SAVING") if saving else tr("SAVES_FAILED")
 	elif defer_load or source.load_game(_selected_path):
 		load_started.emit(_selected_path)
 	else:

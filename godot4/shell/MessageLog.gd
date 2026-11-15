@@ -30,6 +30,13 @@ func _init(shell: GameShell) -> void:
 func _ready() -> void:
 	_shell.chat_window.pedia_requested.connect(open_pedia)
 	_shell.chat_window.zoom_requested.connect(zoom_to)
+	# Saved from the save screen: back to the game, with a note that it worked.
+	_shell.save_screen.saved.connect(
+		func(filename: String):
+			if _shell.active_screen == "save":
+				_shell.show_screen("")
+			toast.show_text(tr("SAVES_SAVED").replace("%1%", filename.get_file()))
+	)
 	toast.pressed.connect(_shell.chat_window.open)
 	_shell.add_child.call_deferred(toast)
 	if not _shell.follow_game:

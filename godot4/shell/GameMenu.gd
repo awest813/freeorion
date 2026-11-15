@@ -22,6 +22,9 @@ const SCREEN_ENTRIES := [
 
 ## The leave action awaiting confirmation, or "".
 var pending_leave := ""
+## Whether saving is possible now: () -> bool, asked again while the menu is
+## open (the AI players may still be finishing their turn when it opens).
+var save_check := Callable()
 
 var _subtitle: Label
 var _entries: VBoxContainer
@@ -68,7 +71,7 @@ func open(
 ) -> void:
 	_subtitle.text = subtitle
 	_subtitle.visible = not subtitle.is_empty()
-	_save.disabled = not can_save
+	_set_can_save(can_save)
 	_load.visible = not is_multiplayer
 	_concede.visible = is_multiplayer
 	_concede.disabled = not can_concede
@@ -77,6 +80,17 @@ func open(
 	visible = true
 	FOUi.fade_in(self)
 	_resume.call_deferred("grab_focus")
+
+
+func _process(_delta: float) -> void:
+	if visible and _save.disabled and save_check.is_valid():
+		_set_can_save(save_check.call())
+
+
+# Save enabled or not; when not, the tooltip says what it waits for.
+func _set_can_save(can_save: bool) -> void:
+	_save.disabled = not can_save
+	_save.tooltip_text = "" if can_save else tr("GAME_MENU_SAVE_WAIT")
 
 
 func close() -> void:

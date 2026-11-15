@@ -3400,6 +3400,9 @@ No messages yet.
 OPTIONS_SECTION_GENERAL
 General
 
+GAME_MENU_SAVE_WAIT
+Saving waits until the turn is processed and the AI players have finished theirs.
+
 OPTIONS_LANGUAGE_NAME
 Language
 
