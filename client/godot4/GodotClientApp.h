@@ -33,6 +33,9 @@ public:
     /** Whether the game can be saved now, as GG's CanSaveNow: in
       * multiplayer only by the host, and not while AIs play their turns. */
     bool CanSaveNow() const;
+    /** Back to the lobby from a game, still connected: the game's state is
+      * dropped, the player and host IDs are kept. */
+    void ReturnToLobby();
     /** Asked a server for a game that hasn't started yet. */
     bool AwaitingGame() const noexcept { return m_awaiting_game; }
     void SetAwaitingGame(bool awaiting) noexcept { m_awaiting_game = awaiting; }

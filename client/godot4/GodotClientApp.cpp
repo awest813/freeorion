@@ -555,6 +555,19 @@ void GodotClientApp::StartGame(bool is_new_game) {
     m_awaiting_game = false;
 }
 
+void GodotClientApp::ReturnToLobby() {
+    m_game_started = false;
+    m_awaiting_game = false;
+    m_auto_turns = 0;
+    SetEmpireID(ALL_EMPIRES);
+    SetCurrentTurn(INVALID_GAME_TURN);
+    m_universe.Clear();
+    m_empires.Clear();
+    m_orders.Reset();
+    GetCombatLogManager().Clear();
+    ClearPreviousPendingSaves(m_game_saves_in_progress);
+}
+
 bool GodotClientApp::CanSaveNow() const {
     if (!m_single_player_game && !m_networking->PlayerIsHost(m_networking->PlayerID()))
         return false;

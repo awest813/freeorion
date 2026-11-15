@@ -35,6 +35,8 @@ var seed_edit: LineEdit
 var stars: SpinBox
 
 var _choices := {}
+## Ready was sent and the server hasn't taken it back yet.
+var _ready_sent := false
 var _galaxy_grid: GridContainer
 var _save_label: Label
 var _conditions: Label
@@ -82,13 +84,13 @@ func refresh() -> void:
 	_update_ready()
 
 
-## Show the chat as received so far.
 ## The server's saves arrived: list them anew.
 func saves_changed() -> void:
 	_saves = []
 	refresh()
 
 
+## Show the chat as received so far.
 func refresh_chat() -> void:
 	chat.set_lines(source.chat())
 
@@ -100,6 +102,15 @@ func ready_text() -> String:
 
 func conditions_text() -> String:
 	return _conditions.text
+
+
+## Whether \a lobby has a player who plays an empire (observers and
+## moderators don't): the server can't start a game without one.
+static func has_human_player(lobby: Dictionary) -> bool:
+	for player: Dictionary in lobby.get("players", []):
+		if player.get("client_type", "") == "player":
+			return true
+	return false
 
 
 func _me() -> Dictionary:
@@ -118,15 +129,28 @@ func _update_ready() -> void:
 			and player.get("client_type", "") != "ai"
 		):
 			others_ready = others_ready and player.get("ready", false)
-	if me.get("ready", false):
+	var me_ready: bool = me.get("ready", false)
+	# The server drops a player's ready when it corrects their settings.
+	if _ready_sent and not me_ready and not me.is_empty():
+		_ready_sent = false
+		_info.text = tr("MP_READY_RESET")
+	if me_ready:
 		ready_button.text = tr("NOT_READY_BN")
 	elif others_ready:
 		ready_button.text = tr("START_GAME_BN")
 	else:
 		ready_button.text = tr("READY_BN")
 	ready_button.disabled = me.is_empty() or _lobby.get("start_locked", false)
+	# Everyone is ready: the game is starting, and a ready sent now would be
+	# refused by the server (it disconnects the player).
+	if me_ready and others_ready:
+		ready_button.text = tr("MP_STARTING")
+		ready_button.disabled = true
 	_conditions.remove_theme_color_override("font_color")
-	if _lobby.get("start_locked", false):
+	if not has_human_player(_lobby):
+		_conditions.text = tr("MP_NEEDS_HUMAN_PLAYER")
+		_conditions.add_theme_color_override("font_color", FOUi.tokens.warning)
+	elif _lobby.get("start_locked", false):
 		_conditions.text = ScreenKit.tr_or_name(_lobby.get("start_lock_cause", ""))
 		_conditions.add_theme_color_override("font_color", FOUi.tokens.warning)
 	else:
@@ -236,7 +260,12 @@ func _build() -> void:
 	ready_button.text = tr("READY_BN")
 	ready_button.theme_type_variation = "PrimaryButton"
 	ready_button.custom_minimum_size.x = 140
-	ready_button.pressed.connect(func(): source.set_ready(not _me().get("ready", false)))
+	ready_button.pressed.connect(
+		func():
+			var ready: bool = not _me().get("ready", false)
+			_ready_sent = ready
+			source.set_ready(ready)
+	)
 	buttons.add_child(ready_button)
 
 

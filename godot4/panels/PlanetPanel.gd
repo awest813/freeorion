@@ -89,7 +89,8 @@ func show_data(data: Dictionary) -> void:
 	var own: bool = data.get("own", false)
 	_title.editable = own
 	_title.tooltip_text = tr("PLANET_PANEL_RENAME") if own else ""
-	_give.visible = own
+	# Only when there's an empire to give it to (or a gift to cancel).
+	_give.visible = own and not give_entries().is_empty()
 	var owner_name: String = data.get("owner_name", "")
 	_swatch.visible = not owner_name.is_empty()
 	_swatch.color = data.get("owner_color", Color.WHITE)

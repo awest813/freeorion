@@ -337,7 +337,9 @@ func _policy_row(policy: Dictionary) -> Control:
 func drop_on_slot(policy_name: String, current: String, slot: int) -> void:
 	if not current.is_empty():
 		source.de_adopt(current)
-	_order(source.adopt(policy_name, slot))
+	# Shown afresh even when the adoption fails: the revoke went through.
+	source.adopt(policy_name, slot)
+	refresh.call_deferred()
 
 
 # Whether \a data is a policy of \a category that can go into a slot

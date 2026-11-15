@@ -3294,6 +3294,60 @@ PRODUCTION_WASTED
 RESEARCH_WASTED
 %1% RP go unused this turn: queue more research
 
+PLANET_REFUSED_NO_COLONY_SHIP
+No ship here can settle this planet.
+
+PLANET_REFUSED_COLONIZE
+This planet can't be settled now.
+
+PLANET_REFUSED_NO_TROOPS
+No troop ships here can land.
+
+PLANET_REFUSED_SHIELDED
+Its shields are up: bring them down before landing troops.
+
+PLANET_REFUSED_INVADE
+The troops can't land now.
+
+PLANET_REFUSED_ANNEX_IP
+Not enough influence to annex it this turn.
+
+PLANET_REFUSED_ANNEX
+Its people won't join your empire now.
+
+PLANET_REFUSED_NO_BOMBARD_SHIPS
+No ship here can bombard this planet.
+
+FLEET_SCRAP_NEEDS_SYSTEM
+Ships are scrapped at a system, not in transit.
+
+ORDER_REFUSED_RENAME
+That name can't be used.
+
+ORDER_REFUSED_STANCE
+The stance can't be changed now.
+
+ORDER_REFUSED_SPLIT
+Those ships can't form a new fleet here.
+
+ORDER_REFUSED_MERGE
+Those fleets aren't in the same place.
+
+ORDER_REFUSED_SCRAP
+Some ships can't be scrapped here.
+
+MAP_MOVE_NEEDS_OWN_FLEET
+This fleet isn't yours: pick one of your fleets to move it.
+
+MP_READY_RESET
+Your ready was taken back: the settings changed. Check them and press Ready again.
+
+MP_STARTING
+Starting…
+
+MP_NEEDS_HUMAN_PLAYER
+The game needs at least one player with an empire (observers and moderators don't count).
+
 OPTIONS_LANGUAGE_NAME
 Language
 

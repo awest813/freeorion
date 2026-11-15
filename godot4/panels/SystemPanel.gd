@@ -554,9 +554,26 @@ func _planet_actions(planet: Dictionary) -> HFlowContainer:
 			button.tooltip_text = (
 				"%s (%s)" % [entry.get("ship_name", ""), tr(entry.get("species", ""))]
 			)
+		elif action == "annex":
+			button.tooltip_text = annex_tooltip(entry)
 		button.pressed.connect(planet_action_requested.emit.bind(planet_id, action))
 		flow.add_child(button)
 	return flow
+
+
+## The annex button's tooltip: why it can't be pressed (if so), then GG's
+## details (opinions, stability, costs, conditions).
+static func annex_tooltip(entry: Dictionary) -> String:
+	var lines: PackedStringArray = []
+	match entry.get("state", ""):
+		"unaffordable":
+			lines.push_back(TranslationServer.translate("PLANET_REFUSED_ANNEX_IP"))
+		"restricted":
+			lines.push_back(TranslationServer.translate("PLANET_REFUSED_ANNEX"))
+	var details: String = entry.get("tooltip", "")
+	if not details.is_empty():
+		lines.push_back(FORichText.plain_text(details))
+	return "\n\n".join(lines)
 
 
 func _focus_picker(planet_id: int, focus: Dictionary) -> OptionButton:

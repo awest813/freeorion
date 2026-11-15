@@ -1,4 +1,6 @@
 #include "FOPlanetActions.h"
+#include "../../../util/i18n.h"
+#include "../../../universe/BuildingType.h"
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/packed_string_array.hpp>
@@ -306,6 +308,38 @@ namespace {
         return result;
     }
 
+    // GG's annex button tooltip: the species' opinions of the player and of
+    // the owner, stability, population, the buildings' worth, the cost, and
+    // the conditions for annexing, each marked met or not.
+    godot::String AnnexTooltip(const Planet& planet, const Empire* empire, int empire_id, double cost,
+                               const Species& species, const ScriptingContext& source_context)
+    {
+        try {
+            const auto& sm = source_context.species;
+            const auto& name = planet.SpeciesName();
+            const auto owner = source_context.GetEmpire(planet.Owner());
+            double buildings = 0.0;
+            for (const auto* building : source_context.ContextObjects().findRaw<Building>(planet.BuildingIDs()))
+                if (const auto* type = building ? GetBuildingType(building->BuildingTypeName()) : nullptr)
+                    buildings += type->ProductionCost(empire_id, planet.ID(), source_context);
+            std::string conditions;
+            if (const auto* condition = species.AnnexationCondition(); condition && source_context.source)
+                conditions = ConditionDescription(std::vector{condition}, source_context, &planet);
+            const auto text = boost::io::str(FlexibleFormat(UserString("ANNEX_BUTTON_TOOLTIP"))
+                % UserString(name) % (empire ? empire->Name() : UserString("UNOWNED"))
+                % DoubleToString(sm.SpeciesEmpireOpinion(name, empire_id, false, true), 3, false)
+                % (owner ? owner->Name() : UserString("UNOWNED"))
+                % DoubleToString(sm.SpeciesEmpireOpinion(name, planet.Owner(), false, true), 3, false)
+                % DoubleToString(Initial(planet, MeterType::METER_HAPPINESS), 3, false)
+                % DoubleToString(Initial(planet, MeterType::METER_POPULATION), 3, false)
+                % DoubleToString(buildings, 3, false) % DoubleToString(cost, 3, false) % conditions);
+            return godot::String::utf8(text.c_str());
+        } catch (const std::exception& e) {
+            ErrorLogger() << "FOPlanetActions: annex tooltip: " << e.what();
+        }
+        return {};
+    }
+
     godot::Dictionary AnnexAction(const Planet& planet, int empire_id, ClientApp& app) {
         const auto& context = app.GetContext();
         godot::Dictionary result;
@@ -320,6 +354,7 @@ namespace {
         const ScriptingContext source_context{context, ScriptingContext::Source{}, source};
         const double cost = AnnexationCost(planet, source, source_context);
         result["cost"] = cost;
+        result["tooltip"] = AnnexTooltip(planet, empire.get(), empire_id, cost, *species, source_context);
         const auto pending = PendingOrderIDs<AnnexOrder>(
             app.Orders(), [&](const AnnexOrder& o) { return o.PlanetID() == planet.ID(); });
         if (!pending.empty() || planet.IsAboutToBeAnnexed()) {
@@ -372,6 +407,7 @@ void FOPlanetActions::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("bombard", "planet_id"), &FOPlanetActions::bombard);
     ClassDB::bind_static_method(cls, D_METHOD("set_focus", "planet_id", "focus"), &FOPlanetActions::set_focus);
     ClassDB::bind_static_method(cls, D_METHOD("scrap", "object_id"), &FOPlanetActions::scrap);
+    ClassDB::bind_static_method(cls, D_METHOD("last_refusal"), &FOPlanetActions::last_refusal);
     ClassDB::bind_static_method(cls, D_METHOD("is_scrapping", "object_id"), &FOPlanetActions::is_scrapping);
 }
 
@@ -396,7 +432,26 @@ godot::Dictionary FOPlanetActions::get_actions(int planet_id) {
     return result;
 }
 
+namespace {
+    std::string& LastRefusalKey() {
+        static std::string key;
+        return key;
+    }
+
+    // Note why an action was refused (a stringtable key); returns false.
+    bool Refuse(std::string key) {
+        LastRefusalKey() = std::move(key);
+        return false;
+    }
+}
+
+godot::String FOPlanetActions::last_refusal() {
+    const auto& key = LastRefusalKey();
+    return godot::String::utf8(key.empty() ? "SYSTEM_PANEL_ACTION_REFUSED" : key.c_str());
+}
+
 bool FOPlanetActions::colonize(int planet_id, const godot::PackedInt32Array& ship_ids) {
+    LastRefusalKey().clear();
     auto* app = ClientApp::GetApp();
     if (!app || app->EmpireID() == ALL_EMPIRES)
         return false;
@@ -425,8 +480,10 @@ bool FOPlanetActions::colonize(int planet_id, const godot::PackedInt32Array& shi
             }
         }
         const auto choice = ChooseColonyShip(*planet, empire_id, context);
-        if (!choice.ship || !ColonizeOrder::Check(empire_id, choice.ship->ID(), planet_id, context))
-            return false;
+        if (!choice.ship)
+            return Refuse("PLANET_REFUSED_NO_COLONY_SHIP");
+        if (!ColonizeOrder::Check(empire_id, choice.ship->ID(), planet_id, context))
+            return Refuse("PLANET_REFUSED_COLONIZE");
         app->Orders().IssueOrder<ColonizeOrder>(context, empire_id, choice.ship->ID(), planet_id);
         return true;
     } catch (const std::exception& e) {
@@ -436,6 +493,7 @@ bool FOPlanetActions::colonize(int planet_id, const godot::PackedInt32Array& shi
 }
 
 bool FOPlanetActions::invade(int planet_id, const godot::PackedInt32Array& ship_ids) {
+    LastRefusalKey().clear();
     auto* app = ClientApp::GetApp();
     if (!app || app->EmpireID() == ALL_EMPIRES)
         return false;
@@ -460,6 +518,10 @@ bool FOPlanetActions::invade(int planet_id, const godot::PackedInt32Array& ship_
         }
         if (ships.empty())
             ships = ChooseInvasionShips(*planet, empire_id, context);
+        if (ships.empty())
+            return Refuse("PLANET_REFUSED_NO_TROOPS");
+        if (Initial(*planet, MeterType::METER_SHIELD) > 0.0f)
+            return Refuse("PLANET_REFUSED_SHIELDED");
         bool issued = false;
         for (const auto* ship : ships) {
             if (!InvadeOrder::Check(empire_id, ship->ID(), planet_id, context))
@@ -467,7 +529,7 @@ bool FOPlanetActions::invade(int planet_id, const godot::PackedInt32Array& ship_
             app->Orders().IssueOrder<InvadeOrder>(context, empire_id, ship->ID(), planet_id);
             issued = true;
         }
-        return issued;
+        return issued || Refuse("PLANET_REFUSED_INVADE");
     } catch (const std::exception& e) {
         ErrorLogger() << "FOPlanetActions::invade(" << planet_id << "): " << e.what();
     }
@@ -475,6 +537,7 @@ bool FOPlanetActions::invade(int planet_id, const godot::PackedInt32Array& ship_
 }
 
 bool FOPlanetActions::annex(int planet_id) {
+    LastRefusalKey().clear();
     auto* app = ClientApp::GetApp();
     if (!app || app->EmpireID() == ALL_EMPIRES)
         return false;
@@ -492,8 +555,13 @@ bool FOPlanetActions::annex(int planet_id) {
         if (!source)
             return false;
         ScriptingContext empire_context{context, ScriptingContext::Source{}, source};
-        if (!AnnexOrder::Check(empire_id, planet_id, empire_context))
-            return false;
+        if (!AnnexOrder::Check(empire_id, planet_id, empire_context)) {
+            const auto* planet = context.ContextObjects().getRaw<Planet>(planet_id);
+            const double cost = planet ? planet->AnnexationCost(empire_id, empire_context) : 0.0;
+            const double stockpile = empire->ResourceStockpile(ResourceType::RE_INFLUENCE) -
+                empire->ThisTurnAdoptedPoliciesCost(empire_context);
+            return Refuse(cost > stockpile ? "PLANET_REFUSED_ANNEX_IP" : "PLANET_REFUSED_ANNEX");
+        }
         app->Orders().IssueOrder<AnnexOrder>(empire_context, empire_id, planet_id);
         return true;
     } catch (const std::exception& e) {
@@ -503,6 +571,7 @@ bool FOPlanetActions::annex(int planet_id) {
 }
 
 bool FOPlanetActions::bombard(int planet_id) {
+    LastRefusalKey().clear();
     auto* app = ClientApp::GetApp();
     if (!app || app->EmpireID() == ALL_EMPIRES)
         return false;
@@ -530,7 +599,7 @@ bool FOPlanetActions::bombard(int planet_id) {
             app->Orders().IssueOrder<BombardOrder>(context, empire_id, ship->ID(), planet_id);
             issued = true;
         }
-        return issued;
+        return issued || Refuse("PLANET_REFUSED_NO_BOMBARD_SHIPS");
     } catch (const std::exception& e) {
         ErrorLogger() << "FOPlanetActions::bombard(" << planet_id << "): " << e.what();
     }

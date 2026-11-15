@@ -14,16 +14,26 @@ func _init(shell: GameShell) -> void:
 func on_fleet_rename(fleet_id: int, new_name: String) -> void:
 	if FOOrders.rename(fleet_id, new_name):
 		_shell.refresh_fleet_views(fleet_id)
+	else:
+		refused("ORDER_REFUSED_RENAME")
 
 
 func on_fleet_aggression(fleet_id: int, aggression: String) -> void:
-	FOOrders.set_fleet_aggression(fleet_id, aggression)
+	if not FOOrders.set_fleet_aggression(fleet_id, aggression):
+		refused("ORDER_REFUSED_STANCE")
 	_shell.refresh_fleet_views(fleet_id)
 
 
 func on_fleet_split(ship_ids: PackedInt32Array) -> void:
 	var new_fleet := FOOrders.split_ships(ship_ids, _shell.fleet_panel.new_fleet_stance)
 	_shell.refresh_fleet_views(new_fleet if new_fleet >= 0 else _shell.fleet_panel.fleet_id)
+	if new_fleet < 0:
+		refused("ORDER_REFUSED_SPLIT")
+
+
+## Say in the fleet panel why an order wasn't given (\a key: stringtable).
+func refused(key: String) -> void:
+	_shell.fleet_panel.show_notice(_shell.tr(key))
 
 
 # Several new fleets at once (split damaged, per ship, per design, ...);
@@ -62,12 +72,17 @@ func on_new_fleet_stance(stance: String) -> void:
 func on_fleet_merge(dest_fleet_id: int, ship_ids: PackedInt32Array) -> void:
 	if FOOrders.merge_ships(dest_fleet_id, ship_ids):
 		_shell.refresh_fleet_views(dest_fleet_id)
+	else:
+		refused("ORDER_REFUSED_MERGE")
 
 
 func on_fleet_scrap(ship_ids: PackedInt32Array) -> void:
+	var all_done := true
 	for ship_id in ship_ids:
-		FOPlanetActions.scrap(ship_id)
+		all_done = FOPlanetActions.scrap(ship_id) and all_done
 	_shell.refresh_fleet_views(_shell.fleet_panel.fleet_id)
+	if not all_done:
+		refused("ORDER_REFUSED_SCRAP")
 	if _shell.ship_panel.visible:
 		_shell.ship_panel.refresh()
 
@@ -102,3 +117,25 @@ func on_give(object_id: int, empire_id: int) -> void:
 			_shell.fleet_panel.refresh()
 		if _shell.planet_panel.visible:
 			_shell.planet_panel.refresh()
+
+
+## Colonise, invade, annex or bombard (each toggles the order), then show
+## the result, or why not.
+func on_planet_action(planet_id: int, action: String) -> void:
+	if not _shell.follow_game:
+		return
+	var done := false
+	match action:
+		"colonize":
+			done = FOPlanetActions.colonize(planet_id, _shell.fleet_panel.selected_ship_ids())
+		"invade":
+			done = FOPlanetActions.invade(planet_id, _shell.fleet_panel.selected_ship_ids())
+		"annex":
+			done = FOPlanetActions.annex(planet_id)
+		"bombard":
+			done = FOPlanetActions.bombard(planet_id)
+	_shell.system_panel.refresh()
+	if not done:
+		_shell.system_panel.show_notice(_shell.tr(FOPlanetActions.last_refusal()))
+	if _shell.fleet_panel.visible:
+		_shell.fleet_panel.refresh()

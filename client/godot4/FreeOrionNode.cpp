@@ -84,6 +84,7 @@ void FreeOrionNode::_bind_methods() {
     ADD_SIGNAL(godot::MethodInfo("mp_joined", godot::PropertyInfo(godot::Variant::INT, "player_id")));
     ADD_SIGNAL(godot::MethodInfo("lobby_changed"));
     ADD_SIGNAL(godot::MethodInfo("server_saves"));
+    ADD_SIGNAL(godot::MethodInfo("returned_to_lobby"));
     ADD_SIGNAL(godot::MethodInfo("mp_disconnected", godot::PropertyInfo(godot::Variant::STRING, "message")));
     ADD_SIGNAL(godot::MethodInfo("chat_received"));
     ADD_SIGNAL(godot::MethodInfo("auth_requested", godot::PropertyInfo(godot::Variant::STRING, "player_name")));
@@ -656,7 +657,15 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
         case Message::MessageType::LOBBY_UPDATE: {
             MultiplayerLobbyData lobby;
             ExtractLobbyUpdateMessageData(msg, lobby);
+            const bool in_game_lobby = lobby.in_game;
             FOMultiplayer::SetLobby(std::move(lobby));
+            // In a game, a lobby update means the server went back to its
+            // lobby (a dedicated server whose host left): so does the client,
+            // keeping its connection, as GG's PlayingGame::react(LobbyUpdate).
+            if (m_app->GameStarted() && !in_game_lobby) {
+                m_app->ReturnToLobby();
+                call_deferred("emit_signal", "returned_to_lobby");
+            }
             call_deferred("emit_signal", "lobby_changed");
             break;
         }

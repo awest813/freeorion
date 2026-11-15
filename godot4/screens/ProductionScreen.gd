@@ -620,6 +620,17 @@ func _add_at(item: Dictionary, checks: Array[CheckBox]) -> void:
 func _order(ok: bool) -> void:
 	if ok:
 		_refresh_queue.call_deferred()
+		# What can be added and the group's points change with the queue
+		# (items allowed once, the PP left); keep the list where it was.
+		_refresh_catalog_in_place.call_deferred()
+
+
+func _refresh_catalog_in_place() -> void:
+	var scroll := _catalog.get_parent().get_parent() as ScrollContainer
+	var at := scroll.scroll_vertical if scroll else 0
+	_refresh_catalog()
+	if scroll:
+		scroll.set_deferred("scroll_vertical", at)
 
 
 ## The name shown for \a item (stringtable key or design name).

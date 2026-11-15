@@ -98,6 +98,7 @@ var _split: Button
 var _merge_target: OptionButton
 var _merge: Button
 var _scrap: Button
+var _notice: Label
 var _selected := {}
 
 
@@ -120,7 +121,15 @@ func refresh() -> void:
 	show_fleet(fleet_id)
 
 
+## Say why an order wasn't given ("" clears it).
+func show_notice(text: String) -> void:
+	_notice.text = text
+	_notice.visible = not text.is_empty()
+
+
 func show_data(data: Dictionary) -> void:
+	if data.get("id", -1) != _data.get("id", -2):
+		show_notice("")
 	var was_hidden := not visible
 	_data = data
 	visible = not data.is_empty()
@@ -344,6 +353,12 @@ func _build() -> void:
 	_scrap.theme_type_variation = "DangerButton"
 	_scrap.pressed.connect(func(): scrap_requested.emit(selected_ship_ids()))
 	scrap_row.add_child(_scrap)
+	# Why the last order was refused, until the fleet shown changes.
+	_notice = ScreenKit.label("", "SmallLabel")
+	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_notice.add_theme_color_override("font_color", FOUi.tokens.warning)
+	_notice.visible = false
+	box.add_child(_notice)
 
 
 func _ship_row(ship: Dictionary) -> Control:
@@ -464,7 +479,10 @@ func _update_buttons() -> void:
 	for ship: Dictionary in ships:
 		if _selected.has(ship["id"]) and not ship.get("scrapping", false):
 			scrapping = false
-	_scrap.disabled = _selected.is_empty()
+	# Ships are scrapped at a system; in transit only a cancel makes sense.
+	var in_transit: bool = not _data.get("in_system", true)
+	_scrap.disabled = _selected.is_empty() or (in_transit and not scrapping)
+	_scrap.tooltip_text = tr("FLEET_SCRAP_NEEDS_SYSTEM") if in_transit and not scrapping else ""
 	_scrap.text = tr("ORDER_CANCEL_SHIP_SCRAP" if scrapping else "ORDER_SHIP_SCRAP")
 	_scrap.theme_type_variation = "GhostButton" if scrapping else "DangerButton"
 

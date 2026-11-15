@@ -48,7 +48,9 @@ func _ready() -> void:
 	GlobalFreeOrionNode.turn_progress.connect(_on_turn_progress)
 	GlobalFreeOrionNode.mp_joined.connect(_on_mp_joined)
 	GlobalFreeOrionNode.lobby_changed.connect(_on_lobby_changed)
-	GlobalFreeOrionNode.server_saves.connect(lobby.saves_changed)
+	# The lobby is rebuilt after each game: reach the current one.
+	GlobalFreeOrionNode.server_saves.connect(func(): lobby.saves_changed())
+	GlobalFreeOrionNode.returned_to_lobby.connect(_on_returned_to_lobby)
 	GlobalFreeOrionNode.chat_received.connect(_on_chat_received)
 	GlobalFreeOrionNode.auth_requested.connect(_on_auth_requested)
 	GlobalFreeOrionNode.mp_disconnected.connect(_on_mp_disconnected)
@@ -382,6 +384,18 @@ func _on_mp_joined(_player_id: int) -> void:
 	lobby.refresh()
 	lobby.refresh_chat()
 	FOUi.fade_in(lobby)
+
+
+# The server went back to its lobby (a dedicated server's host left): leave
+# the game for the lobby, still connected, as the GG client does.
+func _on_returned_to_lobby() -> void:
+	if not game:
+		return
+	game.queue_free()
+	game = null
+	_build_menus()
+	title.set_content_ready(_content_ready)
+	_on_mp_joined(FOMultiplayer.get_player_id())
 
 
 func _on_lobby_changed() -> void:

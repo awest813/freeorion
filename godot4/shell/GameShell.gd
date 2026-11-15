@@ -274,7 +274,7 @@ func _ready() -> void:
 				fleet_panel.refresh()
 	)
 	column.add_child(ship_panel)
-	system_panel.planet_action_requested.connect(_on_planet_action)
+	system_panel.planet_action_requested.connect(panel_orders.on_planet_action)
 	system_panel.focus_requested.connect(_on_focus_requested)
 	system_panel.planet_selected.connect(_on_planet_selected)
 	system_panel.ships_dropped.connect(panel_orders.on_fleet_merge)
@@ -615,6 +615,8 @@ func _on_system_context_requested(system_id: int) -> void:
 		map_modes.move_selected_fleets(system_id)
 		return
 	var fleet_id := _active_fleet()
+	if fleet_id < 0 and follow_game and fleet_panel.visible:
+		fleet_panel.show_notice(tr("MAP_MOVE_NEEDS_OWN_FLEET"))
 	if fleet_id < 0 or not follow_game:
 		return
 	# With Shift, the move is a waypoint after the fleet's current route.
@@ -761,28 +763,6 @@ func _fleet_has_ship(fleet_id: int, ship_id: int) -> bool:
 		return false
 	var ship: FOShip = FOUniverse.get_ship(ship_id)
 	return ship != null and ship.get_fleet_id() == fleet_id
-
-
-# Colonise, invade, annex or bombard (each toggles the order), then show
-# the result.
-func _on_planet_action(planet_id: int, action: String) -> void:
-	if not follow_game:
-		return
-	var done := false
-	match action:
-		"colonize":
-			done = FOPlanetActions.colonize(planet_id, fleet_panel.selected_ship_ids())
-		"invade":
-			done = FOPlanetActions.invade(planet_id, fleet_panel.selected_ship_ids())
-		"annex":
-			done = FOPlanetActions.annex(planet_id)
-		"bombard":
-			done = FOPlanetActions.bombard(planet_id)
-	system_panel.refresh()
-	if not done:
-		system_panel.show_notice(tr("SYSTEM_PANEL_ACTION_REFUSED"))
-	if fleet_panel.visible:
-		fleet_panel.refresh()
 
 
 func _on_focus_requested(planet_id: int, focus: String) -> void:

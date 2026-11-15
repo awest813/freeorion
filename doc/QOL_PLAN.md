@@ -47,10 +47,10 @@ All are minor. None blocks playing.
 
 | # | Gap (GG source) | Importance | Size |
 |---|---|---|---|
-| R1 | Annex button tooltip: species' opinions, stability, costs, why it's restricted (`SidePanel.cpp:2050`) | medium | S |
+| R1 ✅ | Annex button tooltip: species' opinions, stability, costs, why it's restricted (`SidePanel.cpp:2050`) | medium | S |
 | R2 | Movement lines: turn numbers at each ETA marker, red ring at a blockade stop, yellow at blocked supply (`MapWnd.cpp:2436`) | medium | M |
 | R3 | Detection ranges of every known empire in its colour, not only the player's (`MapWnd.cpp:4118`) | medium | S |
-| R4 | A dedicated server going hostless sends players back to the lobby; Godot clients stay in a dead game (`HumanClientFSM.cpp:898`) | medium (MP) | S |
+| R4 ✅ | A dedicated server going hostless sends players back to the lobby; Godot clients stay in a dead game (`HumanClientFSM.cpp:898`) | medium (MP) | S |
 | R5 | Tech tooltips with queued state, progress, RP this turn, ETA; queue rows get a tooltip; clicking a queued tech centres the tree on it (`TechTreeWnd.cpp:172`, `ResearchWnd.cpp:690`) | medium | S |
 | R6 | Research queue item menu (top, bottom, Pedia); right-click on tree cards (`ResearchWnd.cpp:316`, `TechTreeWnd.cpp:921`) | low | S |
 | R7 | Reorder designs, which sets the production catalogue's order (`DesignWnd.cpp:3047`) | low | S |
@@ -69,7 +69,7 @@ The items below come from the three audits and from watching the client in
 real games while checking each batch. They are ordered by how often a player
 runs into them, and each has a test of done.
 
-### Phase 1: feedback when something doesn't happen (about 2 days)
+### Phase 1: feedback when something doesn't happen (about 2 days) ✅ done
 
 The most common frustration is an action that silently does nothing.
 

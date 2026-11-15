@@ -38,6 +38,10 @@ public:
       * that can, else enough troop ships there. */
     static bool invade(int planet_id, const godot::PackedInt32Array& ship_ids);
 
+    /** Why the last colonize/invade/annex/bombard call refused (a
+      * stringtable key; a generic one when no reason is known). */
+    static godot::String last_refusal();
+
     /** Order (or cancel) annexing \a planet_id. */
     static bool annex(int planet_id);
 
