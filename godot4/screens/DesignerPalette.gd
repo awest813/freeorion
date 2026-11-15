@@ -278,8 +278,11 @@ func _part_row(part: Dictionary) -> Button:
 	var button := list_button(
 		tr(part_name),
 		"%s · %s · %s" % [tr(part.get("class", "")), _number(part.get("capacity", 0.0)), mountable],
-		part.get("icon", "")
+		""
 	)
+	# The part on the shape of the slots it fits (external, internal, both
+	# or core), as GG's parts list.
+	button.icon = DesignerArt.part_badge(part)
 	button.tooltip_text = part_tooltip(part)
 	if availability_of(part) != "available":
 		button.modulate.a = 0.6
@@ -292,7 +295,13 @@ func _part_row(part: Dictionary) -> Button:
 				button.accept_event()
 	)
 	button.set_drag_forwarding(
-		func(_at): return {"type": PART_DRAG, "name": part_name}, Callable(), Callable()
+		func(_at):
+			button.set_drag_preview(
+				DesignerArt.drag_preview(DesignerArt.part_texture(part), FOUi.tokens.icon_large)
+			)
+			return {"type": PART_DRAG, "name": part_name},
+		Callable(),
+		Callable()
 	)
 	return button
 

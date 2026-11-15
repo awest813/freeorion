@@ -3670,8 +3670,6 @@ Select a slot, then click a part, or click a part to fill the first free slot it
 DESIGNER_FITS
 Fits the selected slot
 
-DESIGNER_COPY_SUFFIX
-(copy)
 
 DESIGNER_SLOT_EXTERNAL
 External

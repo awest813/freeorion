@@ -81,6 +81,7 @@ var _compare_label: Label
 var _baseline := {}
 var _art: TextureRect
 var _slot_layer: Control
+var _legend: Container
 var _name: LineEdit
 var _stats: GridContainer
 var _validity: Label
@@ -151,7 +152,7 @@ func load_design(design: Dictionary, kind := "") -> void:
 	var design_parts: PackedStringArray = design.get("parts", PackedStringArray())
 	for i in mini(parts.size(), design_parts.size()):
 		parts[i] = design_parts[i]
-	_name.text = design.get("name", "") + " " + tr("DESIGNER_COPY_SUFFIX")
+	_name.text = copy_name(design.get("name", ""), _known_names())
 	_refresh_design()
 
 
@@ -195,6 +196,32 @@ func clear_all() -> void:
 	for i in parts.size():
 		parts[i] = ""
 	_refresh_design()
+
+
+## A name for a copy of \a design_name that none of \a taken has and the
+## name rules allow: "Frigate 2", "Frigate 3", ... (GG's names can't hold
+## brackets, so no "(copy)").
+static func copy_name(design_name: String, taken: Array) -> String:
+	var base := design_name.strip_edges()
+	var number := RegEx.create_from_string(" (\\d+)$").search(base)
+	var next := 2
+	if number:
+		base = base.substr(0, number.get_start())
+		next = int(number.get_string(1)) + 1
+	for c in "<>;:,.@#$%&*(){}'\"/?\\`[]|":
+		base = base.replace(c, "")
+	base = base.strip_edges()
+	while taken.has("%s %d" % [base, next]):
+		next += 1
+	return "%s %d" % [base, next]
+
+
+# Names of the designs listed in the designer (to keep copies apart).
+func _known_names() -> Array:
+	var names := []
+	for kind in ["empire", "obsolete", "saved"]:
+		names.append_array(source.get_designs(kind).map(func(d): return d.get("name", "")))
+	return names
 
 
 ## Why \a design_name can't name a design (GG's rules: not empty, no
@@ -275,6 +302,9 @@ func _build() -> void:
 	_slot_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(_slot_layer)
 	stage.resized.connect(_layout_slots)
+	# Which shape is which slot type.
+	_legend = CenterContainer.new()
+	center.add_child(_legend)
 	var hint_row := HBoxContainer.new()
 	center.add_child(hint_row)
 	var hint := ScreenKit.label(tr("DESIGNER_SLOT_HINT"), "SmallLabel")
@@ -414,6 +444,8 @@ func _rebuild_design_list() -> void:
 			)
 		)
 		toggle.button_pressed = options.get_value(at_start)
+		# Wrapped, so the column keeps its width.
+		toggle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		toggle.toggled.connect(
 			func(on: bool):
 				options.set_value(at_start, on)
@@ -622,36 +654,34 @@ func _refresh_design() -> void:
 func _build_slots() -> void:
 	ScreenKit.clear(_slot_layer)
 	var slots: Array = _hull(hull_name).get("slots", [])
+	ScreenKit.clear(_legend)
+	var types := []
+	for type in DesignerArt.SLOT_ART:
+		if slots.any(func(s): return s["type"] == type):
+			types.push_back(type)
+	_legend.add_child(DesignerArt.legend(types))
 	for i in slots.size():
 		var slot: Dictionary = slots[i]
-		var button := Button.new()
-		button.custom_minimum_size = Vector2(SLOT_SIZE, SLOT_SIZE)
-		button.size = button.custom_minimum_size
-		button.toggle_mode = true
+		var part := _part(parts[i]) if not parts[i].is_empty() else {}
+		var button := DesignerArt.slot_button(
+			slot["type"], DesignerArt.part_texture(part) if not part.is_empty() else null, SLOT_SIZE
+		)
 		button.button_pressed = i == selected_slot
-		button.expand_icon = true
 		button.set_meta("slot", i)
 		var type_label := tr("DESIGNER_SLOT_" + slot["type"].to_upper())
-		if parts[i].is_empty():
-			button.text = type_label.substr(0, 3)
-			button.add_theme_font_size_override("font_size", FOUi.tokens.font_size_small)
-		else:
-			button.icon = FOArt.icon(_part(parts[i]).get("icon", ""))
 		button.tooltip_text = (
-			"%s\n%s" % [type_label, tr(parts[i]) if not parts[i].is_empty() else ""]
+			"%s\n%s" % [type_label, tr(parts[i])] if not parts[i].is_empty() else type_label
 		)
-		button.add_theme_stylebox_override("normal", _slot_style(slot["type"], false))
-		button.add_theme_stylebox_override("hover", _slot_style(slot["type"], true))
-		button.add_theme_stylebox_override("pressed", _slot_style(slot["type"], true))
 		button.gui_input.connect(_on_slot_input.bind(i))
 		button.pressed.connect(_on_slot_pressed.bind(i))
 		button.set_drag_forwarding(
 			func(_at):
-				return (
-					{"type": DesignerPalette.SLOT_DRAG, "slot": i}
-					if not parts[i].is_empty()
-					else null
-				),
+				if parts[i].is_empty():
+					return null
+				button.set_drag_preview(
+					DesignerArt.drag_preview(DesignerArt.part_texture(_part(parts[i])), SLOT_SIZE)
+				)
+				return {"type": DesignerPalette.SLOT_DRAG, "slot": i},
 			func(_at, data): return can_drop_on_slot(data, i),
 			func(_at, data): _drop_on_slot(data, i)
 		)
@@ -669,19 +699,13 @@ func _layout_slots() -> void:
 		drawn = Rect2((area - art_size) * 0.5, art_size)
 	var slots: Array = _hull(hull_name).get("slots", [])
 	for button in _slot_layer.get_children():
-		var slot: Dictionary = slots[button.get_meta("slot")]
+		# The previous hull's slots go at the end of the frame.
+		var index: int = button.get_meta("slot", -1)
+		if button.is_queued_for_deletion() or index < 0 or index >= slots.size():
+			continue
+		var slot: Dictionary = slots[index]
 		var at := drawn.position + Vector2(slot["x"], slot["y"]) * drawn.size
 		button.position = (at - Vector2(SLOT_SIZE, SLOT_SIZE) * 0.5).round()
-
-
-func _slot_style(slot_type: String, highlight: bool) -> StyleBoxFlat:
-	var t: FOTokens = FOUi.tokens
-	var color: Color = {"external": t.accent, "internal": t.info, "core": t.warning}.get(
-		slot_type, t.border
-	)
-	var style := FOThemeBuilder.box(t, Color(t.surface, 0.85), color, 2, 2)
-	style.set_border_width_all(t.focus_width if highlight else t.border_width + 1)
-	return style
 
 
 func _on_slot_pressed(slot: int) -> void:
