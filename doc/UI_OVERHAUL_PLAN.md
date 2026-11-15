@@ -366,3 +366,49 @@ All figures are measured with the GL Compatibility renderer.
 8. Galaxy map MVP: starfield, stars via MultiMesh, lanes via ArrayMesh, camera with smooth zoom, and system picking.
 9. Golden-screenshot CI job (IntroScreen and map MVP).
 10. Fix the missing `icons/focus/stealth.png` and add a CI check that every `graphic=` path in FOCS exists.
+
+---
+
+## 10. Progress log
+
+### 2026-11-15: starter tickets 1–10 done
+
+All ten tickets in §9 are implemented on `claude/happy-allen-oas1fr`. They were verified locally on Linux:
+- The C++ build is Godot 4 client only, with server and AI.
+- The headless GUT suite has 13 passing tests and 3 visual tests pending (they need a renderer).
+- The visual suite passes under Xvfb with opengl3.
+
+| # | Result | Where |
+|---|---|---|
+| 1 | Shell entry scene, fork directories, README "Fork direction" | `godot4/shell/`, `godot4/README.md` |
+| 2 | Godot pinned at **4.4.1** in `godot4/.godot-version` (read by the Windows and Ubuntu jobs). Ubuntu now builds and tests Godot 4. Godot 3 is gone from CI. Windows and macOS export presets added. | `.github/workflows/`, `godot4/export_presets.cfg` |
+| 3 | Server messages are dispatched on the main thread from `_process` (8 ms budget, order kept). The network thread is removed. | `client/godot4/FreeOrionNode.cpp` |
+| 4 | `FOSystem`, `FOFleet`, `FOPlanet` views; `FOUniverse` with `get_map_snapshot()` | `client/godot4/views/` |
+| 5 | `FOOrders.issue_fleet_move`, `rescind_order`, `get_order_count`. Integration test: move, stop, re-issue, fleet moves over a turn. | `client/godot4/orders/`, `godot4/test/integration/` |
+| 6 | `FOTokens` (default and high contrast) and `FOThemeBuilder`. Unit tests enforce WCAG AA text contrast. | `godot4/ui/` |
+| 7 | `ui.scale` ("auto" or 0.75–2.0). Auto mode is capped so the logical window stays at least 1280×720. Applied by the `FOUi` autoload. | `godot4/ui/FOUi.gd`, `godot4/ui/FOUiScale.gd` |
+| 8 | Galaxy map MVP, shown in-game behind upstream `MapWnd` via a runtime adapter | `godot4/map/`, `godot4/shell/UpstreamAdapters.gd` |
+| 9 | Golden screenshots (gallery in both themes, synthetic 300-system galaxy), plus an Ubuntu 24.04 CI step with failure artifacts | `godot4/test/visual/` |
+| 10 | `FOCUS_STEALTH` now uses `icons/meter/stealth.png`. `check/checkArtPaths.py` runs in the Lint PY FOCS workflow. | `check/`, `default/scripting/` |
+
+**Bugs found along the way:**
+- The Godot client never built the client system graph after GAME_START or TURN_UPDATE, so every move order produced an empty route. It now calls `InitializeSystemGraph` the same way the GG client does.
+- The slider track had no thickness. The gallery golden caught this.
+
+**Deviations from the plan text:**
+- **Godot version:** pinned to 4.4.1 (upstream's desktop test version and the project baseline) rather than the newest release, so upstream merges stay clean. Upgrading is a separate, deliberate step.
+- **Theme:** built at runtime from tokens instead of by an editor script, so no generated `.tres` needs committing.
+- **Lanes:** drawn as a single batched `draw_multiline` rather than an `ArrayMesh`, because that keeps them at a constant pixel width for free. Revisit if the 1000-system perf test (§7.2) shows lanes as a cost.
+- **UI scale ownership:** upstream `IntroScreen` still sets its own scale steps. `FOUi` re-applies `ui.scale` after every scene change, so upstream scenes stay unedited.
+
+**Not verified locally:**
+- The Windows and macOS CI jobs, and the export presets (no export templates here).
+- The Docker matrix change.
+- Whether the CI Mesa version matches the goldens closely enough. The tolerance is meant to absorb small differences.
+
+**Next up** (Phase 1 remainder, then Phase 2):
+1. A perf-test galaxy scene with a frame-time budget.
+2. Typed option getters and setters plus an `option_changed` signal.
+3. Multiplayer connect, join, and auth messages.
+4. The rich-text converter.
+5. Then the system/planet context panel on top of the map selection.
