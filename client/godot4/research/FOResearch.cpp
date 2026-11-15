@@ -99,6 +99,10 @@ godot::Array FOResearch::get_techs() {
             entry["status"] = StatusName(empire->GetTechStatus(name));
             entry["in_queue"] = queue.InQueue(name);
             entry["progress"] = cost > 0.0f ? empire->ResearchProgress(name, context) / cost : 0.0f;
+            godot::PackedStringArray prerequisites;
+            for (const auto& prereq : tech.Prerequisites())
+                prerequisites.push_back(ToGodot(prereq));
+            entry["prerequisites"] = prerequisites;
             result.push_back(entry);
         }
     } catch (const std::exception& e) {

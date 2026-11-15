@@ -1,7 +1,8 @@
 class_name ResearchScreen
 extends PanelContainer
 ## Research: the queue (progress, ETA, reorder, remove) on the left, and the
-## techs on the right, filtered by availability and category, searchable.
+## techs on the right, filtered by availability and category, searchable,
+## as a list or as the tech tree (TechTreeView).
 ## Adding a tech also queues its missing prerequisites. Reads and orders
 ## through `source` (ResearchSource by default; tests set a fake).
 
@@ -21,6 +22,17 @@ var _category: OptionButton
 var _search: LineEdit
 var _catalog: VBoxContainer
 var _techs: Array = []
+var _view: TabBar
+var _queue_column: Control
+var _list_view: Control
+var _tree_view: Control
+var _tree: TechTreeView
+var _detail_title: Label
+var _detail_text: Label
+var _detail_add: Button
+var _detail_pedia: Button
+## The tech whose details are shown under the tree.
+var _detail_tech := ""
 
 
 func _init() -> void:
@@ -51,6 +63,23 @@ func refresh() -> void:
 	_refresh_catalog()
 
 
+## Show the tech tree (true) or the list.
+func show_tree(shown: bool) -> void:
+	_view.current_tab = 1 if shown else 0
+
+
+func _on_view_changed(tab: int) -> void:
+	var tree := tab == 1
+	_list_view.visible = not tree
+	_filter.visible = not tree
+	_tree_view.visible = tree
+	# The tree needs the room more than the queue does.
+	_queue_column.size_flags_stretch_ratio = 0.6 if tree else 1.2
+	_refresh_catalog()
+	if tree and _tree.selected.is_empty():
+		_center_tree_on_frontier.call_deferred()
+
+
 func _build() -> void:
 	var margin := MarginContainer.new()
 	add_child(margin)
@@ -62,6 +91,7 @@ func _build() -> void:
 	queue_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	queue_column.size_flags_stretch_ratio = 1.2
 	columns.add_child(queue_column)
+	_queue_column = queue_column
 	_points = ScreenKit.header(queue_column, "RESEARCH_WND_TITLE", close_requested.emit)
 	_queue_list = ScreenKit.list()
 	queue_column.add_child(ScreenKit.scrolling(_queue_list))
@@ -69,6 +99,10 @@ func _build() -> void:
 	var catalog_column := VBoxContainer.new()
 	catalog_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(catalog_column)
+	_view = TabBar.new()
+	_view.add_tab(tr("RESEARCH_VIEW_LIST"))
+	_view.add_tab(tr("RESEARCH_VIEW_TREE"))
+	catalog_column.add_child(_view)
 	_filter = TabBar.new()
 	for filter in FILTERS:
 		_filter.add_tab(tr("RESEARCH_FILTER_" + filter.to_upper()))
@@ -86,7 +120,44 @@ func _build() -> void:
 	_search.text_changed.connect(func(_t): _refresh_catalog())
 	filter_row.add_child(_search)
 	_catalog = ScreenKit.list()
-	catalog_column.add_child(ScreenKit.scrolling(_catalog))
+	_list_view = ScreenKit.scrolling(_catalog)
+	catalog_column.add_child(_list_view)
+
+	# The tree, and the chosen tech's details under it.
+	var tree_box := VBoxContainer.new()
+	tree_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tree_box.visible = false
+	catalog_column.add_child(tree_box)
+	_tree_view = tree_box
+	var frame := PanelContainer.new()
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tree_box.add_child(frame)
+	_tree = TechTreeView.new()
+	_tree.tech_selected.connect(_show_tech_detail)
+	_tree.tech_activated.connect(func(tech_name): _order(source.enqueue(tech_name), true))
+	frame.add_child(_tree)
+	var detail := HBoxContainer.new()
+	tree_box.add_child(detail)
+	var detail_text := VBoxContainer.new()
+	detail_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail_text.add_theme_constant_override("separation", 0)
+	detail.add_child(detail_text)
+	_detail_title = ScreenKit.label(tr("RESEARCH_TREE_HINT"), "SecondaryLabel")
+	detail_text.add_child(_detail_title)
+	_detail_text = ScreenKit.label("", "SmallLabel")
+	_detail_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail_text.add_child(_detail_text)
+	_detail_pedia = ScreenKit.small_button("?", "PEDIA_OPEN")
+	_detail_pedia.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_detail_pedia.visible = false
+	_detail_pedia.pressed.connect(func(): pedia_requested.emit("tech", _detail_tech))
+	detail.add_child(_detail_pedia)
+	_detail_add = Button.new()
+	_detail_add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_detail_add.visible = false
+	_detail_add.pressed.connect(func(): _order(source.enqueue(_detail_tech), true))
+	detail.add_child(_detail_add)
+	_view.tab_changed.connect(_on_view_changed)
 
 
 func _refresh_queue() -> void:
@@ -103,6 +174,9 @@ func _refresh_queue() -> void:
 
 
 func _refresh_catalog() -> void:
+	if _tree_view.visible:
+		_refresh_tree()
+		return
 	ScreenKit.clear(_catalog)
 	var filter: String = FILTERS[_filter.current_tab]
 	var category := _selected_category()
@@ -218,6 +292,66 @@ func _catalog_row(tech: Dictionary) -> Control:
 		add.pressed.connect(func(): _order(source.enqueue(tech_name), true))
 		row.add_child(add)
 	return row
+
+
+# The tree shows the chosen category (all by default); a search selects and
+# centres the first match.
+func _refresh_tree() -> void:
+	var category := _selected_category()
+	var shown: Array = _techs.filter(
+		func(t): return category.is_empty() or t.get("category") == category
+	)
+	_tree.techs = shown
+	var positions := {}
+	var queue: Array = source.get_queue()
+	for i in queue.size():
+		positions[queue[i].get("name", "")] = i
+	_tree.queue_positions = positions
+	var needle := _search.text.strip_edges().to_lower()
+	if not needle.is_empty():
+		for tech: Dictionary in shown:
+			if tr(tech["name"]).to_lower().contains(needle):
+				_tree.selected = tech["name"]
+				_tree.center_on(tech["name"])
+				break
+	_show_tech_detail(_tree.selected)
+
+
+# Start where research is happening: the first researchable tech.
+func _center_tree_on_frontier() -> void:
+	for tech: Dictionary in _tree.techs:
+		if tech.get("status", "") == "researchable":
+			_tree.center_on(tech["name"])
+			return
+
+
+func _show_tech_detail(tech_name: String) -> void:
+	_detail_tech = tech_name
+	var tech: Dictionary = {}
+	for candidate: Dictionary in _techs:
+		if candidate.get("name") == tech_name:
+			tech = candidate
+	_detail_pedia.visible = not tech.is_empty()
+	_detail_add.visible = not tech.is_empty() and tech.get("status") != "complete"
+	if tech.is_empty():
+		_detail_title.text = tr("RESEARCH_TREE_HINT")
+		_detail_text.text = ""
+		return
+	_detail_title.text = tr(tech_name)
+	_detail_text.text = (
+		tr("RESEARCH_ITEM_COST")
+		. replace("%1%", "%.0f" % tech.get("cost", 0.0))
+		. replace("%2%", str(tech.get("turns", 0)))
+		. replace("%3%", tr(tech.get("category", "")))
+	)
+	var description := tr(tech.get("short_description", ""))
+	if not description.is_empty() and not description.begins_with("ERROR: "):
+		_detail_text.text += "\n" + description
+	var queued: bool = tech.get("in_queue", false)
+	_detail_add.disabled = queued
+	_detail_add.text = tr("RESEARCH_QUEUED") if queued else tr("PRODUCTION_ADD")
+	if not queued and tech.get("status") in ["partial", "unresearchable"]:
+		_detail_add.text = tr("RESEARCH_ADD_WITH_PREREQS")
 
 
 func _order(ok: bool, reload_techs := false) -> void:

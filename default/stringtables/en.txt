@@ -2656,6 +2656,15 @@ No techs match.
 RESEARCH_QUEUE_DETAIL
 %1% · %2% RP this turn
 
+RESEARCH_VIEW_LIST
+List
+
+RESEARCH_VIEW_TREE
+Tree
+
+RESEARCH_TREE_HINT
+Drag to move, scroll to zoom. Click a tech for its details and the chain it belongs to; double-click to queue it.
+
 RESEARCH_ITEM_COST
 %1% RP · %2% turns · %3%
 

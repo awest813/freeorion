@@ -123,3 +123,24 @@ func test_techs_missing_prerequisites_offer_them_too():
 		. filter(func(t): return t == tr("RESEARCH_ADD_WITH_PREREQS"))
 	)
 	assert_eq(labels.size(), 1, "SHP_WEAPON_1_2 still needs its prerequisites")
+
+
+func test_tree_view():
+	screen.show_tree(true)
+	await wait_process_frames(1)
+	assert_true(screen._tree_view.visible)
+	assert_false(screen._list_view.visible)
+	assert_eq(screen._tree.techs.size(), fake.techs.size())
+	assert_eq(screen._tree.queue_positions.get("GRO_PLANET_ECOL", -1), 1)
+	screen._tree.tech_selected.emit("SHP_WEAPON_1_2")
+	assert_eq(screen._detail_title.text, tr("SHP_WEAPON_1_2"))
+	assert_eq(screen._detail_add.text, tr("RESEARCH_ADD_WITH_PREREQS"))
+	screen._detail_add.pressed.emit()
+	assert_eq(fake.calls.back(), ["enqueue", "SHP_WEAPON_1_2"])
+	screen._tree.tech_activated.emit("PRO_ROBOTIC_PROD")
+	assert_eq(fake.calls.back(), ["enqueue", "PRO_ROBOTIC_PROD"])
+	screen._search.text = "zortrium"
+	screen._search.text_changed.emit("zortrium")
+	assert_eq(screen._tree.selected, "SHP_ZORTRIUM_PLATE", "Search selects the match")
+	screen.show_tree(false)
+	assert_true(screen._list_view.visible)

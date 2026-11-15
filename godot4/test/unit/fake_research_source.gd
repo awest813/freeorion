@@ -33,18 +33,30 @@ var queue: Array = [
 	},
 ]
 var techs: Array = [
-	_tech("LRN_ALGO_ELEGANCE", "LEARNING_CATEGORY", 10.0, "researchable", true),
+	_tech("LRN_ALGO_ELEGANCE", "LEARNING_CATEGORY", 10.0, "researchable", true, ["LRN_PHYS_BRAIN"]),
 	_tech("GRO_PLANET_ECOL", "GROWTH_CATEGORY", 10.0, "researchable", true),
 	_tech("SHP_ZORTRIUM_PLATE", "SHIP_PARTS_CATEGORY", 48.0, "researchable", false),
 	_tech("PRO_ROBOTIC_PROD", "PRODUCTION_CATEGORY", 40.0, "researchable", false),
-	_tech("SHP_WEAPON_1_2", "SHIP_WEAPONS_CATEGORY", 24.0, "partial", false),
+	_tech(
+		"SHP_WEAPON_1_2",
+		"SHIP_WEAPONS_CATEGORY",
+		24.0,
+		"partial",
+		false,
+		["SHP_ZORTRIUM_PLATE", "LRN_ALGO_ELEGANCE"]
+	),
 	_tech("LRN_PHYS_BRAIN", "LEARNING_CATEGORY", 12.0, "complete", false),
 ]
 var calls: Array = []
 
 
 static func _tech(
-	tech_name: String, category: String, cost: float, status: String, queued: bool
+	tech_name: String,
+	category: String,
+	cost: float,
+	status: String,
+	queued: bool,
+	prerequisites: Array = []
 ) -> Dictionary:
 	return {
 		"name": tech_name,
@@ -56,6 +68,7 @@ static func _tech(
 		"status": status,
 		"in_queue": queued,
 		"progress": 0.0,
+		"prerequisites": PackedStringArray(prerequisites),
 	}
 
 

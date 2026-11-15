@@ -89,6 +89,23 @@ func test_research_screen():
 	await _check_scene(screen, "research_screen", func(s): s.refresh())
 
 
+func test_research_tree():
+	var screen := ResearchScreen.new()
+	screen.source = preload("res://test/unit/fake_research_source.gd").new()
+	await _check_scene(
+		screen,
+		"research_tree",
+		func(s):
+			s.refresh()
+			# Selected first, so the tree doesn't centre itself on the frontier.
+			s._tree.selected = "LRN_ALGO_ELEGANCE"
+			s.show_tree(true)
+			s._tree.zoom = 1.0
+			s._tree.offset = Vector2(24, 24)
+			s._show_tech_detail("LRN_ALGO_ELEGANCE")
+	)
+
+
 func test_pedia_screen():
 	var screen := PediaScreen.new()
 	screen.source = preload("res://test/unit/fake_pedia_source.gd").new()
