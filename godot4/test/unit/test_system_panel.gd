@@ -7,6 +7,7 @@ const SAMPLE := {
 	"planets":
 	[
 		{
+			"id": 10,
 			"name": "Hegira β I",
 			"type": "PT_TERRAN",
 			"size": "SZ_MEDIUM",
@@ -16,8 +17,25 @@ const SAMPLE := {
 			"species": "SP_HUMAN",
 			"focus": "FOCUS_INDUSTRY",
 			"population": 15.0,
+			"actions":
+			{
+				"focus":
+				{
+					"state": "available",
+					"current": "FOCUS_INDUSTRY",
+					"options": ["FOCUS_INDUSTRY", "FOCUS_RESEARCH"],
+					"icons": ["icons/focus/industry.png", "icons/focus/research.png"],
+				},
+			},
 		},
-		{"name": "Hegira β II", "type": "PT_GASGIANT", "size": "SZ_GASGIANT"},
+		{
+			"id": 11,
+			"name": "Hegira β II",
+			"type": "PT_GASGIANT",
+			"size": "SZ_GASGIANT",
+			"actions":
+			{"colonize": {"state": "available", "outpost": true, "ship_name": "Settler"}},
+		},
 	],
 	"fleets_total": 3,
 	"fleets_own": 2,
@@ -111,3 +129,61 @@ func _texts(node: Node) -> Array:
 	for label in node.find_children("*", "Label", true, false):
 		texts.push_back(label.text)
 	return texts
+
+
+func _buttons() -> Array:
+	return panel._planets.find_children("*", "Button", true, false).filter(
+		func(b): return not b is OptionButton
+	)
+
+
+func test_planet_actions_request_orders():
+	panel.show_data(SAMPLE)
+	watch_signals(panel)
+	var outpost: Array = _buttons().filter(func(b): return b.text == tr("PL_OUTPOST"))
+	assert_eq(outpost.size(), 1)
+	outpost[0].pressed.emit()
+	assert_signal_emitted_with_parameters(panel, "planet_action_requested", [11, "colonize"])
+
+
+func test_focus_picker_for_own_planets():
+	panel.show_data(SAMPLE)
+	watch_signals(panel)
+	var pickers: Array = panel._planets.find_children("*", "OptionButton", true, false)
+	assert_eq(pickers.size(), 1, "Only the own planet has a focus picker")
+	assert_eq(pickers[0].get_item_text(pickers[0].selected), tr("FOCUS_INDUSTRY"))
+	pickers[0].item_selected.emit(1)
+	assert_signal_emitted_with_parameters(panel, "focus_requested", [10, "FOCUS_RESEARCH"])
+
+
+func test_action_texts():
+	assert_eq(
+		SystemPanel.action_text(
+			"colonize", {"state": "available", "capacity": 1.0, "target_population": 13.0}
+		),
+		tr("PL_COLONIZE").replace("%1%", "1.0").replace("%2%", "13.0")
+	)
+	assert_eq(SystemPanel.action_text("colonize", {"state": "pending"}), tr("PL_CANCEL_COLONIZE"))
+	assert_eq(
+		SystemPanel.action_text("invade", {"state": "available", "troops": 6.0, "defenders": 5.0}),
+		tr("PL_INVADE").replace("%1%", "6.0").replace("%2%", "5.0")
+	)
+	assert_eq(
+		SystemPanel.action_text("annex", {"state": "available", "cost": 0.0}), tr("PL_ANNEX_FREE")
+	)
+	assert_eq(
+		SystemPanel.action_text("annex", {"state": "unaffordable", "cost": 12.5}),
+		tr("PL_ANNEXABLE").replace("%1%", "12.5")
+	)
+	assert_eq(SystemPanel.action_text("invade", {"state": ""}), "", "Not offered")
+
+
+func test_unaffordable_annex_is_disabled():
+	var data := SAMPLE.duplicate(true)
+	data["planets"][1]["actions"] = {"annex": {"state": "unaffordable", "cost": 30.0}}
+	panel.show_data(data)
+	var annex: Array = _buttons().filter(
+		func(b): return b.text.begins_with(tr("PL_ANNEXABLE").get_slice("%", 0))
+	)
+	assert_eq(annex.size(), 1)
+	assert_true(annex[0].disabled)

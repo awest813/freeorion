@@ -143,6 +143,9 @@ func _ready() -> void:
 	fleet_panel.aggression_requested.connect(_on_fleet_aggression)
 	fleet_panel.split_requested.connect(_on_fleet_split)
 	fleet_panel.merge_requested.connect(_on_fleet_merge)
+	fleet_panel.scrap_requested.connect(_on_fleet_scrap)
+	system_panel.planet_action_requested.connect(_on_planet_action)
+	system_panel.focus_requested.connect(_on_focus_requested)
 
 	# The menu covers everything, the top bar included.
 	game_menu = GameMenu.new()
@@ -316,6 +319,37 @@ func _on_fleet_split(ship_ids: PackedInt32Array) -> void:
 func _on_fleet_merge(dest_fleet_id: int, ship_ids: PackedInt32Array) -> void:
 	if FOOrders.merge_ships(dest_fleet_id, ship_ids):
 		_refresh_fleet_views(dest_fleet_id)
+
+
+func _on_fleet_scrap(ship_ids: PackedInt32Array) -> void:
+	for ship_id in ship_ids:
+		FOPlanetActions.scrap(ship_id)
+	_refresh_fleet_views(fleet_panel.fleet_id)
+
+
+# Colonise, invade or annex (each toggles the order), then show the result.
+func _on_planet_action(planet_id: int, action: String) -> void:
+	if not follow_game:
+		return
+	var done := false
+	match action:
+		"colonize":
+			done = FOPlanetActions.colonize(planet_id)
+		"invade":
+			done = FOPlanetActions.invade(planet_id)
+		"annex":
+			done = FOPlanetActions.annex(planet_id)
+	system_panel.refresh()
+	if not done:
+		system_panel.show_notice(tr("SYSTEM_PANEL_ACTION_REFUSED"))
+	if fleet_panel.visible:
+		fleet_panel.refresh()
+
+
+func _on_focus_requested(planet_id: int, focus: String) -> void:
+	if follow_game and not FOPlanetActions.set_focus(planet_id, focus):
+		system_panel.show_notice(tr("SYSTEM_PANEL_ACTION_REFUSED"))
+	system_panel.refresh()
 
 
 # After a fleet order: re-read the system panel and show \a fleet_id.

@@ -10,8 +10,12 @@ signal rename_requested(fleet_id: int, new_name: String)
 signal aggression_requested(fleet_id: int, aggression: String)
 signal split_requested(ship_ids: PackedInt32Array)
 signal merge_requested(dest_fleet_id: int, ship_ids: PackedInt32Array)
+## Scrap the ships (or cancel their scrapping) at the next turn.
+signal scrap_requested(ship_ids: PackedInt32Array)
 
 const WIDTH := 340
+## Ship rows shown before the list scrolls.
+const VISIBLE_SHIPS := 5
 ## Stance, its short label key and its full name key (tooltip, with the
 ## matching _DESC), in increasing aggression.
 const STANCES := [
@@ -28,9 +32,11 @@ var _name: LineEdit
 var _route: Label
 var _stance_buttons := {}
 var _ships: VBoxContainer
+var _ships_scroll: ScrollContainer
 var _split: Button
 var _merge_target: OptionButton
 var _merge: Button
+var _scrap: Button
 var _selected := {}
 
 
@@ -82,6 +88,7 @@ func show_data(data: Dictionary) -> void:
 	for ship: Dictionary in data.get("ships", []):
 		ship_ids[ship["id"]] = true
 		_ships.add_child(_ship_row(ship))
+	_fit_ship_list()
 	# Keep the split selection for ships still in the fleet.
 	for id in _selected.keys():
 		if not ship_ids.has(id):
@@ -92,6 +99,18 @@ func show_data(data: Dictionary) -> void:
 	_merge_target.visible = _merge_target.item_count > 0
 	_merge.visible = _merge_target.item_count > 0
 	_update_buttons()
+
+
+# Big fleets scroll instead of pushing the panel off the screen.
+func _fit_ship_list() -> void:
+	var height := 0.0
+	var rows := _ships.get_children()
+	for i in mini(rows.size(), VISIBLE_SHIPS):
+		height += rows[i].get_combined_minimum_size().y
+	height += (
+		_ships.get_theme_constant("separation") * maxi(0, mini(rows.size(), VISIBLE_SHIPS) - 1)
+	)
+	_ships_scroll.custom_minimum_size.y = height
 
 
 func selected_ship_ids() -> PackedInt32Array:
@@ -176,7 +195,11 @@ func _build() -> void:
 
 	box.add_child(HSeparator.new())
 	_ships = VBoxContainer.new()
-	box.add_child(_ships)
+	_ships.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ships_scroll = ScrollContainer.new()
+	_ships_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_ships_scroll.add_child(_ships)
+	box.add_child(_ships_scroll)
 
 	var actions := HBoxContainer.new()
 	box.add_child(actions)
@@ -194,6 +217,14 @@ func _build() -> void:
 	_merge.tooltip_text = tr("FLEET_PANEL_MERGE_DESC")
 	_merge.pressed.connect(_on_merge_pressed)
 	actions.add_child(_merge)
+	# Scrapping on its own row, away from the everyday actions.
+	var scrap_row := HBoxContainer.new()
+	scrap_row.alignment = BoxContainer.ALIGNMENT_END
+	box.add_child(scrap_row)
+	_scrap = Button.new()
+	_scrap.theme_type_variation = "DangerButton"
+	_scrap.pressed.connect(func(): scrap_requested.emit(selected_ship_ids()))
+	scrap_row.add_child(_scrap)
 
 
 func _ship_row(ship: Dictionary) -> Control:
@@ -219,7 +250,11 @@ func _ship_row(ship: Dictionary) -> Control:
 	]:
 		if ship.get(role[0], false):
 			roles.push_back(tr(role[1]))
-	text.add_child(ScreenKit.label(" · ".join(roles), "SmallLabel"))
+	var role_label := ScreenKit.label(" · ".join(roles), "SmallLabel")
+	if ship.get("scrapping", false):
+		role_label.text += " · " + tr("FLEET_PANEL_SCRAPPING")
+		role_label.add_theme_color_override("font_color", FOUi.tokens.negative)
+	text.add_child(role_label)
 	var max_structure: float = ship.get("max_structure", 0.0)
 	if max_structure > 0.0:
 		var structure := ProgressBar.new()
@@ -238,6 +273,14 @@ func _update_buttons() -> void:
 	var ships: Array = _data.get("ships", [])
 	# Splitting needs some ships selected, but not all of them.
 	_split.disabled = _selected.is_empty() or _selected.size() >= ships.size()
+	# Scrap toggles: when all selected ships are being scrapped, it cancels.
+	var scrapping := not _selected.is_empty()
+	for ship: Dictionary in ships:
+		if _selected.has(ship["id"]) and not ship.get("scrapping", false):
+			scrapping = false
+	_scrap.disabled = _selected.is_empty()
+	_scrap.text = tr("ORDER_CANCEL_SHIP_SCRAP" if scrapping else "ORDER_SHIP_SCRAP")
+	_scrap.theme_type_variation = "GhostButton" if scrapping else "DangerButton"
 
 
 func _on_ship_toggled(pressed: bool, ship_id: int) -> void:

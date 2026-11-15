@@ -98,3 +98,35 @@ func test_rename_on_enter():
 func _check(row: int, pressed: bool) -> void:
 	var box: CheckBox = panel._ships.get_child(row).find_children("*", "CheckBox", true, false)[0]
 	box.button_pressed = pressed
+
+
+func test_scrap_selected_ships_and_cancel():
+	watch_signals(panel)
+	assert_true(panel._scrap.disabled, "Nothing selected")
+	panel._on_ship_toggled(true, 71)
+	assert_false(panel._scrap.disabled)
+	assert_eq(panel._scrap.text, tr("ORDER_SHIP_SCRAP"))
+	panel._scrap.pressed.emit()
+	assert_signal_emitted_with_parameters(panel, "scrap_requested", [PackedInt32Array([71])])
+	var scrapping := SAMPLE.duplicate(true)
+	scrapping["ships"][1]["scrapping"] = true
+	panel.show_data(scrapping)
+	assert_eq(panel._scrap.text, tr("ORDER_CANCEL_SHIP_SCRAP"), "Pressing again cancels")
+	var labels: Array = panel._ships.find_children("*", "Label", true, false)
+	assert_true(labels.any(func(l): return l.text.contains(tr("FLEET_PANEL_SCRAPPING"))))
+
+
+func test_big_fleets_scroll():
+	var big := SAMPLE.duplicate(true)
+	var ship: Dictionary = big["ships"][0]
+	for i in 12:
+		var copy := ship.duplicate()
+		copy["id"] = 100 + i
+		big["ships"].push_back(copy)
+	panel.show_data(big)
+	await wait_process_frames(2)
+	assert_lt(
+		panel._ships_scroll.size.y,
+		panel._ships.size.y,
+		"Fourteen ships don't all fit; the list scrolls"
+	)

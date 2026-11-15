@@ -16,28 +16,29 @@ reading both clients; update it as gaps close.
 
 The fork covers the menus, galaxy setup, save/load, the map with fleet moves,
 production, research, government, the ship designer, the Pedia, options,
-combat reports and the objects list. What blocks a real game today is the
-**planet actions**: you can't colonise, invade, annex or change focus, so
-an empire can't grow. After that come the information a player plays by
-(resources in the top bar, supply ranges, planet meters) and the game's
-end states (victory, defeat, server errors).
+combat reports and the objects list. Nothing blocks a normal
+single-player game any more. The planet actions (colonise, invade, annex,
+focus, scrap) were the last P0 gap. Next come the information a player
+plays by (resources in the top bar, supply ranges, planet meters) and the
+game's end states (victory, defeat, server errors).
 
 | Priority | Open items | Main ones |
 |---|---|---|
-| P0 | 5 | Colonise/outpost, invade, annex; change focus; scrap |
+| P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 13 | Top-bar resources; supply on the map; planet detail; autosave; end of game and server errors; diplomacy; species and colour in setup; meter tooltips; multiplayer |
 | P2 | 22 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
 | P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
-| Gap | Legacy | Size | Notes |
-|---|---|---|---|
-| Colonise and outpost a planet | `UI/SidePanel.cpp` `ClickColonize`, `AutomaticallyChosenColonyShip` | M | Needs a `ColonizeOrder` in the bridge, choosing the best colony ship in the system and projecting the new colony's target population, plus a button with cancel on the planet row. |
-| Invade a planet | `SidePanel.cpp` `ClickInvade`, `AutomaticallyChosenInvasionShips` | S | `InvadeOrder` with "just enough" troop ships; show own troops against defenders. |
-| Annex natives | `SidePanel.cpp` annex button, `AnnexOrder` | S | Cost in IP, affordability, the species' annexation condition; cancel. |
-| Change a planet's focus | `SidePanel.cpp` focus drop-down, `ChangeFocusOrder` | S | Available foci per planet; the panel shows the focus but can't change it. |
-| Scrap ships and buildings | `FleetWnd.cpp`, `BuildingsPanel`, `ScrapOrder` | S | Including cancelling a scrap. |
+None open. Closed on 2026-11-15:
+- Colonise and outpost.
+- Invade.
+- Annex.
+- Change focus.
+- Scrap ships.
+
+Each is an action button, or a focus picker, on the planet rows of the system panel; Scrap is in the fleet panel. They are ported from `SidePanel`'s choices: the colony ship giving the largest projected colony, and "just enough" troop ships. Colonising and changing focus were checked in a real game. Invading and annexing are covered by unit tests only so far.
 
 ## P1: a regular player misses it
 
@@ -48,7 +49,7 @@ end states (victory, defeat, server errors).
 | Resources in the top bar | `MapWnd` toolbar (`m_industry`, `m_research`, `m_influence`, `m_population`, `m_detection`, fleet counts) | S | PP, RP and IP with this turn's change, stockpile, population; each opens its screen. |
 | Supply ranges on the map | `MapWnd::InitStarlaneRenderingBuffers` supply lanes, `RenderSupply` | M | Owner-tinted supply lanes or territory shader (plan, phase 3). Decides where fleets resupply and where production can be delivered. |
 | Fields (ion storms, nebulae, black holes) | `UI/FieldIcon.cpp` | S | Not drawn at all; they change stealth, detection and movement. |
-| Planet detail | `SidePanel` population, resource, military, buildings and specials panels | M | Meters with their targets (industry, research, influence, stability, supply, defence, shield, troops), buildings and specials. The panel shows population and focus only. |
+| Planet detail | `SidePanel` population, resource, military, buildings and specials panels | M | Meters with their targets (industry, research, influence, stability, supply, defence, shield, troops), buildings (with scrapping) and specials. The panel shows population and focus only. |
 | Meter breakdown tooltips | `UI/MeterBrowseWnd.cpp`, `ShipDesignBrowseWnd`, `IconTextBrowseWnd` | L | Why a meter has its value (each effect's contribution). FreeOrion's main teaching tool. |
 | Bombard | `SidePanel.cpp` `ClickBombard` | S | Rarely used but part of the planet actions. |
 

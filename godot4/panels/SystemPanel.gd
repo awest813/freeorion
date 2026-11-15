@@ -1,7 +1,8 @@
 class_name SystemPanel
 extends PanelContainer
 ## Context panel for the selected system: star, planets (type, size, owner,
-## species, focus, population) and fleets present.
+## species, focus, population, and what the player can do with each:
+## colonise, invade, annex, change focus) and fleets present.
 ##
 ## show_system(id) reads the client universe; show_data(dict) takes the same
 ## data directly (tests, previews). See from_universe() for the layout.
@@ -9,6 +10,11 @@ extends PanelContainer
 signal close_requested
 ## An own fleet was selected in the list (-1: selection cleared).
 signal fleet_selected(fleet_id: int)
+## A planet action button was pressed: "colonize", "invade" or "annex" (each
+## toggles the order).
+signal planet_action_requested(planet_id: int, action: String)
+## A new focus was picked for an own planet.
+signal focus_requested(planet_id: int, focus: String)
 
 const WIDTH := 340
 
@@ -163,6 +169,8 @@ static func from_universe(id: int) -> Dictionary:
 			planets
 			. push_back(
 				{
+					"id": planet_id,
+					"actions": FOPlanetActions.get_actions(planet_id),
 					"name": planet.get_name(),
 					"type": planet.get_planet_type(),
 					"size": planet.get_planet_size(),
@@ -307,7 +315,101 @@ func _planet_row(planet: Dictionary) -> Control:
 	var detail_label := _label(" · ".join(details), "SmallLabel")
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text.add_child(detail_label)
+	var actions := _planet_actions(planet)
+	if actions.get_child_count() > 0:
+		text.add_child(actions)
 	return row
+
+
+# What the player can do with \a planet: the focus picker for own planets,
+# and colonise / invade / annex buttons (or their cancel buttons).
+func _planet_actions(planet: Dictionary) -> HFlowContainer:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", FOUi.tokens.space_1)
+	flow.add_theme_constant_override("v_separation", FOUi.tokens.space_1)
+	var actions: Dictionary = planet.get("actions", {})
+	var planet_id: int = planet.get("id", -1)
+	var focus: Dictionary = actions.get("focus", {})
+	if focus.get("state", "") == "available":
+		flow.add_child(_focus_picker(planet_id, focus))
+	for action in ["colonize", "invade", "annex"]:
+		var entry: Dictionary = actions.get(action, {})
+		var text := action_text(action, entry)
+		if text.is_empty():
+			continue
+		var button := Button.new()
+		button.text = text
+		var state: String = entry.get("state", "")
+		button.theme_type_variation = "GhostButton" if state == "pending" else "SegmentButton"
+		button.disabled = state in ["unaffordable", "restricted"]
+		if action == "colonize" and state == "available":
+			button.tooltip_text = (
+				"%s (%s)" % [entry.get("ship_name", ""), tr(entry.get("species", ""))]
+			)
+		button.pressed.connect(planet_action_requested.emit.bind(planet_id, action))
+		flow.add_child(button)
+	return flow
+
+
+func _focus_picker(planet_id: int, focus: Dictionary) -> OptionButton:
+	var picker := OptionButton.new()
+	picker.theme_type_variation = "SegmentButton"
+	picker.tooltip_text = tr("FOCUS")
+	var options: PackedStringArray = focus.get("options", PackedStringArray())
+	var icons: PackedStringArray = focus.get("icons", PackedStringArray())
+	for i in options.size():
+		picker.add_item(tr(options[i]))
+		var icon: Texture2D = FOArt.icon(icons[i]) if i < icons.size() else null
+		if icon:
+			picker.set_item_icon(i, icon)
+		if options[i] == focus.get("current", ""):
+			picker.select(i)
+	picker.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_small)
+	picker.item_selected.connect(func(index: int): focus_requested.emit(planet_id, options[index]))
+	return picker
+
+
+## Button text for planet \a action ("colonize", "invade", "annex") in
+## \a entry's state; "" when the action isn't offered.
+static func action_text(action: String, entry: Dictionary) -> String:
+	var state: String = entry.get("state", "")
+	var text := ""
+	match [action, state]:
+		["colonize", "available"]:
+			if entry.get("outpost", false):
+				text = _tr("PL_OUTPOST")
+			else:
+				text = (
+					_tr("PL_COLONIZE")
+					. replace("%1%", "%.1f" % entry.get("capacity", 0.0))
+					. replace("%2%", "%.1f" % entry.get("target_population", 0.0))
+				)
+		["colonize", "pending"]:
+			text = _tr("PL_CANCEL_COLONIZE")
+		["invade", "available"]:
+			text = (_tr("PL_INVADE").replace("%1%", "%.1f" % entry.get("troops", 0.0)).replace(
+				"%2%", "%.1f" % entry.get("defenders", 0.0)
+			))
+		["invade", "pending"]:
+			text = _tr("PL_CANCEL_INVADE")
+		["annex", "available"]:
+			var cost: float = entry.get("cost", 0.0)
+			text = (
+				_tr("PL_ANNEX_FREE")
+				if cost == 0.0
+				else _tr("PL_ANNEX").replace("%1%", "%.1f" % cost)
+			)
+		["annex", "pending"]:
+			text = _tr("PL_CANCEL_ANNEX").replace("%1%", "%.1f" % entry.get("cost", 0.0))
+		["annex", "unaffordable"]:
+			text = _tr("PL_ANNEXABLE").replace("%1%", "%.1f" % entry.get("cost", 0.0))
+		["annex", "restricted"]:
+			text = _tr("PL_ANNEXATION_RESTRICTED")
+	return text
+
+
+static func _tr(key: String) -> String:
+	return TranslationServer.translate(key)
 
 
 # Fixed-size icon; an empty placeholder keeps rows aligned when art is missing.

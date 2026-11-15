@@ -2165,6 +2165,9 @@ Right-click a system on the map to send the selected fleet there.
 SYSTEM_PANEL_ORDER_REFUSED
 The selected fleet can't move to that system.
 
+SYSTEM_PANEL_ACTION_REFUSED
+That order isn't possible right now.
+
 FLEET_PANEL_STATIONARY
 Not moving
 
@@ -2185,6 +2188,9 @@ Move all ships of this fleet into the chosen fleet.
 
 FLEET_PANEL_SELECT_SHIP
 Check to include this ship when splitting.
+
+FLEET_PANEL_SCRAPPING
+scrapped at the next turn
 
 FLEET_PANEL_ARMED
 armed
