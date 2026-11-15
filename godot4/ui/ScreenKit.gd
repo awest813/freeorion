@@ -1,0 +1,84 @@
+class_name ScreenKit
+extends RefCounted
+## Small builders shared by full screens (production, research, ...), so
+## they look and behave alike.
+
+
+static func label(text: String, variation := "") -> Label:
+	var result := Label.new()
+	result.text = text
+	result.theme_type_variation = variation
+	return result
+
+
+## Fixed-size art icon; empty placeholder when the file is missing.
+static func icon(path: String, size: int = -1, fallback: Texture2D = null) -> TextureRect:
+	var rect := TextureRect.new()
+	rect.texture = FOArt.icon(path)
+	if rect.texture == null:
+		rect.texture = fallback
+	var side := size if size > 0 else FOUi.tokens.icon_large
+	rect.custom_minimum_size = Vector2(side, side)
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return rect
+
+
+static func small_button(text: String, tooltip_key: String, enabled := true) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.theme_type_variation = "GhostButton"
+	button.tooltip_text = TranslationServer.translate(tooltip_key)
+	button.disabled = not enabled
+	return button
+
+
+## Vertical list that fills its column.
+static func list() -> VBoxContainer:
+	var result := VBoxContainer.new()
+	result.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return result
+
+
+## Scroll container for \a content that expands vertically and keeps rows
+## clear of the scrollbar.
+static func scrolling(content: Control) -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var gutter := MarginContainer.new()
+	gutter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for side in ["margin_left", "margin_top", "margin_bottom"]:
+		gutter.add_theme_constant_override(side, 0)
+	gutter.add_theme_constant_override("margin_right", FOUi.tokens.space_4)
+	gutter.add_child(content)
+	scroll.add_child(gutter)
+	return scroll
+
+
+## Screen header: title, an info label (returned) and a close button.
+static func header(parent: Control, title_key: String, on_close: Callable) -> Label:
+	var row := HBoxContainer.new()
+	parent.add_child(row)
+	var title := label(TranslationServer.translate(title_key), "HeadingLabel")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(title)
+	var info := label("", "SecondaryLabel")
+	info.size_flags_vertical = Control.SIZE_SHRINK_END
+	row.add_child(info)
+	var close := small_button("✕", "PANEL_CLOSE")
+	close.pressed.connect(on_close)
+	row.add_child(close)
+	return info
+
+
+static func turns_text(turns: int) -> String:
+	if turns < 0:
+		return TranslationServer.translate("PRODUCTION_NEVER")
+	return TranslationServer.translate("MAP_ROUTE_ETA").replace("%1%", str(turns))
+
+
+static func clear(container: Node) -> void:
+	for child in container.get_children():
+		child.queue_free()

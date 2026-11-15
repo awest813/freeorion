@@ -23,6 +23,11 @@ static func meter_icon(meter: String) -> Texture2D:
 	return _icon("icons/meter/%s.png" % meter)
 
 
+## Icon for a tech category key such as "PRODUCTION_CATEGORY".
+static func tech_category_icon(category: String) -> Texture2D:
+	return _icon("icons/tech/categories/%s.png" % category.trim_suffix("_CATEGORY").to_lower())
+
+
 ## Any image relative to the art directory, e.g. a sitrep icon path.
 static func icon(relative_path: String) -> Texture2D:
 	return _icon(relative_path) if not relative_path.is_empty() else null

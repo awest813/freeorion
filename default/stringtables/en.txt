@@ -2010,6 +2010,36 @@ Move down
 PRODUCTION_REMOVE
 Remove from queue
 
+RESEARCH_POINTS
+%1% / %2% RP
+
+RESEARCH_FILTER_RESEARCHABLE
+Available
+
+RESEARCH_FILTER_OPEN
+Not researched
+
+RESEARCH_FILTER_COMPLETE
+Researched
+
+RESEARCH_EMPTY_QUEUE
+Nothing queued. Add techs from the list on the right.
+
+RESEARCH_NOTHING_MATCHES
+No techs match.
+
+RESEARCH_QUEUE_DETAIL
+%1% · %2% RP this turn
+
+RESEARCH_ITEM_COST
+%1% RP · %2% turns · %3%
+
+RESEARCH_NEEDS_PREREQS
+adds prerequisites
+
+RESEARCH_QUEUED
+Queued
+
 OPTIONS_DB_UI_TITLE_FONT
 Sets UI title font resource file.
 

@@ -13,6 +13,9 @@ var top_bar: TopBar
 var system_panel: SystemPanel
 var feed: NotificationFeed
 var production_screen: ProductionScreen
+var research_screen: ResearchScreen
+## Name of the full screen shown over the map, or "" for the map.
+var active_screen := ""
 
 
 func _init() -> void:
@@ -50,11 +53,13 @@ func _ready() -> void:
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screens.add_child(body)
 	production_screen = ProductionScreen.new()
-	production_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	production_screen.visible = false
-	production_screen.close_requested.connect(show_production.bind(false))
-	screens.add_child(production_screen)
-	top_bar.production_toggled.connect(show_production)
+	research_screen = ResearchScreen.new()
+	for screen in [production_screen, research_screen]:
+		screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		screen.visible = false
+		screen.close_requested.connect(show_screen.bind(""))
+		screens.add_child(screen)
+	top_bar.screen_requested.connect(show_screen)
 	var feed_margin := MarginContainer.new()
 	feed_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -97,19 +102,34 @@ func _ready() -> void:
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 
 
-## Show or hide the production screen over the map.
-func show_production(shown: bool) -> void:
-	top_bar.set_production_shown(shown)
-	if shown and follow_game:
+## Show the full screen \a screen_name ("production", "research") over the
+## map, or return to the map with "".
+func show_screen(screen_name: String) -> void:
+	active_screen = screen_name
+	top_bar.set_active_screen(screen_name)
+	production_screen.visible = screen_name == "production"
+	research_screen.visible = screen_name == "research"
+	if screen_name == "production" and follow_game:
 		production_screen.refresh()
 		# Build at the selected system's own planet, if there is one.
 		var system: FOSystem = FOUniverse.get_system(map_view.map.selected_system_id())
 		if system:
 			for planet_id in system.get_planet_ids():
 				production_screen.select_location(planet_id)
-	production_screen.visible = shown
+	elif screen_name == "research" and follow_game:
+		research_screen.refresh()
+	var shown := _screen_node(screen_name)
 	if shown:
-		FOUi.fade_in(production_screen)
+		FOUi.fade_in(shown)
+
+
+func _screen_node(screen_name: String) -> Control:
+	match screen_name:
+		"production":
+			return production_screen
+		"research":
+			return research_screen
+	return null
 
 
 # Frame the galaxy below the top bar; refit while the player hasn't moved.
@@ -142,6 +162,8 @@ func _on_turn_update() -> void:
 	system_panel.refresh()
 	if production_screen.visible:
 		production_screen.refresh()
+	if research_screen.visible:
+		research_screen.refresh()
 	_show_route(system_panel.selected_fleet_id())
 
 

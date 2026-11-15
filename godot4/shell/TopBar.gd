@@ -4,12 +4,16 @@ extends PanelContainer
 ## Follows the running game unless follow_game is false; set_state() then
 ## drives it directly (tests, previews).
 
-## Emitted when the Production toggle changes (F2 toggles it too).
-signal production_toggled(shown: bool)
+## A screen button was pressed: the screen's name, or "" to return to the map.
+signal screen_requested(screen_name: String)
 
 ## Ctrl+Enter ends the turn, as a keyboard path to the primary action.
 const END_TURN_KEY := KEY_ENTER
-const PRODUCTION_KEY := KEY_F2
+## Screen buttons: name, label key, shortcut.
+const SCREENS := [
+	["production", "MAP_BTN_PRODUCTION", KEY_F2],
+	["research", "MAP_BTN_RESEARCH", KEY_F3],
+]
 
 var follow_game := true
 
@@ -17,7 +21,7 @@ var _swatch: ColorRect
 var _empire: Label
 var _turn: Label
 var _end_turn: Button
-var _production: Button
+var _screen_buttons := {}
 var _waiting := false
 
 
@@ -45,9 +49,14 @@ func set_state(empire_name: String, color: Color, turn: int, waiting: bool) -> v
 	_end_turn.text = tr("TOPBAR_WAITING") if waiting else tr("TOPBAR_END_TURN")
 
 
-## Reflect the production screen state without emitting production_toggled.
-func set_production_shown(shown: bool) -> void:
-	_production.set_pressed_no_signal(shown)
+## Mark \a screen_name ("" for the map) as shown, without emitting signals.
+func set_active_screen(screen_name: String) -> void:
+	for key in _screen_buttons:
+		_screen_buttons[key].set_pressed_no_signal(key == screen_name)
+
+
+func _on_screen_toggled(pressed: bool, screen_name: String) -> void:
+	screen_requested.emit(screen_name if pressed else "")
 
 
 func is_waiting() -> bool:
@@ -67,17 +76,19 @@ func _build() -> void:
 	var nav_gap := Control.new()
 	nav_gap.custom_minimum_size.x = FOUi.tokens.space_6
 	row.add_child(nav_gap)
-	_production = Button.new()
-	_production.text = tr("MAP_BTN_PRODUCTION")
-	_production.toggle_mode = true
-	_production.theme_type_variation = "GhostButton"
-	_production.tooltip_text = "%s (F2)" % tr("MAP_BTN_PRODUCTION")
-	var production_key := InputEventKey.new()
-	production_key.keycode = PRODUCTION_KEY
-	_production.shortcut = Shortcut.new()
-	_production.shortcut.events = [production_key]
-	_production.toggled.connect(production_toggled.emit)
-	row.add_child(_production)
+	for screen in SCREENS:
+		var button := Button.new()
+		button.text = tr(screen[1])
+		button.toggle_mode = true
+		button.theme_type_variation = "GhostButton"
+		button.tooltip_text = "%s (%s)" % [tr(screen[1]), OS.get_keycode_string(screen[2])]
+		var key := InputEventKey.new()
+		key.keycode = screen[2]
+		button.shortcut = Shortcut.new()
+		button.shortcut.events = [key]
+		button.toggled.connect(_on_screen_toggled.bind(screen[0]))
+		row.add_child(button)
+		_screen_buttons[screen[0]] = button
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)

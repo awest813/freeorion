@@ -20,6 +20,7 @@ func before_turn() -> void:
 	_check_snapshot()
 	await _check_galaxy_map()
 	_check_production()
+	_check_research()
 
 	_test.assert_null(FOUniverse.get_system(-1), "No view for an invalid system ID")
 	_test.assert_null(FOUniverse.get_fleet(-1), "No view for an invalid fleet ID")
@@ -166,6 +167,36 @@ func _check_production() -> void:
 	_test.add_child_autofree(screen)
 	screen.refresh()
 	_test.assert_gt(screen._queue_list.get_child_count(), 0, "Screen lists the real queue")
+
+
+# Research bridge: techs, enqueue with prerequisites, move and remove.
+func _check_research() -> void:
+	var techs := FOResearch.get_techs()
+	_test.assert_gt(techs.size(), 50, "Tech list loaded")
+	_test.assert_gt(FOResearch.get_categories().size(), 3, "Tech categories")
+	_test.assert_gt(FOResearch.get_points()["available"], 0.0, "Research available")
+	var partial := techs.filter(func(t): return t["status"] == "partial" and not t["in_queue"])
+	_test.assert_gt(partial.size(), 0, "Some techs need prerequisites")
+	if partial.is_empty():
+		return
+	var tech_name: String = partial[0]["name"]
+	var before := FOResearch.get_queue().size()
+	_test.assert_true(FOResearch.enqueue(tech_name), "Enqueue tech with prerequisites")
+	var queue := FOResearch.get_queue()
+	var names := queue.map(func(e): return e["name"])
+	_test.assert_gt(queue.size(), before + 1, "Prerequisites queued too")
+	_test.assert_eq(names.back(), tech_name, "Tech queued after its prerequisites")
+	_test.assert_true(FOResearch.move(tech_name, 0), "Move to front")
+	_test.assert_eq(FOResearch.get_queue()[0]["name"], tech_name)
+	_test.assert_true(FOResearch.remove(tech_name), "Remove")
+	_test.assert_false(
+		FOResearch.get_queue().any(func(e): return e["name"] == tech_name), "Removed from queue"
+	)
+	_test.assert_false(FOResearch.enqueue("NO_SUCH_TECH"), "Unknown tech refused")
+	var screen := ResearchScreen.new()
+	_test.add_child_autofree(screen)
+	screen.refresh()
+	_test.assert_gt(screen._catalog.get_child_count(), 0, "Screen lists real techs")
 
 
 func _check_snapshot() -> void:
