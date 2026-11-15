@@ -11,3 +11,10 @@ func test_non_ascii_survives_translation():
 func test_unknown_key_is_flagged_like_the_gg_client():
 	# UserString marks missing keys, which makes them easy to spot in the UI.
 	assert_eq(tr("NO_SUCH_KEY_FOR_TEST"), "ERROR: NO_SUCH_KEY_FOR_TEST")
+
+
+func test_text_that_is_not_a_key_is_left_alone():
+	# Auto-translation also sees names and already translated text.
+	assert_eq(tr("Terran Imperium · Turn 1"), "Terran Imperium · Turn 1")
+	assert_eq(tr("Passive"), "Passive")
+	assert_eq(tr("42"), "42")

@@ -124,6 +124,16 @@ static func _buttons(theme: Theme, t: FOTokens) -> void:
 	)
 	theme.set_font_size("font_size", "SegmentButton", t.font_size_small)
 
+	# Destructive action, e.g. leaving the game: "DangerButton".
+	theme.set_type_variation("DangerButton", "Button")
+	theme.set_stylebox("normal", "DangerButton", box(t, t.surface_raised, t.negative, pad_x, pad_y))
+	theme.set_stylebox("hover", "DangerButton", box(t, t.negative, t.negative, pad_x, pad_y))
+	theme.set_stylebox("pressed", "DangerButton", box(t, t.negative, t.negative, pad_x, pad_y))
+	theme.set_color("font_color", "DangerButton", t.negative)
+	theme.set_color("font_focus_color", "DangerButton", t.negative)
+	for color in ["font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+		theme.set_color(color, "DangerButton", t.text_on_accent)
+
 	# Low-emphasis button with no box until hovered: "GhostButton".
 	theme.set_type_variation("GhostButton", "Button")
 	var ghost := box(t, Color(0, 0, 0, 0), Color(0, 0, 0, 0), pad_x, pad_y)

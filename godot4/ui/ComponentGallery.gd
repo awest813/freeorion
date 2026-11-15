@@ -28,6 +28,7 @@ func _type_and_buttons() -> Control:
 	row.add_child(_button("End turn", "PrimaryButton"))
 	row.add_child(_button("Research"))
 	row.add_child(_button("Cancel", "GhostButton"))
+	row.add_child(_button("Leave game", "DangerButton"))
 	box.add_child(row)
 
 	var states := HBoxContainer.new()

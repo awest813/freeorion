@@ -4,6 +4,10 @@ extends Control
 ## the right. Grows into the Phase 4 shell (left rail, notifications); until
 ## then UpstreamAdapters places it in upstream's MapWnd.
 
+## Leave the game (from the menu): \a action is "title", "exit" or "load"
+## (then \a path is the save to load). Shell ends the game.
+signal leave_requested(action: String, path: String)
+
 const GALAXY_MAP_VIEW := preload("res://map/GalaxyMapView.tscn")
 
 ## Set false before adding to the tree to feed map and panel directly (tests).
@@ -19,6 +23,8 @@ var pedia_screen: PediaScreen
 var options_screen: OptionsScreen
 var government_screen: GovernmentScreen
 var save_screen: SaveLoadScreen
+var load_screen: SaveLoadScreen
+var game_menu: GameMenu
 var designer_screen: DesignerScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
@@ -66,6 +72,9 @@ func _ready() -> void:
 	designer_screen = DesignerScreen.new()
 	save_screen = SaveLoadScreen.new()
 	save_screen.mode = "save"
+	load_screen = SaveLoadScreen.new()
+	load_screen.defer_load = true
+	load_screen.load_started.connect(func(path: String): leave_requested.emit("load", path))
 	government_screen.pedia_requested.connect(open_pedia)
 	pedia_screen.link_activated.connect(_on_link_activated)
 	research_screen.pedia_requested.connect(open_pedia)
@@ -78,12 +87,14 @@ func _ready() -> void:
 		pedia_screen,
 		options_screen,
 		save_screen,
+		load_screen,
 	]:
 		screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		screen.visible = false
 		screen.close_requested.connect(show_screen.bind(""))
 		screens.add_child(screen)
 	top_bar.screen_requested.connect(show_screen)
+	top_bar.menu_requested.connect(open_menu)
 	var feed_margin := MarginContainer.new()
 	feed_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -122,6 +133,13 @@ func _ready() -> void:
 	fleet_panel.split_requested.connect(_on_fleet_split)
 	fleet_panel.merge_requested.connect(_on_fleet_merge)
 
+	# The menu covers everything, the top bar included.
+	game_menu = GameMenu.new()
+	game_menu.resume_requested.connect(game_menu.close)
+	game_menu.screen_requested.connect(_on_menu_screen_requested)
+	game_menu.leave_requested.connect(func(action: String): leave_requested.emit(action, ""))
+	add_child(game_menu)
+
 	top_bar.resized.connect(_update_frame_margins)
 
 	map_view.system_selected.connect(_on_system_selected)
@@ -131,6 +149,39 @@ func _ready() -> void:
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 		GlobalFreeOrionNode.save_completed.connect(_on_save_completed)
+
+
+# Esc on the map: clear the selection first, then open the menu. Screens and
+# the menu handle their own Esc before it gets here.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if not event.is_action_pressed("ui_cancel") or not active_screen.is_empty():
+		return
+	if map_view.map.selected_system_id() != GalaxyMap.NO_SYSTEM:
+		map_view.map.select_system(GalaxyMap.NO_SYSTEM)
+	else:
+		open_menu()
+	get_viewport().set_input_as_handled()
+
+
+## Open the in-game menu over the map (and any open screen).
+func open_menu() -> void:
+	var subtitle := ""
+	if follow_game and is_instance_valid(GlobalFreeOrionNode):
+		subtitle = (
+			"%s  ·  %s"
+			% [
+				FOUniverse.get_empire_name(FOUniverse.get_empire_id()),
+				tr("MAP_BTN_TURN_UPDATE").replace(
+					"%1%", str(GlobalFreeOrionNode.get_current_turn())
+				),
+			]
+		)
+	game_menu.open(subtitle, not top_bar.is_waiting())
+
+
+func _on_menu_screen_requested(screen_name: String) -> void:
+	game_menu.close()
+	show_screen(screen_name)
 
 
 ## Show the full screen \a screen_name ("production", "research") over the
@@ -157,6 +208,7 @@ func _screens() -> Dictionary:
 		"pedia": pedia_screen,
 		"options": options_screen,
 		"save": save_screen,
+		"load": load_screen,
 	}
 
 

@@ -38,6 +38,13 @@ func set_busy(message: String) -> void:
 	_status.visible = not message.is_empty()
 
 
+## Show the menu with \a message under it, e.g. why a load failed.
+func show_notice(message: String) -> void:
+	_menu.visible = true
+	_status.text = message
+	_status.visible = not message.is_empty()
+
+
 ## Splash and logo file names for \a date (a Time date dictionary): April
 ## Fools, Christmas and Halloween get their own art, like the GG client.
 static func seasonal_art(date: Dictionary) -> Array:

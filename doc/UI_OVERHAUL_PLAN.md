@@ -491,3 +491,24 @@ UI fixes:
 3. Multiplayer lobby.
 4. Combat reports.
 5. Objects list.
+
+### 2026-11-15 (night): save/load, ship designer, in-game menu
+
+- **Save and load:** saves are cards (empire, turn, time). Saving queues on the server like the GG client; loading starts a local server from the title.
+- **Ship designer:** the hull's own art with its slots drawn over it, and a part list that filters by class, search, or what fits the selected slot. Stats are live, and new designs go through FreeOrion's own validation.
+- **In-game menu** (Esc on the map, or Menu in the top bar):
+  - Resume, Save, Load, Options, Quit to title and Exit.
+  - Leaving asks for confirmation.
+  - Loading from inside a game first ends the running one.
+  - Closing the window during a game shuts the server down too.
+- **Leaving a game** (bridge `quit_game()` and the `game_ended` signal) does what the GG client's QuittingGame state does, but without blocking a frame:
+  - Asks the server to shut down and waits up to 5 s for it to disconnect, then terminates it.
+  - Clears the universe, empires, orders and players.
+  - The title is back in about 0.6 s, and a new game or another save can start right away.
+- **Translation bridge:** text that isn't a stringtable key (names, already translated text) is now left as it is. Before, it was logged as a missing key with a stack trace. That happened whenever a control's text was set before it joined a parent that turns auto-translation off. Missing keys still show as "ERROR: KEY".
+- **Theme:** new `DangerButton` variation for destructive actions.
+
+**Next**
+1. Multiplayer lobby.
+2. Combat reports.
+3. Objects list.

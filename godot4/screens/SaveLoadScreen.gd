@@ -5,13 +5,17 @@ extends PanelContainer
 ## save means overwriting it) and the save is requested from the server.
 
 signal close_requested
-## Load mode: the game in \a path is being loaded.
+## Load mode: the game in \a path is being loaded (or, with defer_load, was
+## chosen to be loaded).
 signal load_started(path: String)
 
 var source: Variant = SavesSource.new()
 var mode := "load"
 ## Suggested name in save mode (e.g. empire and turn).
 var suggested_name := ""
+## Load mode: only emit load_started and let the owner load, e.g. in game,
+## where the running game has to end first.
+var defer_load := false
 
 var _title: Label
 var _status: Label
@@ -161,7 +165,7 @@ func _on_action() -> void:
 	if mode == "save":
 		var path: String = source.save_game(_name.text.strip_edges())
 		_status.text = tr("SAVES_SAVING") if not path.is_empty() else tr("SAVES_FAILED")
-	elif source.load_game(_selected_path):
+	elif defer_load or source.load_game(_selected_path):
 		load_started.emit(_selected_path)
 	else:
 		_status.text = tr("SAVES_LOAD_FAILED")

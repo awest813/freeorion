@@ -1,7 +1,8 @@
 extends Control
 ## Entry point of the fork's client: title, galaxy setup and options, then
-## the game in GameShell. Starts the bridge's networking and content
-## parsing, as upstream's IntroScreen did, and honours --quickstart.
+## the game in GameShell, and back to the title when the player leaves it.
+## Starts the bridge's networking and content parsing, as upstream's
+## IntroScreen did, and honours --quickstart.
 
 var title: TitleScreen
 var setup: GalaxySetupScreen
@@ -10,11 +11,49 @@ var saves: SaveLoadScreen
 var game: GameShell
 
 var _content_ready := false
+## While leaving a game: [action, save path] to do once the server is gone.
+var _leaving: Array = []
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_build_menus()
+	if not is_instance_valid(GlobalFreeOrionNode):
+		return
+	# Closing the window in game shuts the server down first, as Exit does.
+	get_tree().auto_accept_quit = false
+	GlobalFreeOrionNode.parsing_completed.connect(_on_parsing_completed)
+	GlobalFreeOrionNode.start_game.connect(_on_start_game)
+	GlobalFreeOrionNode.game_ended.connect(_on_game_ended)
+	GlobalFreeOrionNode.start_network_thread()
+	GlobalFreeOrionNode.start_parsing_thread()
+
+
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_CLOSE_REQUEST:
+		return
+	if game and _leaving.is_empty():
+		leave_game("exit")
+	elif _leaving.is_empty() or _leaving[0] != "exit":
+		get_tree().quit()
+
+
+## End the running game, then \a action: "title", "exit", or "load" the
+## save at \a path. The server shuts down over a few frames meanwhile.
+func leave_game(action: String, path := "") -> void:
+	if not game:
+		return
+	_leaving = [action, path]
+	game.queue_free()
+	game = null
+	_build_menus()
+	title.set_content_ready(_content_ready)
+	title.set_busy(tr("MENU_LEAVING"))
+	GlobalFreeOrionNode.quit_game()
+
+
+func _build_menus() -> void:
 	title = TitleScreen.new()
 	add_child(title)
 	setup = GalaxySetupScreen.new()
@@ -41,13 +80,6 @@ func _ready() -> void:
 	setup.back_requested.connect(_show_title)
 	setup.start_requested.connect(_start_game)
 	options.close_requested.connect(_show_title)
-
-	if not is_instance_valid(GlobalFreeOrionNode):
-		return
-	GlobalFreeOrionNode.parsing_completed.connect(_on_parsing_completed)
-	GlobalFreeOrionNode.start_game.connect(_on_start_game)
-	GlobalFreeOrionNode.start_network_thread()
-	GlobalFreeOrionNode.start_parsing_thread()
 
 
 func _show_title() -> void:
@@ -105,5 +137,24 @@ func _on_start_game(_is_new_game: bool) -> void:
 	for child in [title, setup, options, saves]:
 		child.queue_free()
 	game = GameShell.new()
+	game.leave_requested.connect(leave_game)
 	add_child(game)
 	game.map_view.refresh()
+
+
+# The server is gone after leave_game(): do what the player asked for.
+func _on_game_ended() -> void:
+	var action: String = _leaving[0] if not _leaving.is_empty() else "title"
+	var path: String = _leaving[1] if not _leaving.is_empty() else ""
+	_leaving = []
+	match action:
+		"exit":
+			get_tree().quit()
+		"load":
+			if saves.source.load_game(path):
+				title.set_busy(tr("TITLE_LOADING_GAME"))
+			else:
+				title.set_busy("")
+				title.show_notice(tr("SAVES_LOAD_FAILED"))
+		_:
+			title.set_busy("")

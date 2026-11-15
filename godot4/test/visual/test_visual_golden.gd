@@ -47,6 +47,17 @@ func test_game_shell_with_system_panel():
 	await _check_scene(shell, "game_shell_system_panel", _fill_shell)
 
 
+func test_game_menu_over_shell():
+	var shell := GameShell.new()
+	shell.follow_game = false
+	await _check_scene(shell, "game_menu", _open_menu)
+
+
+func _open_menu(shell: GameShell) -> void:
+	_fill_shell(shell)
+	shell.game_menu.open("Empire Blue  ·  " + tr("MAP_BTN_TURN_UPDATE").replace("%1%", "12"))
+
+
 func test_production_screen():
 	var screen := ProductionScreen.new()
 	screen.source = preload("res://test/unit/fake_production_source.gd").new()

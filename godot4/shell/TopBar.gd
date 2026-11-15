@@ -6,6 +6,8 @@ extends PanelContainer
 
 ## A screen button was pressed: the screen's name, or "" to return to the map.
 signal screen_requested(screen_name: String)
+## The Menu button was pressed (Esc on the map does the same, in GameShell).
+signal menu_requested
 
 ## Ctrl+Enter ends the turn, as a keyboard path to the primary action.
 const END_TURN_KEY := KEY_ENTER
@@ -112,6 +114,12 @@ func _build() -> void:
 	_end_turn.shortcut.events = [shortcut_key]
 	_end_turn.pressed.connect(_on_end_turn_pressed)
 	row.add_child(_end_turn)
+	var menu := Button.new()
+	menu.text = tr("GAME_MENU_WINDOW_TITLE")
+	menu.theme_type_variation = "GhostButton"
+	menu.tooltip_text = tr("TOPBAR_MENU")
+	menu.pressed.connect(menu_requested.emit)
+	row.add_child(menu)
 	set_state("", Color.WHITE, 0, false)
 
 

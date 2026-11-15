@@ -2022,6 +2022,21 @@ That save couldn't be loaded.
 SAVES_OVERWRITE
 Saving will replace this save.
 
+MENU_RESUME
+Resume
+
+MENU_QUIT_TO_TITLE
+Quit to title
+
+MENU_CONFIRM_LEAVE
+Leave this game? Progress since your last save will be lost.
+
+MENU_LEAVING
+Leaving the game…
+
+TOPBAR_MENU
+Menu (Esc)
+
 SYSTEM_PANEL_PLANETS
 Planets
 
