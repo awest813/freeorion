@@ -1,0 +1,224 @@
+class_name OptionsScreen
+extends PanelContainer
+## Options: the client's interface settings (UI scale, theme, reduced
+## motion) as proper controls that apply at once, and every other option as
+## a searchable list with a typed editor, validation feedback and reset.
+## Save writes them to config.xml; changes apply immediately either way.
+
+signal close_requested
+
+const SCALE_STEPS := [0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
+const THEMES := ["default", "high_contrast"]
+const MAX_LISTED := 120
+## Internal or launch-only options that make no sense to edit in game.
+## The interface options have their own controls on the left.
+const HIDDEN_PREFIXES := [
+	"version",
+	"misc.server-local-binary",
+	"resource.path",
+	"setup.seed",
+	"ui.scale",
+	"ui.theme",
+	"ui.reduce-motion",
+]
+
+var source: Variant = OptionsSource.new()
+
+var _status: Label
+var _scale: OptionButton
+var _theme: OptionButton
+var _motion: CheckButton
+var _search: LineEdit
+var _list: VBoxContainer
+
+
+func _init() -> void:
+	theme_type_variation = "BackgroundPanel"
+	_build()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+	if visible and event.is_action_pressed("ui_cancel"):
+		close_requested.emit()
+		get_viewport().set_input_as_handled()
+
+
+func refresh() -> void:
+	var scale_setting := str(source.get_value(FOUi.OPTION_SCALE))
+	_scale.select(_scale_index(scale_setting))
+	_theme.select(maxi(0, THEMES.find(str(source.get_value(FOUi.OPTION_THEME)))))
+	_motion.set_pressed_no_signal(bool(source.get_value(FOUi.OPTION_REDUCE_MOTION)))
+	_status.text = ""
+	_refresh_list()
+
+
+func _build() -> void:
+	var margin := MarginContainer.new()
+	add_child(margin)
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", FOUi.tokens.space_8)
+	margin.add_child(columns)
+
+	var interface := VBoxContainer.new()
+	interface.custom_minimum_size.x = 360
+	columns.add_child(interface)
+	_status = ScreenKit.header(interface, "OPTIONS_TITLE", close_requested.emit)
+	interface.add_child(ScreenKit.label(tr("OPTIONS_INTERFACE"), "TitleLabel"))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	interface.add_child(grid)
+
+	grid.add_child(ScreenKit.label(tr("OPTIONS_UI_SCALE"), "SecondaryLabel"))
+	_scale = OptionButton.new()
+	_scale.add_item(tr("OPTIONS_UI_SCALE_AUTO"))
+	for step in SCALE_STEPS:
+		_scale.add_item("%d%%" % roundi(step * 100.0))
+	_scale.item_selected.connect(_on_scale_selected)
+	grid.add_child(_scale)
+
+	grid.add_child(ScreenKit.label(tr("OPTIONS_UI_THEME"), "SecondaryLabel"))
+	_theme = OptionButton.new()
+	for theme_name in THEMES:
+		_theme.add_item(tr("OPTIONS_THEME_" + theme_name.to_upper()))
+	_theme.item_selected.connect(func(i): _apply(FOUi.OPTION_THEME, THEMES[i]))
+	grid.add_child(_theme)
+
+	grid.add_child(ScreenKit.label(tr("OPTIONS_REDUCE_MOTION"), "SecondaryLabel"))
+	_motion = CheckButton.new()
+	_motion.tooltip_text = tr("OPTIONS_DB_UI_REDUCE_MOTION")
+	_motion.toggled.connect(func(on): _apply(FOUi.OPTION_REDUCE_MOTION, on))
+	grid.add_child(_motion)
+
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	interface.add_child(spacer)
+	var save := Button.new()
+	save.text = tr("SAVE")
+	save.theme_type_variation = "PrimaryButton"
+	save.tooltip_text = tr("OPTIONS_SAVE_DESC")
+	save.pressed.connect(_on_save_pressed)
+	interface.add_child(save)
+
+	var all := VBoxContainer.new()
+	all.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	columns.add_child(all)
+	all.add_child(ScreenKit.label(tr("OPTIONS_ALL"), "TitleLabel"))
+	_search = LineEdit.new()
+	_search.placeholder_text = tr("OPTIONS_SEARCH")
+	_search.clear_button_enabled = true
+	_search.text_changed.connect(func(_t): _refresh_list())
+	all.add_child(_search)
+	_list = ScreenKit.list()
+	all.add_child(ScreenKit.scrolling(_list))
+
+
+func _refresh_list() -> void:
+	ScreenKit.clear(_list)
+	var needle := _search.text.strip_edges().to_lower()
+	var shown := 0
+	for option: String in source.find(""):
+		if _is_hidden(option):
+			continue
+		var description := tr(source.get_description(option))
+		if not needle.is_empty():
+			var haystack: String = (option + " " + description).to_lower()
+			if not haystack.contains(needle):
+				continue
+		if shown >= MAX_LISTED:
+			_list.add_child(ScreenKit.label(tr("OPTIONS_REFINE_SEARCH"), "SecondaryLabel"))
+			break
+		_list.add_child(_option_row(option, description))
+		shown += 1
+	if shown == 0:
+		_list.add_child(ScreenKit.label(tr("PEDIA_NO_RESULTS"), "SecondaryLabel"))
+
+
+func _option_row(option: String, description: String) -> Control:
+	var row := HBoxContainer.new()
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 0)
+	row.add_child(text)
+	text.add_child(ScreenKit.label(option))
+	var detail := ScreenKit.label(description, "SmallLabel")
+	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.add_child(detail)
+	var editor := _editor(option)
+	editor.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(editor)
+	var reset := ScreenKit.small_button("↺", "OPTIONS_RESET", not source.is_default(option))
+	reset.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	reset.pressed.connect(func(): _reset(option))
+	row.add_child(reset)
+	return row
+
+
+# Editor matching the option's type; invalid values revert and show why.
+func _editor(option: String) -> Control:
+	var value: Variant = source.get_value(option)
+	match typeof(value):
+		TYPE_BOOL:
+			var check := CheckBox.new()
+			check.button_pressed = value
+			check.toggled.connect(func(on): _apply(option, on))
+			return check
+		TYPE_INT, TYPE_FLOAT:
+			var spin := SpinBox.new()
+			spin.allow_greater = true
+			spin.allow_lesser = true
+			spin.step = 1.0 if typeof(value) == TYPE_INT else 0.01
+			spin.value = value
+			spin.custom_minimum_size.x = 120
+			spin.value_changed.connect(
+				func(v): _apply(option, int(v) if typeof(value) == TYPE_INT else v, spin)
+			)
+			return spin
+		_:
+			var edit := LineEdit.new()
+			edit.text = str(value)
+			edit.custom_minimum_size.x = 200
+			edit.text_submitted.connect(func(t): _apply(option, t, edit))
+			return edit
+
+
+func _apply(option: String, value: Variant, editor: Control = null) -> void:
+	if source.set_value(option, value):
+		_status.text = tr("OPTIONS_APPLIED").replace("%1%", option)
+		return
+	_status.text = tr("OPTIONS_INVALID").replace("%1%", option)
+	# Put the editor back to the stored value.
+	if editor is SpinBox:
+		editor.set_value_no_signal(source.get_value(option))
+	elif editor is LineEdit:
+		editor.text = str(source.get_value(option))
+
+
+func _reset(option: String) -> void:
+	source.reset_to_default(option)
+	refresh()
+
+
+func _on_scale_selected(index: int) -> void:
+	var setting := "auto" if index == 0 else str(SCALE_STEPS[index - 1])
+	_apply(FOUi.OPTION_SCALE, setting)
+
+
+func _on_save_pressed() -> void:
+	_status.text = tr("OPTIONS_SAVED") if source.commit() else tr("OPTIONS_SAVE_FAILED")
+
+
+func _scale_index(setting: String) -> int:
+	if not setting.is_valid_float():
+		return 0
+	var value := setting.to_float()
+	for i in SCALE_STEPS.size():
+		if is_equal_approx(SCALE_STEPS[i], value):
+			return i + 1
+	return 0
+
+
+static func _is_hidden(option: String) -> bool:
+	for prefix in HIDDEN_PREFIXES:
+		if option.begins_with(prefix):
+			return true
+	return false

@@ -69,6 +69,12 @@ func _fill_pedia(screen: PediaScreen) -> void:
 	screen.search("Brain")
 
 
+func test_options_screen():
+	var screen := OptionsScreen.new()
+	screen.source = preload("res://test/unit/fake_options_source.gd").new()
+	await _check_scene(screen, "options_screen", func(s): s.refresh())
+
+
 func _fill_shell(shell: GameShell) -> void:
 	_fill_galaxy(shell.map_view)
 	shell.top_bar.set_state("Empire Blue", Color("#3d9bff"), 12, false)

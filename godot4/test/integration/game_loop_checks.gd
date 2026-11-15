@@ -22,6 +22,7 @@ func before_turn() -> void:
 	_check_production()
 	_check_research()
 	_check_pedia()
+	await _check_options()
 
 	_test.assert_null(FOUniverse.get_system(-1), "No view for an invalid system ID")
 	_test.assert_null(FOUniverse.get_fleet(-1), "No view for an invalid fleet ID")
@@ -267,6 +268,24 @@ func _check_fleet_orders() -> void:
 		_test.assert_eq(split.get_aggression(), "passive", "Split keeps the stance")
 	_test.assert_eq(FOOrders.split_ships(PackedInt32Array()), -1, "Empty split refused")
 	_test.assert_false(FleetPanel.from_universe(dest.get_id()).is_empty(), "Panel data")
+
+
+# Options screen on the real OptionsDB: the list fills, a scale change
+# applies to the window live (FOOptions.watch), and invalid values are refused.
+func _check_options() -> void:
+	var screen := OptionsScreen.new()
+	_test.add_child_autofree(screen)
+	screen.refresh()
+	_test.assert_gt(screen._list.get_child_count(), 20, "Options listed")
+	var index := OptionsScreen.SCALE_STEPS.find(1.25) + 1
+	screen._scale.item_selected.emit(index)
+	await _test.wait_process_frames(2)
+	_test.assert_almost_eq(FOUi.scale, 1.25, 0.001, "Scale applied live")
+	screen._scale.item_selected.emit(0)
+	await _test.wait_process_frames(2)
+	var options := Engine.get_singleton("FOOptions")
+	_test.assert_eq(options.get_value("ui.scale"), "auto", "Back to automatic")
+	_test.assert_false(options.set_value("setup.star.count", 3), "Range still enforced")
 
 
 func _check_snapshot() -> void:

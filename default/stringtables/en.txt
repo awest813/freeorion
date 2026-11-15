@@ -1914,6 +1914,54 @@ Colour theme of the Godot client: "default" or "high_contrast".
 OPTIONS_DB_UI_REDUCE_MOTION
 Turn off UI animations in the Godot client.
 
+OPTIONS_INTERFACE
+Interface
+
+OPTIONS_UI_SCALE
+UI scale
+
+OPTIONS_UI_SCALE_AUTO
+Automatic
+
+OPTIONS_UI_THEME
+Theme
+
+OPTIONS_THEME_DEFAULT
+Default
+
+OPTIONS_THEME_HIGH_CONTRAST
+High contrast
+
+OPTIONS_REDUCE_MOTION
+Reduce motion
+
+OPTIONS_SAVE_DESC
+Changes apply at once; Save keeps them for the next start.
+
+OPTIONS_ALL
+All options
+
+OPTIONS_SEARCH
+Search options…
+
+OPTIONS_REFINE_SEARCH
+More options match. Refine the search to see them.
+
+OPTIONS_RESET
+Reset to default
+
+OPTIONS_APPLIED
+%1% changed
+
+OPTIONS_INVALID
+%1%: that value isn't allowed
+
+OPTIONS_SAVED
+Options saved.
+
+OPTIONS_SAVE_FAILED
+The options couldn't be saved.
+
 TOPBAR_END_TURN
 End turn
 

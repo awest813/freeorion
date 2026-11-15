@@ -98,6 +98,7 @@ static func _buttons(theme: Theme, t: FOTokens) -> void:
 		theme.set_color("font_hover_pressed_color", type, t.text_primary)
 		theme.set_color("font_disabled_color", type, t.text_disabled)
 		theme.set_constant("h_separation", type, t.space_2)
+	_check_glyphs(theme, t)
 
 	# Primary call to action, e.g. End Turn: theme_type_variation = "PrimaryButton".
 	theme.set_type_variation("PrimaryButton", "Button")
@@ -234,3 +235,94 @@ static func _separators(theme: Theme, t: FOTokens) -> void:
 		line.vertical = type == "VSeparator"
 		theme.set_stylebox("separator", type, line)
 		theme.set_constant("separation", type, t.space_3)
+
+
+# Check box and switch glyphs drawn from the tokens: Godot's defaults are
+# dark grey and vanish on dark surfaces.
+static func _check_glyphs(theme: Theme, t: FOTokens) -> void:
+	var size := t.icon_small
+	theme.set_icon("checked", "CheckBox", _checkbox_icon(size, t.accent, t.text_on_accent, true))
+	theme.set_icon("unchecked", "CheckBox", _checkbox_icon(size, t.text_secondary, Color(), false))
+	theme.set_icon(
+		"checked_disabled", "CheckBox", _checkbox_icon(size, t.text_disabled, t.surface, true)
+	)
+	theme.set_icon(
+		"unchecked_disabled", "CheckBox", _checkbox_icon(size, t.text_disabled, Color(), false)
+	)
+	var switch_on := _switch_icon(size, t.accent, t.text_on_accent, true)
+	var switch_off := _switch_icon(size, t.text_secondary, t.text_secondary, false)
+	for suffix in ["", "_mirrored"]:
+		theme.set_icon("checked" + suffix, "CheckButton", switch_on)
+		theme.set_icon("unchecked" + suffix, "CheckButton", switch_off)
+		theme.set_icon("checked_disabled" + suffix, "CheckButton", switch_on)
+		theme.set_icon("unchecked_disabled" + suffix, "CheckButton", switch_off)
+
+
+## Square check box: outline only, or filled with a check mark.
+static func _checkbox_icon(size: int, frame: Color, mark: Color, filled: bool) -> Texture2D:
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	if filled:
+		image.fill_rect(Rect2i(1, 1, size - 2, size - 2), frame)
+		# Check mark: short stroke down-right, long stroke up-right.
+		var left := Vector2(size * 0.25, size * 0.52)
+		var bottom := Vector2(size * 0.43, size * 0.7)
+		var right := Vector2(size * 0.76, size * 0.3)
+		_stroke(image, left, bottom, size * 0.09, mark)
+		_stroke(image, bottom, right, size * 0.09, mark)
+	else:
+		var r := Rect2i(1, 1, size - 2, size - 2)
+		for i in 2:
+			var inner := r.grow(-i)
+			image.fill_rect(Rect2i(inner.position, Vector2i(inner.size.x, 1)), frame)
+			image.fill_rect(
+				Rect2i(inner.position + Vector2i(0, inner.size.y - 1), Vector2i(inner.size.x, 1)),
+				frame
+			)
+			image.fill_rect(Rect2i(inner.position, Vector2i(1, inner.size.y)), frame)
+			image.fill_rect(
+				Rect2i(inner.position + Vector2i(inner.size.x - 1, 0), Vector2i(1, inner.size.y)),
+				frame
+			)
+	return ImageTexture.create_from_image(image)
+
+
+## Pill switch, twice as wide as high; the knob sits right when on.
+static func _switch_icon(height: int, track: Color, knob: Color, on: bool) -> Texture2D:
+	var width := height * 2
+	var image := Image.create(width, height, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	var radius := height * 0.5 - 1.0
+	var center_y := height * 0.5
+	for y in height:
+		for x in width:
+			var p := Vector2(x + 0.5, y + 0.5)
+			var cx := clampf(p.x, radius + 1.0, width - radius - 1.0)
+			var inside := p.distance_to(Vector2(cx, center_y)) <= radius
+			if not inside:
+				continue
+			var edge := p.distance_to(Vector2(cx, center_y)) > radius - 1.5
+			if on or edge:
+				image.set_pixel(x, y, track)
+	var knob_x := width - radius - 1.0 if on else radius + 1.0
+	var knob_r := radius - 2.5
+	for y in height:
+		for x in width:
+			if Vector2(x + 0.5, y + 0.5).distance_to(Vector2(knob_x, center_y)) <= knob_r:
+				image.set_pixel(x, y, knob)
+	return ImageTexture.create_from_image(image)
+
+
+# Thick line by stamping discs along the segment.
+static func _stroke(
+	image: Image, from: Vector2, to: Vector2, half_width: float, color: Color
+) -> void:
+	var steps := int(from.distance_to(to) * 2.0) + 1
+	for i in steps + 1:
+		var c := from.lerp(to, float(i) / steps)
+		for y in range(floori(c.y - half_width - 1), ceili(c.y + half_width + 1)):
+			for x in range(floori(c.x - half_width - 1), ceili(c.x + half_width + 1)):
+				if x < 0 or y < 0 or x >= image.get_width() or y >= image.get_height():
+					continue
+				if Vector2(x + 0.5, y + 0.5).distance_to(c) <= half_width:
+					image.set_pixel(x, y, color)
