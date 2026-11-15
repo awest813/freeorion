@@ -16,6 +16,9 @@
   *   facts: [[label key, value]], links: [{kind, name, group}]} or {} when
   *   unknown. group is "prerequisites" or "unlocks".
   * get_index() -> [{kind, name, category}] of everything with an article.
+  * resolve_values(text) -> text with each <value NAME>...</value> holding
+  *   the named value's evaluation, as GG's ValueRefLinkText (unknown names
+  *   keep their content).
   * Main thread only. */
 class FOPedia : public godot::Object {
     GDCLASS(FOPedia, Object)
@@ -23,6 +26,7 @@ public:
     static godot::Dictionary get_article(const godot::String& kind, const godot::String& name);
     static godot::Array get_index();
     static bool has_article(const godot::String& kind, const godot::String& name);
+    static godot::String resolve_values(const godot::String& text);
 
 protected:
     static void _bind_methods();

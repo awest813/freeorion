@@ -59,6 +59,70 @@ func test_pedia_button():
 	)
 
 
+func test_availability_filters():
+	assert_does_not_have(_catalog_names(), tr("PLC_RACIAL_PURITY"), "Locked hidden by default")
+	screen.set_shown("locked", true)
+	await wait_process_frames(1)
+	assert_has(_catalog_names(), tr("PLC_RACIAL_PURITY"))
+	assert_true(_button(_row(tr("PLC_RACIAL_PURITY")), tr("GOVERNMENT_ADOPT")).disabled)
+	screen.set_shown("adopted", true)
+	await wait_process_frames(1)
+	assert_has(_catalog_names(), tr("PLC_PROPAGANDA"))
+	screen.set_shown("unaffordable", false)
+	screen.set_shown("restricted", false)
+	await wait_process_frames(1)
+	assert_does_not_have(_catalog_names(), tr("PLC_TECHNOCRACY"))
+	assert_does_not_have(_catalog_names(), tr("PLC_INDUSTRIALISM"))
+	assert_eq(GovernmentScreen.availability(fake.policies[3]), "unaffordable")
+	assert_eq(GovernmentScreen.availability(fake.policies[5]), "restricted")
+	assert_eq(GovernmentScreen.availability(fake.policies[6]), "locked")
+
+
+func test_tooltips():
+	var adopted: String = GovernmentScreen.tooltip_for(fake.policies[0])
+	assert_string_contains(adopted, tr("POLICY_ADOPTED").replace("%1%", "4.0"))
+	assert_string_contains(adopted, "3")
+	assert_string_contains(adopted, tr("PLC_PLANETARY_INFRA_DESC").left(20))
+	var excluded: String = GovernmentScreen.tooltip_for(fake.policies[5])
+	assert_string_contains(
+		excluded, tr("POLICY_EXCLUDED").replace("%1%", tr("PLC_PLANETARY_INFRA"))
+	)
+	assert_eq(
+		_row(tr("PLC_CENTRALIZATION")).tooltip_text, GovernmentScreen.tooltip_for(fake.policies[2])
+	)
+
+
+func test_revert():
+	assert_false(screen._revert.disabled)
+	screen._revert.pressed.emit()
+	assert_eq(fake.calls, [["revert"]])
+	fake.modified = false
+	screen.refresh()
+	assert_true(screen._revert.disabled)
+
+
+func test_drag_and_double_click():
+	var data := {"type": GovernmentScreen.POLICY_DRAG, "name": "PLC_CENTRALIZATION"}
+	# Economic slot 1 is free; social policies don't fit economic slots;
+	# blocked policies don't drop.
+	assert_true(screen._can_drop_on_slot(data, "ECONOMIC_CATEGORY", ""))
+	var social := {"type": GovernmentScreen.POLICY_DRAG, "name": "PLC_ALGORITHMIC_RESEARCH"}
+	assert_false(screen._can_drop_on_slot(social, "ECONOMIC_CATEGORY", ""))
+	var poor := {"type": GovernmentScreen.POLICY_DRAG, "name": "PLC_TECHNOCRACY"}
+	assert_false(screen._can_drop_on_slot(poor, "ECONOMIC_CATEGORY", ""))
+	screen.drop_on_slot("PLC_CENTRALIZATION", "PLC_PLANETARY_INFRA", 0)
+	assert_eq(fake.calls, [["de_adopt", "PLC_PLANETARY_INFRA"], ["adopt", "PLC_CENTRALIZATION", 0]])
+	fake.calls.clear()
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.double_click = true
+	_row(tr("PLC_CENTRALIZATION")).gui_input.emit(click)
+	var cards := screen._slots.get_children().filter(func(c): return c is PanelContainer)
+	cards[0].gui_input.emit(click)
+	assert_eq(fake.calls, [["adopt", "PLC_CENTRALIZATION", 1], ["de_adopt", "PLC_PLANETARY_INFRA"]])
+
+
 func _catalog_names() -> Array:
 	var names := []
 	for row in screen._catalog.get_children():

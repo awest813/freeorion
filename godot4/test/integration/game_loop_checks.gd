@@ -308,6 +308,7 @@ func _check_government() -> void:
 	for policy: Dictionary in policies:
 		if (
 			not policy["adopted"]
+			and policy["available"]
 			and policy["affordable"]
 			and policy["prerequisites_ok"]
 			and free.has(policy["category"])
@@ -320,7 +321,11 @@ func _check_government() -> void:
 	var cost_before: float = FOGovernment.get_influence()["adoption_cost"]
 	_test.assert_true(FOGovernment.adopt(candidate["name"], free[candidate["category"]]), "Adopt")
 	_test.assert_gt(FOGovernment.get_influence()["adoption_cost"], cost_before, "Upkeep projected")
+	_test.assert_true(FOGovernment.is_modified(), "Adoption marks the government modified")
 	_test.assert_true(FOGovernment.de_adopt(candidate["name"]), "Revoke")
+	_test.assert_true(FOGovernment.adopt(candidate["name"], free[candidate["category"]]), "Again")
+	_test.assert_true(FOGovernment.revert(), "Revert")
+	_test.assert_false(FOGovernment.is_modified(), "Reverted to the turn's start")
 	_test.assert_false(FOGovernment.de_adopt("PLC_NO_SUCH_POLICY"), "Unknown policy refused")
 	var screen := GovernmentScreen.new()
 	_test.add_child_autofree(screen)

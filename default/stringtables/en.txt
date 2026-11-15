@@ -2996,6 +2996,79 @@ Queue at %1% selected
 OBJECTS_QUEUED
 Queued at %1% planets.
 
+PRODUCTION_FILTER_UNAVAILABLE
+Unavailable
+
+# %1% PP made in the location's supply group, %2% PP spent there
+PRODUCTION_GROUP_POINTS
+Supply group: %1% PP, %2% PP spent
+
+# %1% total cost, %2% cost a turn
+PRODUCTION_TIP_COST
+Cost %1% PP (%2% PP a turn)
+
+# %1% turns
+PRODUCTION_TIP_MIN_TURNS
+Takes at least %1% turns
+
+# %1% PP
+PRODUCTION_TIP_ALLOCATED
+Gets %1% PP this turn
+
+PRODUCTION_TIP_UNAVAILABLE
+Can't be built here:
+
+RESEARCH_STATUS_COMPLETE
+Researched
+
+RESEARCH_STATUS_RESEARCHABLE
+Researchable now
+
+RESEARCH_STATUS_PARTIAL
+Some prerequisites researched
+
+RESEARCH_STATUS_UNRESEARCHABLE
+Prerequisites missing
+
+RESEARCH_STATUS_FILTER
+Status
+
+RESEARCH_MORE_CATEGORIES
+Show more categories at once
+
+RESEARCH_SORT
+Sort the techs
+
+RESEARCH_SORT_COST
+Cheapest first
+
+RESEARCH_SORT_NAME
+By name
+
+RESEARCH_SORT_TURNS
+Quickest first
+
+RESEARCH_SORT_CATEGORY
+By category
+
+RESEARCH_ZOOM_OUT
+Zoom out
+
+RESEARCH_ZOOM_FIT
+Fit the tree
+
+RESEARCH_ZOOM_IN
+Zoom in
+
+RESEARCH_TIP_NEEDS
+Needs:
+
+RESEARCH_TIP_UNLOCKS
+Unlocks:
+
+RESEARCH_TIP_KEYS
+Double-click to queue (Shift: at the top); Shift+click to queue at the end.
+
 OPTIONS_LANGUAGE_NAME
 Language
 

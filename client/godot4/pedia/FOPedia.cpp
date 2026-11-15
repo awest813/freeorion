@@ -2,12 +2,16 @@
 
 #include <godot_cpp/core/class_db.hpp>
 
+#include <regex>
+
 #include "../../ClientApp.h"
 #include "../../../Empire/Empire.h"
 #include "../../../Empire/Government.h"
 #include "../../../universe/BuildingType.h"
 #include "../../../universe/Encyclopedia.h"
 #include "../../../universe/FieldType.h"
+#include "../../../universe/NamedValueRefManager.h"
+#include "../../../universe/ValueRef.h"
 #include "../../../universe/ShipHull.h"
 #include "../../../universe/ShipPart.h"
 #include "../../../universe/Planet.h"
@@ -232,6 +236,7 @@ void FOPedia::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_article", "kind", "name"), &FOPedia::get_article);
     ClassDB::bind_static_method(cls, D_METHOD("get_index"), &FOPedia::get_index);
     ClassDB::bind_static_method(cls, D_METHOD("has_article", "kind", "name"), &FOPedia::has_article);
+    ClassDB::bind_static_method(cls, D_METHOD("resolve_values", "text"), &FOPedia::resolve_values);
 }
 
 godot::Dictionary FOPedia::get_article(const godot::String& kind, const godot::String& name) {
@@ -275,4 +280,30 @@ godot::Array FOPedia::get_index() {
         ErrorLogger() << "FOPedia::get_index: " << e.what();
     }
     return index;
+}
+
+godot::String FOPedia::resolve_values(const godot::String& text) {
+    std::string in = text.utf8().get_data();
+    if (in.find("</value>") == std::string::npos)
+        return text;
+    static const std::regex value_tag{R"(<value\s+([^<>]+)>([^<>]*)</value>)"};
+    std::string out;
+    out.reserve(in.size());
+    auto it = in.cbegin();
+    try {
+        for (std::sregex_iterator m{in.cbegin(), in.cend(), value_tag}, end; m != end; ++m) {
+            out.append(it, (*m)[0].first);
+            const std::string name = (*m)[1].str();
+            const auto* value_ref = GetValueRefBase(name);
+            const std::string value = value_ref ? value_ref->EvalAsString() : (*m)[2].str();
+            out.append("<value ").append(name).append(">").append(value).append("</value>");
+            it = (*m)[0].second;
+        }
+    } catch (const std::exception& e) {
+        // An exception must not unwind into Godot, which would abort the process.
+        ErrorLogger() << "FOPedia::resolve_values: " << e.what();
+        return text;
+    }
+    out.append(it, in.cend());
+    return godot::String::utf8(out.data(), static_cast<int>(out.size()));
 }

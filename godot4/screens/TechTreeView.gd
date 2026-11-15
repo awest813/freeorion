@@ -7,6 +7,8 @@ extends Control
 
 signal tech_selected(tech_name: String)
 signal tech_activated(tech_name: String)
+## Shift+click on a tech: queue it (at the end).
+signal tech_queued(tech_name: String)
 
 const NODE_SIZE := Vector2(212, 54)
 const GAP := Vector2(64, 12)
@@ -99,10 +101,58 @@ func content_size() -> Vector2:
 
 func _get_tooltip(at_position: Vector2) -> String:
 	var tech_name := tech_at(at_position)
-	if tech_name.is_empty():
+	return "" if tech_name.is_empty() else tooltip_text_for(tech_name)
+
+
+## The rich tooltip of \a tech_name, as GG's tech tree: status, cost and
+## time, description, what it needs and what it unlocks.
+func tooltip_text_for(tech_name: String) -> String:
+	var tech: Dictionary = _by_name.get(tech_name, {})
+	if tech.is_empty():
 		return ""
-	var tech: Dictionary = _by_name[tech_name]
-	return "%s\n%s" % [tr(tech_name), tr(tech.get("short_description", ""))]
+	var lines: PackedStringArray = [tr(tech_name)]
+	var status: String = tech.get("status", "")
+	if not status.is_empty():
+		lines.push_back(tr("RESEARCH_STATUS_" + status.to_upper()))
+	lines.push_back(
+		(
+			tr("RESEARCH_ITEM_COST")
+			. replace("%1%", "%.0f" % tech.get("cost", 0.0))
+			. replace("%2%", str(tech.get("turns", 0)))
+			. replace("%3%", tr(tech.get("category", "")))
+		)
+	)
+	var description := tr(tech.get("short_description", ""))
+	if not description.begins_with("ERROR: "):
+		lines.push_back(FORichText.plain_text(description))
+	var needs: PackedStringArray = []
+	for prereq in tech.get("prerequisites", PackedStringArray()):
+		needs.push_back(tr(prereq))
+	if not needs.is_empty():
+		lines.push_back(tr("RESEARCH_TIP_NEEDS") + " " + ", ".join(needs))
+	var unlocks: PackedStringArray = []
+	for item: Dictionary in tech.get("unlocks", []):
+		unlocks.push_back(tr(item.get("name", "")))
+	if not unlocks.is_empty():
+		lines.push_back(tr("RESEARCH_TIP_UNLOCKS") + " " + ", ".join(unlocks))
+	lines.push_back(tr("RESEARCH_TIP_KEYS"))
+	return "\n".join(lines)
+
+
+## Zoom in (1), out (-1), or fit the whole tree (0), from buttons.
+func zoom_step(direction: int) -> void:
+	var center := size / 2.0
+	if direction == 0:
+		var content := content_size() / zoom
+		var fit := minf(size.x / maxf(content.x, 1.0), size.y / maxf(content.y, 1.0))
+		zoom = clampf(fit, MIN_ZOOM, MAX_ZOOM)
+		# Centred when it fits; from the top left when even the smallest
+		# zoom can't show it all.
+		var spare := (size - content * zoom) / 2.0
+		offset = Vector2(maxf(spare.x, 24.0), maxf(spare.y, 24.0))
+		queue_redraw()
+		return
+	zoom_at(center, clampf(zoom * (1.25 if direction > 0 else 0.8), MIN_ZOOM, MAX_ZOOM))
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -125,6 +175,8 @@ func _gui_input(event: InputEvent) -> void:
 					if not tech_name.is_empty():
 						selected = tech_name
 						tech_selected.emit(tech_name)
+						if event.shift_pressed:
+							tech_queued.emit(tech_name)
 				accept_event()
 	elif event is InputEventMouseMotion:
 		if event.button_mask & (MOUSE_BUTTON_MASK_LEFT | MOUSE_BUTTON_MASK_MIDDLE):
@@ -299,6 +351,21 @@ func _draw_card(tech_name: String, rect: Rect2) -> void:
 		font_size,
 		Color(text_color, 0.7)
 	)
+	# What it unlocks: small icons along the bottom right.
+	var unlocks: Array = tech.get("unlocks", [])
+	var unlock_size := 16.0 * zoom
+	var unlock_x := rect.end.x - pad
+	for i in mini(unlocks.size(), 5):
+		var texture := FOArt.icon(unlocks[i].get("icon", ""))
+		if texture == null:
+			continue
+		unlock_x -= unlock_size + 2.0
+		draw_texture_rect(
+			texture,
+			Rect2(Vector2(unlock_x, rect.end.y - pad - unlock_size), Vector2.ONE * unlock_size),
+			false,
+			Color(1, 1, 1, 0.5 if dimmed else 0.9)
+		)
 	var progress: float = tech.get("progress", 0.0)
 	if progress > 0.0 and status != "complete":
 		var bar := Rect2(

@@ -4,7 +4,12 @@
 
 #include "../../ClientApp.h"
 #include "../../../Empire/Empire.h"
+#include "../../../Empire/Government.h"
+#include "../../../universe/BuildingType.h"
+#include "../../../universe/ShipHull.h"
+#include "../../../universe/ShipPart.h"
 #include "../../../universe/Tech.h"
+#include "../../../universe/UnlockableItem.h"
 #include "../../../util/Logger.h"
 #include "../../../util/Order.h"
 #include "../../../util/OrderSet.h"
@@ -105,6 +110,38 @@ godot::Array FOResearch::get_techs() {
             for (const auto& prereq : tech.Prerequisites())
                 prerequisites.push_back(ToGodot(prereq));
             entry["prerequisites"] = prerequisites;
+            // What it unlocks, with icons (the GG tech tree's unlock icons).
+            godot::Array unlocks;
+            for (const auto& item : tech.UnlockedItems()) {
+                godot::Dictionary unlock;
+                std::string kind, icon;
+                switch (item.type) {
+                case UnlockableItemType::UIT_BUILDING:
+                    kind = "buildingtype";
+                    if (const auto* b = GetBuildingType(item.name)) icon = b->Icon();
+                    break;
+                case UnlockableItemType::UIT_SHIP_PART:
+                    kind = "shippart";
+                    if (const auto* p = GetShipPart(item.name)) icon = p->Icon();
+                    break;
+                case UnlockableItemType::UIT_SHIP_HULL:
+                    kind = "shiphull";
+                    if (const auto* h = GetShipHull(item.name)) icon = h->Icon();
+                    break;
+                case UnlockableItemType::UIT_POLICY:
+                    kind = "policy";
+                    if (const auto* p = GetPolicy(item.name)) icon = p->Graphic();
+                    break;
+                default:
+                    kind = "other";
+                }
+                unlock["kind"] = ToGodot(kind);
+                unlock["name"] = ToGodot(item.name);
+                unlock["icon"] = ToGodot(icon);
+                unlocks.push_back(unlock);
+            }
+            entry["unlocks"] = unlocks;
+            entry["description"] = ToGodot(tech.Description());
             result.push_back(entry);
         }
     } catch (const std::exception& e) {

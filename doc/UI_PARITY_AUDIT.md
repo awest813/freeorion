@@ -84,19 +84,19 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] Batch build (blocksize) — S
 - [x] Queue item menu: duplicate, split off the incomplete part, rally to the selected system, move to top or bottom, Pedia — S
 - [x] Removed items can be restored until the turn ends — S
-- [ ] Drag to reorder queues; drag a catalogue item into the queue — M
+- [x] Drag to reorder queues; drag a catalogue item into the queue — M
 - [x] Click a queue item to show its location on the map (from the item menu) — S
 - [x] Delete key removes the selected queue item — S
-- [ ] Richer queue and catalogue tooltips (costs per turn, time here and minimum, why not buildable) — S
-- [ ] PP of the selected location's supply group — S
+- [x] Richer queue and catalogue tooltips (costs per turn, time here and minimum, why not buildable) — S
+- [x] PP of the selected location's supply group — S
 - [x] Add to the top of the queue (production and research) — S
-- [ ] "Unavailable" catalogue filter — S
+- [x] "Unavailable" catalogue filter — S
 - [ ] Ship design articles in the Pedia (and design links) — M
 - [x] Pause research of a tech — S
-- [ ] Tech tree: status filters, several categories at once, unlock icons on cards, rich tooltips, zoom buttons, Shift+click to queue — M
-- [ ] Tech list: sortable columns — S
-- [ ] Government: availability filters (adopted, adoptable, unaffordable, restricted, locked), full policy tooltips, revert this turn's changes — S
-- [ ] Government: drag policies to slots, double-click to adopt or remove — M
+- [x] Tech tree: status filters, several categories at once, unlock icons on cards, rich tooltips, zoom buttons, Shift+click to queue — M
+- [x] Tech list: sortable columns — S
+- [x] Government: availability filters (adopted, adoptable, unaffordable, restricted, locked), full policy tooltips, revert this turn's changes — S
+- [x] Government: drag policies to slots, double-click to adopt or remove — M
 - [ ] Designer: update an existing design or saved design — M
 - [ ] Designer: specific reasons a design is invalid; name check; description — S
 - [ ] Designer: clear all parts; fill every slot of a type; drag parts — M

@@ -82,8 +82,29 @@ func get_points() -> Dictionary:
 	return {"available": 15.0, "spent": 9.5, "stockpile": 0.0}
 
 
-func get_buildable(location_id: int) -> Array:
-	return buildable if location_id == 101 else []
+func get_buildable(location_id: int, include_unavailable := false) -> Array:
+	if location_id != 101:
+		return []
+	if not include_unavailable:
+		return buildable
+	return (
+		buildable
+		+ [
+			{
+				"build_type": "building",
+				"name": "BLD_GAS_GIANT_GEN",
+				"label": "BLD_GAS_GIANT_GEN",
+				"cost": 40.0,
+				"turns": 5,
+				"available": false,
+				"reason": "Needs a gas giant",
+			}
+		]
+	)
+
+
+func get_group_points(_location_id: int) -> Dictionary:
+	return {"output": 15.0, "allocated": 9.5}
 
 
 func get_locations() -> Array:

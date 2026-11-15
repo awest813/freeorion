@@ -48,6 +48,7 @@ static var _img_src_regex: RegEx
 ## Convert FreeOrion markup to BBCode. Inline images are \a image_height px high.
 static func to_bbcode(text: String, image_height := 16) -> String:
 	_compile()
+	text = resolve_values(text)
 	var out := ""
 	var open_tags: Array[String] = []
 	var pos := 0
@@ -71,7 +72,13 @@ static func to_bbcode(text: String, image_height := 16) -> String:
 ## \a text with its FreeOrion markup tags removed (for the clipboard).
 static func plain_text(text: String) -> String:
 	_compile()
-	return _tag_regex.sub(text, "", true)
+	return _tag_regex.sub(resolve_values(text), "", true)
+
+
+## \a text with each <value NAME> tag holding the named value's
+## evaluation (FreeOrion's content values; unknown names keep their text).
+static func resolve_values(text: String) -> String:
+	return FOPedia.resolve_values(text) if text.contains("</value>") else text
 
 
 ## Split a link meta into {"kind": ..., "arg": ...}. Plain web links give

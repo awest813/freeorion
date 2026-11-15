@@ -22,3 +22,11 @@ func adopt(policy_name: String, slot: int) -> bool:
 
 func de_adopt(policy_name: String) -> bool:
 	return FOGovernment.de_adopt(policy_name)
+
+
+func is_modified() -> bool:
+	return FOGovernment.is_modified()
+
+
+func revert() -> bool:
+	return FOGovernment.revert()

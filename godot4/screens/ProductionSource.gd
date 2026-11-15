@@ -12,8 +12,15 @@ func get_points() -> Dictionary:
 	return FOProduction.get_points()
 
 
-func get_buildable(location_id: int) -> Array:
-	return FOProduction.get_buildable(location_id)
+## What can be built at \a location_id; with \a include_unavailable also
+## what can't, with the reason.
+func get_buildable(location_id: int, include_unavailable := false) -> Array:
+	return FOProduction.get_buildable(location_id, include_unavailable)
+
+
+## The industry of \a location_id's supply group: {output, allocated}.
+func get_group_points(location_id: int) -> Dictionary:
+	return FOProduction.get_group_points(location_id)
 
 
 ## [{id, name}] of planets where the player can produce, capital first.

@@ -8,6 +8,8 @@
 #include "../../ClientApp.h"
 #include "../../../Empire/Empire.h"
 #include "../../../universe/BuildingType.h"
+#include "../../../universe/Conditions.h"
+#include "../../../universe/ShipPart.h"
 #include "../../../universe/Planet.h"
 #include "../../../universe/ShipDesign.h"
 #include "../../../universe/ShipHull.h"
@@ -90,7 +92,9 @@ void FOProduction::_bind_methods() {
     const auto cls = get_class_static();
     ClassDB::bind_static_method(cls, D_METHOD("get_queue"), &FOProduction::get_queue);
     ClassDB::bind_static_method(cls, D_METHOD("get_points"), &FOProduction::get_points);
-    ClassDB::bind_static_method(cls, D_METHOD("get_buildable", "location_id"), &FOProduction::get_buildable);
+    ClassDB::bind_static_method(cls, D_METHOD("get_buildable", "location_id", "include_unavailable"),
+                                &FOProduction::get_buildable, DEFVAL(false));
+    ClassDB::bind_static_method(cls, D_METHOD("get_group_points", "location_id"), &FOProduction::get_group_points);
     ClassDB::bind_static_method(cls, D_METHOD("get_production_locations"), &FOProduction::get_production_locations);
     ClassDB::bind_static_method(cls, D_METHOD("get_item_locations", "item"), &FOProduction::get_item_locations);
     ClassDB::bind_static_method(cls, D_METHOD("enqueue_building", "name", "location_id", "position"),
@@ -141,6 +145,12 @@ godot::Array FOProduction::get_queue() {
         entry["paused"] = element.paused;
         entry["stockpile_allowed"] = element.allowed_imperial_stockpile_use;
         entry["rally_point_id"] = element.rally_point_id;
+        {
+            const auto [cost, turns] = element.item.ProductionCostAndTime(empire->EmpireID(), element.location,
+                                                                          app->GetContext());
+            entry["total_cost"] = cost * element.blocksize;
+            entry["min_turns"] = turns;
+        }
         const auto* rally = universe.Objects().getRaw(element.rally_point_id);
         entry["rally_point_name"] = rally ? ToGodot(rally->Name()) : godot::String();
         result.push_back(entry);
@@ -168,7 +178,73 @@ godot::Dictionary FOProduction::get_points() {
     return points;
 }
 
-godot::Array FOProduction::get_buildable(int location_id) {
+namespace {
+    // Why an item can't be built at a location: its failed conditions, as
+    // the GG production window's item tooltip (BuildDesignatorWnd).
+    std::string BuildingFailedConditions(const std::string& building_name, int candidate_id, int empire_id) {
+        std::vector<const Condition::Condition*> conditions;
+        const Condition::EmpireHasBuildingTypeAvailable available(building_name);
+        conditions.push_back(&available);
+        if (const auto* type = GetBuildingType(building_name)) {
+            conditions.push_back(type->EnqueueLocation());
+            conditions.push_back(type->Location());
+        }
+        const auto& context = ClientApp::GetApp()->GetContext();
+        const auto empire = context.GetEmpire(empire_id);
+        const ScriptingContext source_context(context, ScriptingContext::Source{},
+                                              empire ? empire->Source(context.ContextObjects()).get() : nullptr);
+        return ConditionFailedDescription(conditions, source_context, context.ContextObjects().getRaw(candidate_id));
+    }
+
+    std::string ShipFailedConditions(int design_id, int candidate_id, int empire_id) {
+        static const Condition::CanProduceShips can_produce;
+        const Condition::EmpireHasShipDesignAvailable available{design_id};
+        std::vector<const Condition::Condition*> conditions{&can_produce, &available};
+        const auto& context = ClientApp::GetApp()->GetContext();
+        if (const auto* design = context.ContextUniverse().GetShipDesign(design_id)) {
+            if (const auto* hull = GetShipHull(design->Hull()))
+                conditions.push_back(hull->Location());
+            for (const auto& part_name : design->Parts())
+                if (const auto* part = GetShipPart(part_name))
+                    conditions.push_back(part->Location());
+        }
+        const auto empire = context.GetEmpire(empire_id);
+        const ScriptingContext source_context(context, ScriptingContext::Source{},
+                                              empire ? empire->Source(context.ContextObjects()).get() : nullptr);
+        return ConditionFailedDescription(conditions, source_context, context.ContextObjects().getRaw(candidate_id));
+    }
+}
+
+godot::Dictionary FOProduction::get_group_points(int location_id) {
+    godot::Dictionary result;
+    const auto* empire = PlayerEmpire();
+    const auto* app = ClientApp::GetApp();
+    if (!empire || !app)
+        return result;
+    const auto* location = app->GetUniverse().Objects().getRaw(location_id);
+    const int system_id = location ? location->SystemID() : INVALID_OBJECT_ID;
+    const auto& queue = empire->GetProductionQueue();
+    for (const auto& [group, output] : empire->GetIndustryPool().Output()) {
+        bool here = false;
+        for (const int object_id : group) {
+            const auto* object = app->GetUniverse().Objects().getRaw(object_id);
+            here = here || object_id == location_id || (object && object->SystemID() == system_id &&
+                                                         system_id != INVALID_OBJECT_ID);
+        }
+        if (!here)
+            continue;
+        result["output"] = output;
+        float allocated = 0.0f;
+        for (const auto& [allocated_group, pp] : queue.AllocatedPP())
+            if (allocated_group == group)
+                allocated += pp;
+        result["allocated"] = allocated;
+        break;
+    }
+    return result;
+}
+
+godot::Array FOProduction::get_buildable(int location_id, bool include_unavailable) {
     godot::Array result;
     const auto* app = ClientApp::GetApp();
     const auto* empire = PlayerEmpire();
@@ -176,12 +252,24 @@ godot::Array FOProduction::get_buildable(int location_id) {
         return result;
     const auto& context = app->GetContext();
     const auto& universe = app->GetUniverse();
-    const auto add = [&](const ProductionQueue::ProductionItem& item) {
+    const auto add = [&](const ProductionQueue::ProductionItem& item, bool available = true,
+                         const std::string& reason = {})
+    {
         godot::Dictionary entry;
         Describe(item, universe, entry);
         const auto [cost, turns] = item.ProductionCostAndTime(empire->EmpireID(), location_id, context);
         entry["cost"] = cost;
         entry["turns"] = turns;
+        entry["cost_per_turn"] = turns > 0 ? cost / turns : cost;
+        entry["available"] = available;
+        entry["reason"] = ToGodot(reason);
+        if (item.build_type == BuildType::BT_BUILDING) {
+            const auto* type = GetBuildingType(item.name);
+            entry["description"] = type ? ToGodot(type->Description()) : godot::String();
+        } else if (item.build_type == BuildType::BT_SHIP) {
+            const auto* design = universe.GetShipDesign(item.design_id);
+            entry["description"] = design ? ToGodot(design->Description(true)) : godot::String();
+        }
         result.push_back(entry);
     };
     try {
@@ -191,11 +279,20 @@ godot::Array FOProduction::get_buildable(int location_id) {
     for (const auto& name : empire->AvailableBuildingTypes()) {
         if (empire->ProducibleItem(BuildType::BT_BUILDING, name, location_id, context) &&
             empire->EnqueuableItem(BuildType::BT_BUILDING, name, location_id, context))
-        { add(ProductionQueue::ProductionItem(BuildType::BT_BUILDING, name)); }
+        {
+            add(ProductionQueue::ProductionItem(BuildType::BT_BUILDING, name));
+        } else if (include_unavailable) {
+            add(ProductionQueue::ProductionItem(BuildType::BT_BUILDING, name), false,
+                BuildingFailedConditions(name, location_id, empire->EmpireID()));
+        }
     }
     for (const int design_id : empire->AvailableShipDesigns(universe)) {
-        if (empire->ProducibleItem(BuildType::BT_SHIP, design_id, location_id, context))
+        if (empire->ProducibleItem(BuildType::BT_SHIP, design_id, location_id, context)) {
             add(ProductionQueue::ProductionItem(BuildType::BT_SHIP, design_id, universe));
+        } else if (include_unavailable) {
+            add(ProductionQueue::ProductionItem(BuildType::BT_SHIP, design_id, universe), false,
+                ShipFailedConditions(design_id, location_id, empire->EmpireID()));
+        }
     }
     } catch (const std::exception& e) {
         // An exception must not unwind into Godot, which would abort the process.

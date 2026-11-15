@@ -1,5 +1,7 @@
 #include "FOGovernment.h"
 
+#include <algorithm>
+
 #include <godot_cpp/core/class_db.hpp>
 
 #include "../../ClientApp.h"
@@ -36,6 +38,8 @@ void FOGovernment::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_influence"), &FOGovernment::get_influence);
     ClassDB::bind_static_method(cls, D_METHOD("adopt", "name", "slot"), &FOGovernment::adopt);
     ClassDB::bind_static_method(cls, D_METHOD("de_adopt", "name"), &FOGovernment::de_adopt);
+    ClassDB::bind_static_method(cls, D_METHOD("is_modified"), &FOGovernment::is_modified);
+    ClassDB::bind_static_method(cls, D_METHOD("revert"), &FOGovernment::revert);
 }
 
 godot::Array FOGovernment::get_slots() {
@@ -72,19 +76,39 @@ godot::Array FOGovernment::get_policies() {
         return result;
     const auto& context = app->GetContext();
     try {
-        for (const auto& name : empire->AvailablePolicies()) {
-            const auto* policy = GetPolicy(name);
-            if (!policy)
-                continue;
+        const auto initial = empire->InitialAdoptedPolicies();
+        // Every policy, locked ones too, as GG's availability filters show them.
+        for (const auto& [name, policy] : GetPolicyManager().Policies()) {
             godot::Dictionary entry;
             entry["name"] = ToGodot(name);
-            entry["category"] = ToGodot(policy->Category());
-            entry["icon"] = ToGodot(policy->Graphic());
-            entry["short_description"] = ToGodot(policy->ShortDescription());
-            entry["cost"] = policy->AdoptionCost(empire->EmpireID(), context);
+            entry["category"] = ToGodot(policy.Category());
+            entry["icon"] = ToGodot(policy.Graphic());
+            entry["short_description"] = ToGodot(policy.ShortDescription());
+            entry["description"] = ToGodot(policy.Description());
+            entry["cost"] = policy.AdoptionCost(empire->EmpireID(), context);
             entry["adopted"] = empire->PolicyAdopted(name);
+            entry["available"] = empire->PolicyAvailable(name);
             entry["affordable"] = empire->PolicyAffordable(name, context);
             entry["prerequisites_ok"] = empire->PolicyPrereqsAndExclusionsOK(name, context.current_turn);
+            entry["adopted_this_turn"] = empire->PolicyAdopted(name) &&
+                std::find(initial.begin(), initial.end(), std::string_view{name}) == initial.end();
+            entry["current_turns"] = empire->CurrentTurnsPolicyHasBeenAdopted(name);
+            entry["total_turns"] = empire->CumulativeTurnsPolicyHasBeenAdopted(name);
+            // Adopted policies that exclude this one; prerequisites and
+            // whether they were adopted at the start of the turn.
+            godot::PackedStringArray excluded_by;
+            for (const auto& ex : policy.Exclusions())
+                if (empire->PolicyAdopted(ex))
+                    excluded_by.push_back(ToGodot(ex));
+            entry["excluded_by"] = excluded_by;
+            godot::Array prerequisites;
+            for (const auto& prereq : policy.Prerequisites()) {
+                godot::Dictionary p;
+                p["name"] = ToGodot(prereq);
+                p["met"] = std::find(initial.begin(), initial.end(), std::string_view{prereq}) != initial.end();
+                prerequisites.push_back(p);
+            }
+            entry["prerequisites"] = prerequisites;
             result.push_back(entry);
         }
     } catch (const std::exception& e) {
@@ -92,6 +116,27 @@ godot::Array FOGovernment::get_policies() {
         ErrorLogger() << "FOGovernment::get_policies: " << e.what();
     }
     return result;
+}
+
+bool FOGovernment::is_modified() {
+    const auto* empire = PlayerEmpire();
+    return empire && empire->PoliciesModified();
+}
+
+bool FOGovernment::revert() {
+    auto* app = ClientApp::GetApp();
+    auto* empire = PlayerEmpire();
+    if (!app || !empire || !empire->PoliciesModified())
+        return false;
+    auto& context = app->GetContext();
+    try {
+        app->Orders().IssueOrder<PolicyOrder>(context, empire->EmpireID());
+        Reproject(*empire, context);
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOGovernment::revert: " << e.what();
+        return false;
+    }
+    return true;
 }
 
 godot::Dictionary FOGovernment::get_influence() {

@@ -1,8 +1,11 @@
 class_name ResearchScreen
 extends PanelContainer
-## Research: the queue (progress, ETA, reorder, remove) on the left, and the
-## techs on the right, filtered by availability and category, searchable,
-## as a list or as the tech tree (TechTreeView).
+## Research: the queue (progress, ETA, reorder by dragging or arrows,
+## pause, remove) on the left, and the techs on the right, filtered by
+## availability and one or more categories, searchable, as a list (sorted
+## by cost, name, time or category; techs drag into the queue) or as the
+## tech tree (TechTreeView; status filter, zoom buttons, Shift+click
+## queues).
 ## Adding a tech also queues its missing prerequisites. Reads and orders
 ## through `source` (ResearchSource by default; tests set a fake).
 
@@ -12,13 +15,33 @@ signal pedia_requested(kind: String, article_name: String)
 ## Availability filters: researchable now, everything not yet researched,
 ## and researched.
 const FILTERS := ["researchable", "open", "complete"]
+## Tech statuses the tree can show.
+const STATUSES := ["complete", "researchable", "partial", "unresearchable"]
+## List sort orders: key, label key.
+const SORTS := [
+	["cost", "RESEARCH_SORT_COST"],
+	["name", "RESEARCH_SORT_NAME"],
+	["turns", "RESEARCH_SORT_TURNS"],
+	["category", "RESEARCH_SORT_CATEGORY"],
+]
+const QUEUE_DRAG := "fo_tech_queue"
+const TECH_DRAG := "fo_tech"
 
 var source: Variant = ResearchSource.new()
+## Statuses shown in the tree: status -> true.
+var statuses_shown := {
+	"complete": true, "researchable": true, "partial": true, "unresearchable": true
+}
+## Categories shown besides the picked one: category -> true.
+var more_categories := {}
 
 var _points: Label
 var _queue_list: VBoxContainer
 var _filter: TabBar
 var _category: OptionButton
+var _more: MenuButton
+var _status_menu: MenuButton
+var _sort: OptionButton
 var _search: LineEdit
 var _catalog: VBoxContainer
 var _techs: Array = []
@@ -72,6 +95,8 @@ func _on_view_changed(tab: int) -> void:
 	var tree := tab == 1
 	_list_view.visible = not tree
 	_filter.visible = not tree
+	_sort.visible = not tree
+	_status_menu.visible = tree
 	_tree_view.visible = tree
 	# The tree needs the room more than the queue does.
 	_queue_column.size_flags_stretch_ratio = 0.6 if tree else 1.2
@@ -113,6 +138,48 @@ func _build() -> void:
 	_category = OptionButton.new()
 	_category.item_selected.connect(func(_i): _refresh_catalog())
 	filter_row.add_child(_category)
+	# More categories at once (GG's category toggles).
+	_more = MenuButton.new()
+	_more.text = "+"
+	_more.flat = false
+	_more.tooltip_text = tr("RESEARCH_MORE_CATEGORIES")
+	_more.about_to_popup.connect(_fill_more_categories)
+	_more.get_popup().hide_on_checkable_item_selection = false
+	_more.get_popup().index_pressed.connect(
+		func(index: int):
+			var popup := _more.get_popup()
+			var category: String = popup.get_item_metadata(index)
+			if more_categories.has(category):
+				more_categories.erase(category)
+			else:
+				more_categories[category] = true
+			popup.set_item_checked(index, more_categories.has(category))
+			_refresh_catalog()
+	)
+	filter_row.add_child(_more)
+	_status_menu = MenuButton.new()
+	_status_menu.text = tr("RESEARCH_STATUS_FILTER")
+	_status_menu.flat = false
+	_status_menu.visible = false
+	var status_popup := _status_menu.get_popup()
+	status_popup.hide_on_checkable_item_selection = false
+	for status in STATUSES:
+		status_popup.add_check_item(tr("RESEARCH_STATUS_" + status.to_upper()))
+		status_popup.set_item_checked(status_popup.item_count - 1, true)
+	status_popup.index_pressed.connect(
+		func(index: int):
+			var status: String = STATUSES[index]
+			statuses_shown[status] = not statuses_shown[status]
+			status_popup.set_item_checked(index, statuses_shown[status])
+			_refresh_catalog()
+	)
+	filter_row.add_child(_status_menu)
+	_sort = OptionButton.new()
+	for entry in SORTS:
+		_sort.add_item(tr(entry[1]))
+	_sort.tooltip_text = tr("RESEARCH_SORT")
+	_sort.item_selected.connect(func(_i): _refresh_catalog())
+	filter_row.add_child(_sort)
 	_search = LineEdit.new()
 	_search.placeholder_text = tr("PRODUCTION_SEARCH")
 	_search.clear_button_enabled = true
@@ -135,7 +202,19 @@ func _build() -> void:
 	_tree = TechTreeView.new()
 	_tree.tech_selected.connect(_show_tech_detail)
 	_tree.tech_activated.connect(_enqueue)
+	_tree.tech_queued.connect(func(tech_name): _order(source.enqueue(tech_name), true))
 	frame.add_child(_tree)
+	# Zoom out, fit, in, over the tree's top right.
+	var zoom_row := HBoxContainer.new()
+	zoom_row.size_flags_horizontal = Control.SIZE_SHRINK_END
+	zoom_row.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	for entry in [
+		["−", "RESEARCH_ZOOM_OUT", -1], ["⤢", "RESEARCH_ZOOM_FIT", 0], ["+", "RESEARCH_ZOOM_IN", 1]
+	]:
+		var button := ScreenKit.small_button(entry[0], entry[1])
+		button.pressed.connect(_tree.zoom_step.bind(entry[2]))
+		zoom_row.add_child(button)
+	frame.add_child(zoom_row)
 	var detail := HBoxContainer.new()
 	tree_box.add_child(detail)
 	var detail_text := VBoxContainer.new()
@@ -195,17 +274,53 @@ func _refresh_catalog() -> void:
 			"complete":
 				if status != "complete":
 					continue
-		if not category.is_empty() and tech.get("category") != category:
+		if not category_shown(tech.get("category", "")):
 			continue
 		if not needle.is_empty() and not tr(tech.get("name", "")).to_lower().contains(needle):
 			continue
 		shown.push_back(tech)
-	# Cheapest first: what can be finished soonest.
-	shown.sort_custom(func(a, b): return a.get("cost", 0.0) < b.get("cost", 0.0))
+	sort_techs(shown, SORTS[maxi(_sort.selected, 0)][0])
 	for tech in shown:
 		_catalog.add_child(_catalog_row(tech))
 	if shown.is_empty():
 		_catalog.add_child(ScreenKit.label(tr("RESEARCH_NOTHING_MATCHES"), "SecondaryLabel"))
+
+
+## Whether techs of \a category are shown: the picked category or one of
+## the others ticked; all when none is.
+func category_shown(category: String) -> bool:
+	var picked := _selected_category()
+	if picked.is_empty() and more_categories.is_empty():
+		return true
+	return category == picked or more_categories.has(category)
+
+
+## Sort \a techs by \a key ("cost": cheapest first, "name", "turns",
+## "category").
+static func sort_techs(techs: Array, key: String) -> void:
+	techs.sort_custom(
+		func(a, b):
+			match key:
+				"name":
+					var x := String(TranslationServer.translate(a["name"]))
+					return x < String(TranslationServer.translate(b["name"]))
+				"turns":
+					return a.get("turns", 0) < b.get("turns", 0)
+				"category":
+					var x := String(TranslationServer.translate(a.get("category", "")))
+					var y := String(TranslationServer.translate(b.get("category", "")))
+					return x < y or (x == y and a.get("cost", 0.0) < b.get("cost", 0.0))
+			return a.get("cost", 0.0) < b.get("cost", 0.0)
+	)
+
+
+func _fill_more_categories() -> void:
+	var popup := _more.get_popup()
+	popup.clear()
+	for category in source.get_categories():
+		popup.add_check_item(tr(category))
+		popup.set_item_metadata(popup.item_count - 1, category)
+		popup.set_item_checked(popup.item_count - 1, more_categories.has(category))
 
 
 # Queue \a tech_name (with what it needs) at the end; with Shift, at the top.
@@ -224,6 +339,13 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 			if event is InputEventKey and event.pressed and event.keycode == KEY_DELETE:
 				_order(source.remove(tech_name), true)
 				card.accept_event()
+	)
+	# Drag to reorder; techs dropped here go before it.
+	card.set_drag_forwarding(
+		func(_at): return {"type": QUEUE_DRAG, "name": tech_name},
+		func(_at, data):
+			return data is Dictionary and data.get("type", "") in [QUEUE_DRAG, TECH_DRAG],
+		func(_at, data): _drop_on_queue(data, position)
 	)
 	var row := HBoxContainer.new()
 	card.add_child(row)
@@ -284,6 +406,11 @@ func _catalog_row(tech: Dictionary) -> Control:
 	var status: String = tech.get("status", "")
 	var row := HBoxContainer.new()
 	row.tooltip_text = tr(tech.get("short_description", ""))
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	if status != "complete":
+		row.set_drag_forwarding(
+			func(_at): return {"type": TECH_DRAG, "name": tech_name}, Callable(), Callable()
+		)
 	row.add_child(_tech_icon(tech))
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -325,9 +452,12 @@ func _catalog_row(tech: Dictionary) -> Control:
 # The tree shows the chosen category (all by default); a search selects and
 # centres the first match.
 func _refresh_tree() -> void:
-	var category := _selected_category()
 	var shown: Array = _techs.filter(
-		func(t): return category.is_empty() or t.get("category") == category
+		func(t):
+			return (
+				category_shown(t.get("category", ""))
+				and statuses_shown.get(t.get("status", ""), true)
+			)
 	)
 	_tree.techs = shown
 	var positions := {}
@@ -380,6 +510,14 @@ func _show_tech_detail(tech_name: String) -> void:
 	_detail_add.text = tr("RESEARCH_QUEUED") if queued else tr("PRODUCTION_ADD")
 	if not queued and tech.get("status") in ["partial", "unresearchable"]:
 		_detail_add.text = tr("RESEARCH_ADD_WITH_PREREQS")
+
+
+# A queued tech moved to, or a tech added at, queue \a position.
+func _drop_on_queue(data: Dictionary, position: int) -> void:
+	if data.get("type", "") == QUEUE_DRAG:
+		_order(source.move(data["name"], position))
+	else:
+		_order(source.enqueue(data["name"], position), true)
 
 
 func _order(ok: bool, reload_techs := false) -> void:

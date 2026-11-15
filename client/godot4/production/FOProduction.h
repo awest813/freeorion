@@ -24,7 +24,12 @@ public:
     /** {available, spent, stockpile, stockpile_used, stockpile_capacity
       * (PP a turn can draw from it), stockpile_expected (next turn)} */
     static godot::Dictionary get_points();
-    static godot::Array get_buildable(int location_id);
+    /** What can be built at \a location_id; with \a include_unavailable also
+        what can't, each with available false and the failed conditions
+        (reason). Entries carry cost, turns, cost_per_turn, description. */
+    static godot::Array get_buildable(int location_id, bool include_unavailable = false);
+    /** The industry of \a location_id's supply group: {output, allocated}. */
+    static godot::Dictionary get_group_points(int location_id);
     /** Locations (planet IDs) where the player can produce anything. */
     static godot::PackedInt32Array get_production_locations();
     /** Of get_production_locations(), those where \a item (as get_buildable()

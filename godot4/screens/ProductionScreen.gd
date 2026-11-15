@@ -29,7 +29,10 @@ const ITEM_MENU := [
 	[7, "PEDIA_OPEN"],
 ]
 
-const FILTERS := ["all", "building", "ship"]
+const FILTERS := ["all", "building", "ship", "unavailable"]
+## Drag data types: a queue item moved, a catalogue item added.
+const QUEUE_DRAG := "fo_queue_item"
+const CATALOG_DRAG := "fo_catalog_item"
 
 var source: Variant = ProductionSource.new()
 ## The system ships rally to from the item menu (the map's selected
@@ -38,6 +41,7 @@ var rally_target: Callable = func() -> Array: return [-1, ""]
 
 var _points: Label
 var _stockpile: Label
+var _group_points: Label
 var _queue_list: VBoxContainer
 var _removed_list: VBoxContainer
 var _location: OptionButton
@@ -112,6 +116,12 @@ func _build() -> void:
 	queue_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_queue_list = ScreenKit.list()
 	queue_box.add_child(_queue_list)
+	# Catalogue items dropped below the queue go at its end.
+	queue_box.set_drag_forwarding(
+		Callable(),
+		func(_at, data): return data is Dictionary and data.get("type", "") == CATALOG_DRAG,
+		func(_at, data): _order(source.enqueue(data["item"], selected_location_id()))
+	)
 	_removed_list = ScreenKit.list()
 	queue_box.add_child(_removed_list)
 	queue_column.add_child(ScreenKit.scrolling(queue_box))
@@ -127,6 +137,10 @@ func _build() -> void:
 	_location.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_location.item_selected.connect(func(_i): _refresh_catalog())
 	location_row.add_child(_location)
+	# The selected location's supply group: what it makes and what is spent
+	# there (GG's group PP).
+	_group_points = ScreenKit.label("", "SmallLabel")
+	catalog_column.add_child(_group_points)
 	_filter = TabBar.new()
 	for filter in FILTERS:
 		_filter.add_tab(tr("PRODUCTION_FILTER_" + filter.to_upper()))
@@ -191,12 +205,26 @@ func _refresh_removed() -> void:
 func _refresh_catalog() -> void:
 	ScreenKit.clear(_catalog)
 	var location_id := selected_location_id()
-	_buildable = source.get_buildable(location_id) if location_id >= 0 else []
 	var filter: String = FILTERS[_filter.current_tab]
+	_buildable = (
+		source.get_buildable(location_id, filter == "unavailable") if location_id >= 0 else []
+	)
+	var group: Dictionary = source.get_group_points(location_id) if location_id >= 0 else {}
+	_group_points.text = (
+		(tr("PRODUCTION_GROUP_POINTS").replace("%1%", "%.1f" % group.get("output", 0.0)).replace(
+			"%2%", "%.1f" % group.get("allocated", 0.0)
+		))
+		if not group.is_empty()
+		else ""
+	)
 	var needle := _search.text.strip_edges().to_lower()
 	var shown := 0
 	for item: Dictionary in _buildable:
-		if filter != "all" and item.get("build_type") != filter:
+		var available: bool = item.get("available", true)
+		if filter == "unavailable":
+			if available:
+				continue
+		elif filter != "all" and item.get("build_type") != filter:
 			continue
 		if not needle.is_empty() and not _display_name(item).to_lower().contains(needle):
 			continue
@@ -209,6 +237,13 @@ func _refresh_catalog() -> void:
 func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	var card := PanelContainer.new()
 	var index: int = entry.get("index", position)
+	# Drag to reorder; catalogue items dropped here go before it.
+	card.set_drag_forwarding(
+		func(_at): return {"type": QUEUE_DRAG, "index": index, "label": _display_name(entry)},
+		_can_drop_on_queue,
+		_drop_on_queue.bind(index)
+	)
+	card.tooltip_text = queue_tooltip(entry)
 	# Click a card to focus it; Delete then removes it.
 	card.focus_mode = Control.FOCUS_CLICK
 	card.gui_input.connect(
@@ -374,6 +409,15 @@ func _fill_item_menu(popup: PopupMenu, entry: Dictionary, count: int) -> void:
 
 func _catalog_row(item: Dictionary) -> Control:
 	var row := HBoxContainer.new()
+	var available: bool = item.get("available", true)
+	row.tooltip_text = catalog_tooltip(item)
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	if available:
+		row.set_drag_forwarding(
+			func(_at): return {"type": CATALOG_DRAG, "item": item}, Callable(), Callable()
+		)
+	else:
+		row.modulate = Color(1, 1, 1, 0.55)
 	row.add_child(ScreenKit.icon(item.get("icon", "")))
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -398,6 +442,7 @@ func _catalog_row(item: Dictionary) -> Control:
 	var add := Button.new()
 	add.text = tr("PRODUCTION_ADD")
 	add.tooltip_text = tr("QUEUE_ADD_TOP_TIP")
+	add.disabled = not available
 	add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	add.pressed.connect(
 		func():
@@ -406,6 +451,58 @@ func _catalog_row(item: Dictionary) -> Control:
 	)
 	row.add_child(add)
 	return row
+
+
+## Tooltip of queue \a entry: total cost, a turn's share, minimum time and
+## what it gets this turn (GG's queue row tooltip).
+func queue_tooltip(entry: Dictionary) -> String:
+	var lines: PackedStringArray = [_display_name(entry)]
+	var total: float = entry.get("total_cost", 0.0)
+	var turns: int = entry.get("min_turns", 0)
+	if total > 0.0:
+		lines.push_back(
+			tr("PRODUCTION_TIP_COST").replace("%1%", "%.1f" % total).replace(
+				"%2%", "%.1f" % (total / maxi(turns, 1))
+			)
+		)
+	if turns > 0:
+		lines.push_back(tr("PRODUCTION_TIP_MIN_TURNS").replace("%1%", str(turns)))
+	lines.push_back(
+		tr("PRODUCTION_TIP_ALLOCATED").replace("%1%", "%.1f" % entry.get("allocated_pp", 0.0))
+	)
+	return "\n".join(lines)
+
+
+## Tooltip of catalogue \a item: cost per turn and time here, description,
+## and why it can't be built here when it can't.
+func catalog_tooltip(item: Dictionary) -> String:
+	var lines: PackedStringArray = [_display_name(item)]
+	lines.push_back(
+		tr("PRODUCTION_TIP_COST").replace("%1%", "%.1f" % item.get("cost", 0.0)).replace(
+			"%2%", "%.1f" % item.get("cost_per_turn", item.get("cost", 0.0))
+		)
+	)
+	lines.push_back(tr("PRODUCTION_TIP_MIN_TURNS").replace("%1%", str(item.get("turns", 0))))
+	var description: String = item.get("description", "")
+	if not description.is_empty():
+		lines.push_back(FORichText.plain_text(tr(description)).left(400))
+	var reason: String = item.get("reason", "")
+	if not reason.is_empty():
+		lines.push_back(tr("PRODUCTION_TIP_UNAVAILABLE") + "\n" + FORichText.plain_text(reason))
+	return "\n\n".join(lines)
+
+
+func _can_drop_on_queue(_at: Vector2, data: Variant) -> bool:
+	return data is Dictionary and data.get("type", "") in [QUEUE_DRAG, CATALOG_DRAG]
+
+
+## A queue item or catalogue item dropped on queue item \a target_index.
+func _drop_on_queue(_at: Vector2, data: Variant, target_index: int) -> void:
+	if data.get("type", "") == QUEUE_DRAG:
+		if data["index"] != target_index:
+			_order(source.move(data["index"], target_index))
+	else:
+		_order(source.enqueue(data["item"], selected_location_id(), target_index))
 
 
 ## Every location where \a item can be built, to add it at several at once;

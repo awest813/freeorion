@@ -9,9 +9,11 @@
 /** Static government API for GDScript: FOGovernment.get_slots(), ...
   *
   * Slots: [{category, policies: [name or "" per slot]}]
-  * Policy: {name, category, icon, short_description, cost, adopted,
-  *   affordable, prerequisites_ok}; name, category and short_description
-  *   are stringtable keys.
+  * Policy (every policy, locked ones too): {name, category, icon,
+  *   short_description, description, cost, adopted, available (unlocked),
+  *   affordable, prerequisites_ok, adopted_this_turn, current_turns,
+  *   total_turns, excluded_by: [adopted names], prerequisites: [{name,
+  *   met}]}; names, category and descriptions are stringtable keys.
   * Influence: {stockpile, adoption_cost} (IP; adoption_cost is this turn's
   *   total upkeep of adopted policies).
   * Adoption orders execute on the client at once and update the influence
@@ -27,6 +29,10 @@ public:
     static bool adopt(const godot::String& name, int slot);
     /** Revoke an adopted (or this turn's pending) policy. */
     static bool de_adopt(const godot::String& name);
+    /** Whether the adopted policies differ from the turn's start. */
+    static bool is_modified();
+    /** Undo this turn's adoptions and revocations; true if anything changed. */
+    static bool revert();
 
 protected:
     static void _bind_methods();
