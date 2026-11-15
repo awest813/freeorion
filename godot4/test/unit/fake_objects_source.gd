@@ -71,6 +71,20 @@ var rows := {
 	],
 }
 
+var columns_text := ""
+
+
+func empire_id() -> int:
+	return 1
+
+
+func load_columns() -> String:
+	return columns_text
+
+
+func save_columns(text: String) -> void:
+	columns_text = text
+
 
 func list_objects(kind: String, own_only: bool) -> Array:
 	calls.push_back([kind, own_only])

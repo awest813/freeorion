@@ -2369,6 +2369,59 @@ OBJECTS_SEARCH
 Filter by name…
 
 # %1% number of objects listed.
+OBJECTS_COL_SIZE
+Size
+
+OBJECTS_COL_COLONY_SHIPS
+Colony ships
+
+OBJECTS_FILTER_TIP
+Show only some of them
+
+OBJECTS_FILTER_ALL
+All
+
+OBJECTS_FILTER_POPULATED
+Populated
+
+OBJECTS_FILTER_OUTPOSTS
+Outposts
+
+OBJECTS_FILTER_MOVING
+Moving
+
+OBJECTS_FILTER_IDLE
+Idle
+
+OBJECTS_FILTER_DAMAGED
+Damaged
+
+OBJECTS_GROUP_TIP
+Group the rows, with totals per group. Right-click a column title to choose the columns.
+
+OBJECTS_GROUP_NONE
+No grouping
+
+# %1% column name
+OBJECTS_GROUP_BY
+By %1%
+
+OBJECTS_GROUP_UNKNOWN
+(none)
+
+OBJECTS_SHOW_ON_MAP
+Show on map
+
+# %1% article name
+OBJECTS_PEDIA
+Pedia: %1%
+
+OBJECTS_BUILD_HERE
+Build here
+
+OPTIONS_DB_UI_OBJECTS_COLUMNS
+Columns shown in the objects list, against their defaults
+
 OBJECTS_COUNT
 %1% objects
 

@@ -99,3 +99,67 @@ func test_buildings_link_to_their_planet():
 func test_empty_kind():
 	screen.show_kind("systems")
 	assert_true(screen._empty.visible)
+
+
+func test_filter_presets():
+	screen._only_mine.button_pressed = false
+	screen._filter.select(2)  # outposts
+	screen._filter.item_selected.emit(2)
+	assert_eq(screen.shown_rows().size(), 0, "Every fake planet is populated")
+	screen.show_kind("fleets")
+	assert_eq(screen._filter.get_item_text(2), tr("OBJECTS_FILTER_IDLE"))
+	screen._filter.select(2)
+	screen._filter.item_selected.emit(2)
+	assert_eq(screen.shown_rows().map(func(r): return r["name"]), ["Scout Fleet"])
+	assert_true(
+		ObjectsScreen.passes_filter("ships", "damaged", {"structure": 5.0, "max_structure": 8.0})
+	)
+
+
+func test_grouping_with_totals():
+	screen._only_mine.button_pressed = false
+	screen._group.select(2)  # by owner
+	screen._group.item_selected.emit(2)
+	var groups := screen._tree.get_root().get_children()
+	var texts := groups.map(func(g): return g.get_text(0))
+	assert_has(texts, "Terran Imperium (2)")
+	var terran: TreeItem = groups[texts.find("Terran Imperium (2)")]
+	assert_eq(terran.get_child_count(), 2)
+	assert_eq(terran.get_text(6), "16.0", "Industry 15.0 + 1.0")
+
+
+func test_column_chooser_is_remembered():
+	assert_false(screen.is_column_shown("type"), "Optional columns start hidden")
+	var menu := screen.open_column_menu()
+	assert_gt(menu.item_count, 10)
+	screen.set_column_shown("type", true)
+	screen.set_column_shown("troops", false)
+	assert_eq(screen._tree.columns, ObjectsScreen.COLUMNS["planets"].size() - 3)
+	assert_eq(
+		ObjectsScreen.parse_column_choice(fake.columns_text),
+		{"planets:type": true, "planets:troops": false}
+	)
+	var again := ObjectsScreen.new()
+	again.source = fake
+	add_child_autofree(again)
+	again.refresh()
+	assert_true(again.is_column_shown("type"))
+
+
+func test_row_actions():
+	watch_signals(screen)
+	var row: Dictionary = fake.rows["planets"][0]
+	var menu := screen.open_row_menu(row)
+	var ids := []
+	for i in menu.item_count:
+		ids.push_back(menu.get_item_id(i))
+	assert_eq(
+		ids, [ObjectsScreen.ACTION_MAP, ObjectsScreen.ACTION_PEDIA, ObjectsScreen.ACTION_BUILD]
+	)
+	menu.id_pressed.emit(ObjectsScreen.ACTION_PEDIA)
+	assert_signal_emitted_with_parameters(screen, "link_activated", ["species", "SP_HUMAN"])
+	menu = screen.open_row_menu(row)
+	menu.id_pressed.emit(ObjectsScreen.ACTION_BUILD)
+	assert_signal_emitted_with_parameters(screen, "production_requested", [704])
+	menu = screen.open_row_menu(fake.rows["planets"][3])
+	assert_eq(menu.item_count, 2, "No building on other empires' planets")

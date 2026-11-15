@@ -98,6 +98,11 @@ func _ready() -> void:
 	empires_screen = EmpiresScreen.new()
 	objects_screen = ObjectsScreen.new()
 	objects_screen.link_activated.connect(_on_link_activated)
+	objects_screen.production_requested.connect(
+		func(planet_id: int):
+			show_screen("production")
+			production_screen.select_location(planet_id)
+	)
 	save_screen = SaveLoadScreen.new()
 	save_screen.mode = "save"
 	load_screen = SaveLoadScreen.new()

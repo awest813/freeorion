@@ -1,11 +1,19 @@
 class_name ObjectsScreen
 extends PanelContainer
 ## Objects: every known planet, fleet, ship, building or system in a table
-## that sorts by any column (click its title) and filters by name and by
-## owner. Double-click (or Enter on) a row to show the object on the map.
+## that sorts by any column (click its title) and filters by name, owner and
+## a preset per kind (populated planets, idle fleets, ...). Rows can be
+## grouped (by location, owner, ...) with totals per group. Right-click a
+## title to choose the columns, a row for its actions. Double-click (or
+## Enter on) a row to show the object on the map.
 
 signal close_requested
 signal link_activated(kind: String, arg: String)
+## "Build here" on own planet \a planet_id.
+signal production_requested(planet_id: int)
+
+## Row menu ids.
+enum { ACTION_MAP, ACTION_PEDIA, ACTION_BUILD }
 
 ## Kinds: list name, tab label key.
 const KINDS := [
@@ -33,6 +41,9 @@ const COLUMNS := {
 		["supply", "METER_SUPPLY", "int"],
 		["defense", "METER_DEFENSE", "int"],
 		["troops", "METER_TROOPS", "number"],
+		["type", "OBJECTS_COL_TYPE", "tr"],
+		["size", "OBJECTS_COL_SIZE", "tr"],
+		["shield", "METER_SHIELD", "int"],
 	],
 	"fleets":
 	[
@@ -44,6 +55,7 @@ const COLUMNS := {
 		["destination", "OBJECTS_COL_DESTINATION", "text"],
 		["eta", "OBJECTS_COL_ETA", "eta"],
 		["aggression", "OBJECTS_COL_STANCE", "stance"],
+		["colony_ships", "OBJECTS_COL_COLONY_SHIPS", "int"],
 	],
 	"ships":
 	[
@@ -70,6 +82,34 @@ const COLUMNS := {
 		["fleets", "OBJECTS_COL_FLEETS", "int"],
 	],
 }
+## Columns hidden until chosen in the column menu: "kind:key".
+const OPTIONAL_COLUMNS := ["planets:type", "planets:size", "planets:shield", "fleets:colony_ships"]
+## Filter presets per kind: name, label key ("all" first).
+const FILTERS := {
+	"planets":
+	[
+		["all", "OBJECTS_FILTER_ALL"],
+		["populated", "OBJECTS_FILTER_POPULATED"],
+		["outposts", "OBJECTS_FILTER_OUTPOSTS"]
+	],
+	"fleets":
+	[
+		["all", "OBJECTS_FILTER_ALL"],
+		["moving", "OBJECTS_FILTER_MOVING"],
+		["idle", "OBJECTS_FILTER_IDLE"]
+	],
+	"ships": [["all", "OBJECTS_FILTER_ALL"], ["damaged", "OBJECTS_FILTER_DAMAGED"]],
+	"buildings": [["all", "OBJECTS_FILTER_ALL"]],
+	"systems": [["all", "OBJECTS_FILTER_ALL"]],
+}
+## Grouping per kind: row key ("" for none).
+const GROUPS := {
+	"planets": ["", "system_name", "owner_name", "species"],
+	"fleets": ["", "system_name", "owner_name"],
+	"ships": ["", "fleet_name", "design", "system_name", "species"],
+	"buildings": ["", "system_name", "building_type"],
+	"systems": [""],
+}
 ## Formats shown right-aligned and sorted as numbers.
 const NUMERIC := ["number", "int", "eta", "structure"]
 ## Width of number columns: fits the titles, leaves the rest to names.
@@ -87,7 +127,12 @@ var _only_mine: CheckBox
 var _search: LineEdit
 var _tree: Tree
 var _empty: Label
+var _filter: OptionButton
+var _group: OptionButton
 var _rows: Array = []
+## Columns shown or hidden against their default: "kind:key" -> shown.
+var _column_choice := {}
+var _menu: PopupMenu
 
 
 func _init() -> void:
@@ -105,8 +150,46 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 ## Reload the rows of the shown kind from the game.
 func refresh() -> void:
+	if _column_choice.is_empty():
+		_column_choice = parse_column_choice(source.load_columns())
 	_rows = source.list_objects(kind, _only_mine.button_pressed)
 	_rebuild()
+
+
+## Whether column \a key of the shown kind is shown.
+func is_column_shown(key: String) -> bool:
+	var id := "%s:%s" % [kind, key]
+	return _column_choice.get(id, not OPTIONAL_COLUMNS.has(id))
+
+
+## Show or hide column \a key of the shown kind; remembered in the options.
+func set_column_shown(key: String, shown: bool) -> void:
+	var id := "%s:%s" % [kind, key]
+	if shown == (not OPTIONAL_COLUMNS.has(id)):
+		_column_choice.erase(id)
+	else:
+		_column_choice[id] = shown
+	if sort_key == key and not shown:
+		sort_key = _columns()[0][0]
+	source.save_columns(column_choice_text(_column_choice))
+	_rebuild()
+
+
+## Column choices from option text "planets:type=1 fleets:eta=0".
+static func parse_column_choice(text: String) -> Dictionary:
+	var choice := {}
+	for part in text.split(" ", false):
+		var pair := part.split("=")
+		if pair.size() == 2:
+			choice[pair[0]] = pair[1] == "1"
+	return choice
+
+
+static func column_choice_text(choice: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for id in choice:
+		parts.push_back("%s=%d" % [id, 1 if choice[id] else 0])
+	return " ".join(parts)
 
 
 ## Show \a kind_name ("planets", "fleets", ...).
@@ -130,7 +213,10 @@ func sort_by(key: String) -> void:
 ## Rows of the shown kind as filtered and sorted on screen.
 func shown_rows() -> Array:
 	var needle := _search.text.strip_edges().to_lower()
-	var rows := _rows.filter(func(row): return _matches(row, needle))
+	var preset := _filter_name()
+	var rows := _rows.filter(
+		func(row): return _matches(row, needle) and passes_filter(kind, preset, row)
+	)
 	var numeric := _is_numeric(sort_key)
 	var key := sort_key
 	var ascending := sort_ascending
@@ -146,6 +232,33 @@ func shown_rows() -> Array:
 			return (x < y) == ascending
 	)
 	return rows
+
+
+## Whether \a row of \a kind_name passes filter preset \a preset.
+static func passes_filter(kind_name: String, preset: String, row: Dictionary) -> bool:
+	match [kind_name, preset]:
+		["planets", "populated"]:
+			return not str(row.get("species", "")).is_empty()
+		["planets", "outposts"]:
+			return str(row.get("species", "")).is_empty() and row.get("owner_id", -1) >= 0
+		["fleets", "moving"]:
+			return not str(row.get("destination", "")).is_empty()
+		["fleets", "idle"]:
+			return str(row.get("destination", "")).is_empty() and not row.get("moving", false)
+		["ships", "damaged"]:
+			return row.get("structure", 0.0) < row.get("max_structure", 0.0) - 0.01
+	return true
+
+
+func _filter_name() -> String:
+	var presets: Array = FILTERS[kind]
+	var index := clampi(_filter.selected, 0, presets.size() - 1)
+	return presets[index][0]
+
+
+func _group_key() -> String:
+	var keys: Array = GROUPS[kind]
+	return keys[clampi(_group.selected, 0, keys.size() - 1)]
 
 
 func _build() -> void:
@@ -171,6 +284,14 @@ func _build() -> void:
 	_only_mine.button_pressed = true
 	_only_mine.toggled.connect(func(_on): refresh())
 	toolbar.add_child(_only_mine)
+	_filter = OptionButton.new()
+	_filter.tooltip_text = tr("OBJECTS_FILTER_TIP")
+	_filter.item_selected.connect(func(_i): _rebuild())
+	toolbar.add_child(_filter)
+	_group = OptionButton.new()
+	_group.tooltip_text = tr("OBJECTS_GROUP_TIP")
+	_group.item_selected.connect(func(_i): _rebuild())
+	toolbar.add_child(_group)
 	_search = LineEdit.new()
 	_search.placeholder_text = tr("OBJECTS_SEARCH")
 	_search.clear_button_enabled = true
@@ -186,14 +307,45 @@ func _build() -> void:
 	_tree.tooltip_text = tr("OBJECTS_ACTIVATE_HINT")
 	_tree.column_title_clicked.connect(_on_column_title_clicked)
 	_tree.item_activated.connect(_on_item_activated)
+	_tree.allow_rmb_select = true
+	_tree.item_mouse_selected.connect(_on_item_mouse_selected)
 	box.add_child(_tree)
+	_fill_pickers()
 	_empty = ScreenKit.label(tr("OBJECTS_EMPTY"), "SecondaryLabel")
 	_empty.visible = false
 	box.add_child(_empty)
 
 
+# Filter and group choices for the shown kind.
+func _fill_pickers() -> void:
+	_filter.clear()
+	for preset in FILTERS[kind]:
+		_filter.add_item(tr(preset[1]))
+	_filter.select(0)
+	_filter.visible = _filter.item_count > 1
+	_group.clear()
+	for key: String in GROUPS[kind]:
+		_group.add_item(
+			(
+				tr("OBJECTS_GROUP_NONE")
+				if key.is_empty()
+				else tr("OBJECTS_GROUP_BY").replace("%1%", tr(_title_key(key)))
+			)
+		)
+	_group.select(0)
+	_group.visible = _group.item_count > 1
+
+
+func _title_key(key: String) -> String:
+	for column in COLUMNS[kind]:
+		if column[0] == key:
+			return column[1]
+	return key
+
+
+## The shown columns of the shown kind.
 func _columns() -> Array:
-	return COLUMNS[kind]
+	return COLUMNS[kind].filter(func(column): return is_column_shown(column[0]))
 
 
 func _is_numeric(key: String) -> bool:
@@ -233,9 +385,19 @@ func _rebuild() -> void:
 		_tree.set_column_custom_minimum_width(i, NUMBER_WIDTH if numeric else 0)
 	var root := _tree.create_item()
 	var rows := shown_rows()
+	var group_key := _group_key()
+	var groups := {}
 	for row: Dictionary in rows:
-		var item := _tree.create_item(root)
+		var parent := root
+		if not group_key.is_empty():
+			var value := _display(row, group_key)
+			if not groups.has(value):
+				groups[value] = _group_item(root, value)
+			parent = groups[value]
+			_add_to_group(parent, row)
+		var item := _tree.create_item(parent)
 		item.set_metadata(0, row_link(kind, row))
+		item.set_meta("row", row)
 		for i in columns.size():
 			var column: Array = columns[i]
 			item.set_text(i, _display(row, column[0]))
@@ -244,8 +406,45 @@ func _rebuild() -> void:
 			if column[2] == "owner" and row.get("owner_id", -1) >= 0:
 				item.set_custom_color(i, row.get("owner_color", Color.WHITE))
 		_set_row_icon(item, row)
+	for group: TreeItem in groups.values():
+		_finish_group(group)
 	_info.text = tr("OBJECTS_COUNT").replace("%1%", str(rows.size()))
 	_empty.visible = rows.is_empty()
+
+
+# A group heading: its value, how many rows, and the totals of number
+# columns (filled in by _add_to_group()).
+func _group_item(root: TreeItem, value: String) -> TreeItem:
+	var item := _tree.create_item(root)
+	item.set_meta("group", value if not value.is_empty() else tr("OBJECTS_GROUP_UNKNOWN"))
+	item.set_meta("count", 0)
+	item.set_meta("totals", {})
+	item.set_selectable(0, false)
+	for i in _tree.columns:
+		item.set_custom_bg_color(i, Color(FOUi.tokens.surface_overlay, 0.6))
+	return item
+
+
+func _add_to_group(group: TreeItem, row: Dictionary) -> void:
+	group.set_meta("count", group.get_meta("count") + 1)
+	var totals: Dictionary = group.get_meta("totals")
+	var columns := _columns()
+	for i in columns.size():
+		if (
+			columns[i][2] in ["number", "int"]
+			and not (kind == "planets" and str(row.get("species", "")).is_empty())
+		):
+			totals[i] = totals.get(i, 0.0) + float(row.get(columns[i][0], 0.0))
+
+
+func _finish_group(group: TreeItem) -> void:
+	group.set_text(0, "%s (%d)" % [group.get_meta("group"), group.get_meta("count")])
+	var columns := _columns()
+	var totals: Dictionary = group.get_meta("totals")
+	for i in totals:
+		var value: float = totals[i]
+		group.set_text(i, "%.1f" % value if columns[i][2] == "number" else str(int(value)))
+		group.set_text_alignment(i, HORIZONTAL_ALIGNMENT_RIGHT)
 
 
 func _set_row_icon(item: TreeItem, row: Dictionary) -> void:
@@ -299,6 +498,7 @@ static func _stance_text(stance: String) -> String:
 
 func _on_tab_changed(tab: int) -> void:
 	kind = KINDS[tab][0]
+	_fill_pickers()
 	sort_key = "name" if _columns()[0][0] == "name" else _columns()[0][0]
 	sort_ascending = true
 	refresh()
@@ -307,11 +507,76 @@ func _on_tab_changed(tab: int) -> void:
 func _on_column_title_clicked(column: int, mouse_button: int) -> void:
 	if mouse_button == MOUSE_BUTTON_LEFT:
 		sort_by(_columns()[column][0])
+	elif mouse_button == MOUSE_BUTTON_RIGHT:
+		open_column_menu()
+
+
+## Tick the columns to show (the first, the name, always stays).
+func open_column_menu() -> PopupMenu:
+	var menu := _new_menu()
+	var columns: Array = COLUMNS[kind]
+	for i in range(1, columns.size()):
+		menu.add_check_item(tr(columns[i][1]), i)
+		menu.set_item_checked(menu.item_count - 1, is_column_shown(columns[i][0]))
+	menu.id_pressed.connect(
+		func(id: int): set_column_shown(columns[id][0], not is_column_shown(columns[id][0]))
+	)
+	menu.popup(Rect2i(Vector2i(get_global_mouse_position()), Vector2i.ZERO))
+	return menu
+
+
+## Actions for \a row: show on the map, its Pedia article, build there.
+func open_row_menu(row: Dictionary) -> PopupMenu:
+	var menu := _new_menu()
+	menu.add_item(tr("OBJECTS_SHOW_ON_MAP"), ACTION_MAP)
+	var article := pedia_article(kind, row)
+	if not article.is_empty():
+		menu.add_item(tr("OBJECTS_PEDIA").replace("%1%", tr(article[1])), ACTION_PEDIA)
+	var own: bool = row.get("owner_id", -1) == source.empire_id() and row.get("owner_id", -1) >= 0
+	if kind == "planets" and own:
+		menu.add_item(tr("OBJECTS_BUILD_HERE"), ACTION_BUILD)
+	menu.id_pressed.connect(
+		func(id: int):
+			match id:
+				ACTION_MAP:
+					var link := row_link(kind, row)
+					link_activated.emit(link[0], link[1])
+				ACTION_PEDIA:
+					link_activated.emit(article[0], article[1])
+				ACTION_BUILD:
+					production_requested.emit(row["id"])
+	)
+	menu.popup(Rect2i(Vector2i(get_global_mouse_position()), Vector2i.ZERO))
+	return menu
+
+
+## The Pedia article for \a row of \a kind_name: [kind, name], or [].
+static func pedia_article(kind_name: String, row: Dictionary) -> Array:
+	if kind_name == "buildings" and not str(row.get("building_type", "")).is_empty():
+		return ["buildingtype", row["building_type"]]
+	if kind_name in ["planets", "ships"] and not str(row.get("species", "")).is_empty():
+		return ["species", row["species"]]
+	return []
+
+
+func _new_menu() -> PopupMenu:
+	if is_instance_valid(_menu):
+		_menu.queue_free()
+	_menu = PopupMenu.new()
+	_menu.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	add_child(_menu)
+	return _menu
+
+
+func _on_item_mouse_selected(_position: Vector2, mouse_button: int) -> void:
+	var item := _tree.get_selected()
+	if mouse_button == MOUSE_BUTTON_RIGHT and item and item.has_meta("row"):
+		open_row_menu(item.get_meta("row"))
 
 
 func _on_item_activated() -> void:
 	var item := _tree.get_selected()
-	if item == null:
+	if item == null or not item.has_meta("row"):
 		return
 	var link: Array = item.get_metadata(0)
 	link_activated.emit(link[0], link[1])

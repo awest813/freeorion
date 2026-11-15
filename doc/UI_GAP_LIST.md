@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 13 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P3 | 12 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -113,12 +113,12 @@ Closed:
 - **About:** the title screen's About shows the version and tabs for the credits, the project's vision, its licence (COPYING) and the Godot Engine's licence and third-party notices, as Godot asks projects to include.
 - **Box-select fleets:** dragging from empty map space (fields included) draws a box; your fleets inside are selected together and ringed. Right-click a system sends them all (Shift appends), "Merge into one" joins them when they share a system, Esc or Clear ends the selection. Fields now open their Pedia article on release, so a drag can start over one.
 - **Minimap, scale legend and circle:** at the bottom of the map, a scale bar of a round distance follows the zoom and a minimap shows the galaxy with the visible part framed (click or drag to move there). Alt+C draws a circle of the scale's length around the selected system. Ctrl+L, Alt+C and Ctrl+M toggle them (rebindable), remembered in the GG client's `ui.map.scale.*.shown` options and `ui.map.minimap.shown`. Placing production, box selection and these aids now live in `MapModes`, out of GameShell.
+- **Objects list:** filter presets per kind (populated or outpost planets, moving or idle fleets, damaged ships); grouping by location, owner, species, fleet, design or building type with totals per group; a column chooser on right-clicking a title, with optional columns (planet type, size, shield; colony ships), remembered in `ui.objects.columns`; and a row menu to show the object on the map, open its species or building in the Pedia, or build at an own planet.
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
 | Map modes (political, supply, detection, resources, threat) | Plan, phase 3 | L | |
 | Combat replay and charts | `CombatReport/GraphicalSummary`, plan phase 5 | L | |
-| Object list filters, grouping, column chooser, actions | `ObjectListWnd` | M | |
 | Designs saved to disk, renaming designs | `DesignWnd` `SavedDesignsManager` | M | Keep designs between games as files; a rename box in the designer. |
 | Moderator tools | `ModeratorActionsWnd` | M | |
 | Onboarding hints | Plan, phase 5 | M | |
