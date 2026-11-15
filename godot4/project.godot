@@ -19,6 +19,7 @@ config/icon="uid://cj7u2a5f57ueg"
 [autoload]
 
 GlobalFreeOrionNode="*res://FreeOrionNode.tscn"
+FOUi="*res://ui/FOUi.gd"
 
 [display]
 

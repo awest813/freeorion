@@ -1905,6 +1905,12 @@ Sets UI bold font resource file.
 OPTIONS_DB_UI_FONT_SIZE
 Sets UI font size.
 
+OPTIONS_DB_UI_SCALE
+UI scale of the Godot client: "auto" to follow the display, or a factor from 0.75 to 2.0 such as 1.25.
+
+OPTIONS_DB_UI_THEME
+Colour theme of the Godot client: "default" or "high_contrast".
+
 OPTIONS_DB_UI_TITLE_FONT
 Sets UI title font resource file.
 
