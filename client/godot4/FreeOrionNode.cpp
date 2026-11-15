@@ -137,7 +137,7 @@ void FreeOrionNode::_ready() {
         window->set_title("FreeOrion " + get_version());
     }
 
-    godot::String locale = godot::String(Language().c_str());
+    godot::String locale = godot::String::utf8(Language().c_str());
     godot::Ref<GodotI18n> translation;
     translation.instantiate();
     translation->set_locale(locale);
@@ -179,13 +179,13 @@ void FreeOrionNode::_exit_tree() {
 }
 
 godot::String FreeOrionNode::get_version() const
-{ return godot::String(FreeOrionVersionString().c_str()); }
+{ return godot::String::utf8(FreeOrionVersionString().c_str()); }
 
 godot::String FreeOrionNode::get_user_data_dir() const
-{ return godot::String(GetUserDataDir().native().c_str()); }
+{ return godot::String::utf8(PathToString(GetUserDataDir()).c_str()); }
 
 godot::String FreeOrionNode::get_user_config_dir() const
-{ return godot::String(GetUserConfigDir().native().c_str()); }
+{ return godot::String::utf8(PathToString(GetUserConfigDir()).c_str()); }
 
 int FreeOrionNode::get_current_turn() const
 { return m_app ? m_app->CurrentTurn() : INVALID_GAME_TURN; }
@@ -220,7 +220,7 @@ bool FreeOrionNode::options_get_bool(godot::String option) const
 { return GetOptionsDB().Get<bool>(option.utf8().get_data()); }
 
 godot::String FreeOrionNode::options_get_string(godot::String option) const
-{ return godot::String(GetOptionsDB().Get<std::string>(option.utf8().get_data()).c_str()); }
+{ return godot::String::utf8(GetOptionsDB().Get<std::string>(option.utf8().get_data()).c_str()); }
 
 godot::PackedStringArray FreeOrionNode::options_find_options(godot::String prefix, bool allow_unrecognized) const {
     godot::PackedStringArray options;
