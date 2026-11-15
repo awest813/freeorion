@@ -2220,6 +2220,84 @@ not enough influence
 GOVERNMENT_NOTHING_MATCHES
 No policies match.
 
+DESIGNER_TAB
+Design
+
+DESIGNER_HULLS
+Hulls
+
+DESIGNER_DESIGNS
+Your designs
+
+DESIGNER_NAME
+Design name
+
+DESIGNER_CREATE
+Create design
+
+DESIGNER_INVALID
+Not a valid design yet: every part must fit its slot.
+
+DESIGNER_CREATED
+Created %1%. It can be built from the production screen.
+
+DESIGNER_REFUSED
+That design couldn't be created. Is the name already used?
+
+DESIGNER_NO_SLOT
+No free slot fits that part.
+
+DESIGNER_SLOT_HINT
+Select a slot, then click a part, or click a part to fill the first free slot it fits. Right-click a slot to empty it.
+
+DESIGNER_FITS
+Fits the selected slot
+
+DESIGNER_COPY_SUFFIX
+(copy)
+
+DESIGNER_SLOT_EXTERNAL
+External
+
+DESIGNER_SLOT_INTERNAL
+Internal
+
+DESIGNER_SLOT_CORE
+Core
+
+DESIGNER_STAT_ATTACK
+Attack
+
+DESIGNER_STAT_STRUCTURE
+Structure
+
+DESIGNER_STAT_SHIELDS
+Shields
+
+DESIGNER_STAT_SPEED
+Speed
+
+DESIGNER_STAT_FUEL
+Fuel
+
+DESIGNER_STAT_DETECTION
+Detection
+
+DESIGNER_STAT_STEALTH
+Stealth
+
+DESIGNER_STAT_COLONY
+Colonists
+
+DESIGNER_STAT_TROOPS
+Troops
+
+DESIGNER_STAT_COST
+Cost (PP)
+
+DESIGNER_STAT_TURNS
+Build turns
+
 PEDIA_SEARCH
 Search the Pedia…
 

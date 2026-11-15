@@ -14,6 +14,7 @@ const SCREENS := [
 	["production", "MAP_BTN_PRODUCTION", KEY_F2],
 	["research", "MAP_BTN_RESEARCH", KEY_F3],
 	["government", "GOVERNMENT_TAB", KEY_F4],
+	["design", "DESIGNER_TAB", KEY_F6],
 	["pedia", "MAP_BTN_PEDIA", KEY_F1],
 	["save", "GAME_MENU_SAVE", KEY_F5],
 	["options", "OPTIONS_TITLE", KEY_F10],
@@ -30,6 +31,8 @@ var _waiting := false
 
 
 func _init() -> void:
+	# Texts are translated with tr() where needed; never auto-translate names.
+	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	theme_type_variation = "TopBarPanel"
 	_build()
 

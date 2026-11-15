@@ -24,6 +24,7 @@ func before_turn() -> void:
 	_check_pedia()
 	await _check_options()
 	_check_government()
+	_check_designer()
 
 	_test.assert_null(FOUniverse.get_system(-1), "No view for an invalid system ID")
 	_test.assert_null(FOUniverse.get_fleet(-1), "No view for an invalid fleet ID")
@@ -354,6 +355,36 @@ class _SaveSignal:
 	func on_completed(saved: String, _bytes: int) -> void:
 		filename = saved
 		completed.emit()
+
+
+# Designer: fill a hull's external slots with a part that fits, check the
+# stats, create the design and find it among the empire's designs.
+func _check_designer() -> void:
+	var hulls := FODesigner.get_hulls()
+	var parts := FODesigner.get_parts()
+	_test.assert_gt(hulls.size(), 0, "Hulls available")
+	_test.assert_gt(parts.size(), 0, "Parts available")
+	if hulls.is_empty() or parts.is_empty():
+		return
+	var hull: Dictionary = hulls[0]
+	var external := parts.filter(func(p): return "external" in p["mountable"])
+	var design_parts := PackedStringArray()
+	for slot: Dictionary in hull["slots"]:
+		design_parts.push_back(
+			external[0]["name"] if slot["type"] == "external" and not external.is_empty() else ""
+		)
+	var stats := FODesigner.evaluate(hull["name"], design_parts)
+	_test.assert_true(stats["valid"], "Design is valid")
+	_test.assert_gt(stats.get("structure", 0.0), 0.0, "Design has structure")
+	_test.assert_gt(stats.get("cost", 0.0), 0.0, "Design has a cost")
+	var wrong := design_parts.duplicate()
+	wrong.push_back("NO_SUCH_PART")
+	_test.assert_false(FODesigner.evaluate(hull["name"], wrong)["valid"], "Bad design invalid")
+	var design_id := FODesigner.create("Godot Test Design", hull["name"], design_parts)
+	_test.assert_gt(design_id, -1, "Design created")
+	var names := FODesigner.get_designs().map(func(d): return d["name"])
+	_test.assert_has(names, "Godot Test Design", "Design listed")
+	_test.assert_eq(FODesigner.create("", hull["name"], design_parts), -1, "Unnamed refused")
 
 
 func _check_snapshot() -> void:

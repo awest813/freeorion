@@ -22,6 +22,8 @@ var _slot_data: Array = []
 
 
 func _init() -> void:
+	# Texts are translated with tr() where needed; never auto-translate names.
+	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	theme_type_variation = "BackgroundPanel"
 	_build()
 

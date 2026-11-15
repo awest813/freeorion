@@ -17,6 +17,8 @@ var _content_buttons: Array[Button] = []
 
 
 func _init() -> void:
+	# Texts are translated with tr() where needed; never auto-translate names.
+	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build()
 

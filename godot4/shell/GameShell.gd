@@ -19,6 +19,7 @@ var pedia_screen: PediaScreen
 var options_screen: OptionsScreen
 var government_screen: GovernmentScreen
 var save_screen: SaveLoadScreen
+var designer_screen: DesignerScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
 
@@ -62,6 +63,7 @@ func _ready() -> void:
 	pedia_screen = PediaScreen.new()
 	options_screen = OptionsScreen.new()
 	government_screen = GovernmentScreen.new()
+	designer_screen = DesignerScreen.new()
 	save_screen = SaveLoadScreen.new()
 	save_screen.mode = "save"
 	government_screen.pedia_requested.connect(open_pedia)
@@ -72,9 +74,10 @@ func _ready() -> void:
 		production_screen,
 		research_screen,
 		government_screen,
+		designer_screen,
 		pedia_screen,
 		options_screen,
-		save_screen
+		save_screen,
 	]:
 		screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		screen.visible = false
@@ -150,6 +153,7 @@ func _screens() -> Dictionary:
 		"production": production_screen,
 		"research": research_screen,
 		"government": government_screen,
+		"design": designer_screen,
 		"pedia": pedia_screen,
 		"options": options_screen,
 		"save": save_screen,

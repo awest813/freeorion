@@ -82,3 +82,15 @@ static func turns_text(turns: int) -> String:
 static func clear(container: Node) -> void:
 	for child in container.get_children():
 		child.queue_free()
+
+
+## Translation of \a key, or a readable form of the key itself when the
+## stringtable has no entry (e.g. "PC_GENERAL" -> "General").
+static func tr_or_name(key: String) -> String:
+	var text := TranslationServer.translate(key)
+	if not text.begins_with("ERROR: "):
+		return text
+	var parts := key.split("_")
+	if parts.size() > 1 and parts[0].length() <= 3:
+		parts.remove_at(0)
+	return " ".join(parts).capitalize()

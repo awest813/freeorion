@@ -103,6 +103,21 @@ func _select_first_save(screen: SaveLoadScreen) -> void:
 	screen._list.get_child(0).pressed.emit()
 
 
+func test_designer_screen():
+	var screen := DesignerScreen.new()
+	screen.source = preload("res://test/unit/fake_designer_source.gd").new()
+	await _check_scene(screen, "designer_screen", _fill_designer)
+
+
+func _fill_designer(screen: DesignerScreen) -> void:
+	screen.refresh()
+	screen.place_part("SR_WEAPON_1_1")
+	screen.place_part("AR_STD_PLATE")
+	screen._on_slot_pressed(2)
+	screen._name.text = "Raider"
+	screen._name.text_changed.emit("Raider")
+
+
 func _fill_shell(shell: GameShell) -> void:
 	_fill_galaxy(shell.map_view)
 	shell.top_bar.set_state("Empire Blue", Color("#3d9bff"), 12, false)
