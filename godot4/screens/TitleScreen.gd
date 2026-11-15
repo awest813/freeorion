@@ -101,7 +101,7 @@ func _build() -> void:
 	_content_buttons.push_back(_menu_button("TITLE_QUICK_START", quick_start_requested))
 	_content_buttons.push_back(_menu_button("GAME_MENU_LOAD", load_requested))
 	_menu_button("OPTIONS_TITLE", options_requested)
-	_menu_button("INTRO_BTN_CREDITS", credits_requested, "GhostButton")
+	_menu_button("TITLE_ABOUT", credits_requested, "GhostButton")
 	_menu_button("TITLE_EXIT", exit_requested)
 	new_game.call_deferred("grab_focus")
 

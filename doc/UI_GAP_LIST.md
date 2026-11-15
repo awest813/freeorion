@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 16 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -110,6 +110,7 @@ Closed:
 Closed:
 - **Build locations on the map:** "Show on map" in the production item's location list returns to the map with every system that can build it ringed; each click on a ringed system queues the item there, until Done or Esc.
 - **Sitrep filters and snoozing:** ☰ in the turn-event feed shows or hides each kind of report, kept in the GG client's `ui.map.sitrep.hidden.stringlist` option. Right-clicking a report ignores it for 5 or 10 turns or for the session, hides its whole kind, or copies its text. The header counts what is hidden.
+- **About:** the title screen's About shows the version and tabs for the credits, the project's vision, its licence (COPYING) and the Godot Engine's licence and third-party notices, as Godot asks projects to include.
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
@@ -120,7 +121,6 @@ Closed:
 | Object list filters, grouping, column chooser, actions | `ObjectListWnd` | M | |
 | Designs saved to disk, renaming designs | `DesignWnd` `SavedDesignsManager` | M | Keep designs between games as files; a rename box in the designer. |
 | Moderator tools | `ModeratorActionsWnd` | M | |
-| Credits and About | `CreditsWnd`, `About` | S | |
 | Onboarding hints | Plan, phase 5 | M | |
 | Translations of the fork's new strings | `default/stringtables/*.txt` | S | New keys exist in English only; other languages fall back to English. |
 | Screenshot tests at 150% and 200% scale and in de/ru | Plan §7.1 | M | Goldens run at 100% in English only. |

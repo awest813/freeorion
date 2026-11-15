@@ -35,9 +35,35 @@ func test_title_offers_credits_and_website():
 	add_child_autofree(title)
 	watch_signals(title)
 	for button: Button in title.find_children("*", "Button", true, false):
-		if button.text == tr("INTRO_BTN_CREDITS"):
+		if button.text == tr("TITLE_ABOUT"):
 			button.pressed.emit()
 	assert_signal_emitted(title, "credits_requested")
 	var links := title.find_children("*", "LinkButton", true, false)
 	assert_eq(links.size(), 1)
 	assert_eq(links[0].uri, TitleScreen.WEBSITE)
+
+
+func test_about_tabs():
+	var screen := CreditsScreen.new()
+	screen.license_path = ProjectSettings.globalize_path("res://").path_join("../default/COPYING")
+	add_child_autofree(screen)
+	screen.show_tab(1)
+	assert_eq(_texts(screen)[-1], tr("FREEORION_VISION"))
+	screen.show_tab(2)
+	await wait_process_frames(1)
+	assert_string_contains(_texts(screen)[-1], "GNU GENERAL PUBLIC LICENSE")
+	screen.show_tab(3)
+	await wait_process_frames(1)
+	var godot := "\n".join(_texts(screen))
+	assert_string_contains(godot, "Godot Engine")
+	assert_string_contains(godot, Engine.get_license_text().substr(0, 40))
+
+
+func _texts(screen: CreditsScreen) -> Array:
+	return (
+		screen
+		. _list
+		. get_children()
+		. filter(func(c): return c is Label and not c.is_queued_for_deletion())
+		. map(func(l): return l.text)
+	)
