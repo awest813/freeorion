@@ -16,6 +16,7 @@
 #include "government/FOGovernment.h"
 #include "objects/FOObjects.h"
 #include "planets/FOPlanetActions.h"
+#include "rules/FOGameRules.h"
 #include "options/FOOptions.h"
 #include "orders/FOOrders.h"
 #include "pedia/FOPedia.h"
@@ -49,6 +50,7 @@ void initialize_freeorion_module(godot::ModuleInitializationLevel p_level) {
     GDREGISTER_ABSTRACT_CLASS(FOGovernment);
     GDREGISTER_ABSTRACT_CLASS(FOObjects);
     GDREGISTER_ABSTRACT_CLASS(FOPlanetActions);
+    GDREGISTER_ABSTRACT_CLASS(FOGameRules);
     GDREGISTER_ABSTRACT_CLASS(FOPedia);
     GDREGISTER_ABSTRACT_CLASS(FOProduction);
     GDREGISTER_ABSTRACT_CLASS(FOResearch);
