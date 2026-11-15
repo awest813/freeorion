@@ -64,6 +64,8 @@ public:
     /** Turns until the fleet reaches its final destination: 0 if not moving,
       * -1 if it can't get there (no route, out of fuel range or unknown). */
     int get_eta() const;
+    /** "passive", "defensive", "obstructive" or "aggressive". */
+    godot::String get_aggression() const;
 
 protected:
     static void _bind_methods();
@@ -98,6 +100,34 @@ private:
     int m_id = -1;
 };
 
+class FOShip : public godot::RefCounted {
+    GDCLASS(FOShip, RefCounted)
+public:
+    static godot::Ref<FOShip> make(int id);
+
+    int get_id() const noexcept { return m_id; }
+    bool is_valid() const;
+    godot::String get_name() const;
+    int get_fleet_id() const;
+    int get_owner_id() const;
+    int get_design_id() const;
+    godot::String get_design_name() const;  ///< display name
+    godot::String get_icon() const;         ///< design or hull icon path
+    godot::String get_species_name() const;
+    double get_structure() const;
+    double get_max_structure() const;
+    double get_speed() const;
+    bool is_armed() const;
+    bool can_colonize() const;
+    bool has_troops() const;
+
+protected:
+    static void _bind_methods();
+
+private:
+    int m_id = -1;
+};
+
 /** Static entry points: FOUniverse.get_system(id), FOUniverse.get_map_snapshot(), ... */
 class FOUniverse : public godot::Object {
     GDCLASS(FOUniverse, Object)
@@ -106,6 +136,7 @@ public:
     static godot::Ref<FOSystem> get_system(int id);
     static godot::Ref<FOFleet> get_fleet(int id);
     static godot::Ref<FOPlanet> get_planet(int id);
+    static godot::Ref<FOShip> get_ship(int id);
     static godot::PackedInt32Array get_system_ids();
     static godot::PackedInt32Array get_fleet_ids();
     static godot::PackedInt32Array get_planet_ids();

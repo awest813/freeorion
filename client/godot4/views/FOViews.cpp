@@ -11,6 +11,9 @@
 #include "../../ClientApp.h"
 #include "../../../Empire/Empire.h"
 #include "../../../universe/Fleet.h"
+#include "../../../universe/Ship.h"
+#include "../../../universe/ShipDesign.h"
+#include "../../../universe/ShipHull.h"
 #include "../../../universe/Planet.h"
 #include "../../../universe/System.h"
 #include "../../../universe/Universe.h"
@@ -129,6 +132,7 @@ void FOFleet::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_aggressive"), &FOFleet::is_aggressive);
     ClassDB::bind_method(D_METHOD("is_passive"), &FOFleet::is_passive);
     ClassDB::bind_method(D_METHOD("get_eta"), &FOFleet::get_eta);
+    ClassDB::bind_method(D_METHOD("get_aggression"), &FOFleet::get_aggression);
 }
 
 bool FOFleet::is_valid() const
@@ -204,6 +208,127 @@ int FOFleet::get_eta() const {
     if (eta == Fleet::ETA_NEVER || eta == Fleet::ETA_UNKNOWN || eta == Fleet::ETA_OUT_OF_RANGE)
         return -1;
     return static_cast<int>(eta);
+}
+
+godot::String FOFleet::get_aggression() const {
+    const auto* fleet = Lookup<Fleet>(m_id);
+    switch (fleet ? fleet->Aggression() : FleetAggression::INVALID_FLEET_AGGRESSION) {
+    case FleetAggression::FLEET_PASSIVE:     return "passive";
+    case FleetAggression::FLEET_DEFENSIVE:   return "defensive";
+    case FleetAggression::FLEET_OBSTRUCTIVE: return "obstructive";
+    case FleetAggression::FLEET_AGGRESSIVE:  return "aggressive";
+    default:                                 return "";
+    }
+}
+
+// FOShip
+
+godot::Ref<FOShip> FOShip::make(int id) {
+    godot::Ref<FOShip> view;
+    view.instantiate();
+    view->m_id = id;
+    return view;
+}
+
+void FOShip::_bind_methods() {
+    using godot::ClassDB, godot::D_METHOD;
+    ClassDB::bind_method(D_METHOD("get_id"), &FOShip::get_id);
+    ClassDB::bind_method(D_METHOD("is_valid"), &FOShip::is_valid);
+    ClassDB::bind_method(D_METHOD("get_name"), &FOShip::get_name);
+    ClassDB::bind_method(D_METHOD("get_fleet_id"), &FOShip::get_fleet_id);
+    ClassDB::bind_method(D_METHOD("get_owner_id"), &FOShip::get_owner_id);
+    ClassDB::bind_method(D_METHOD("get_design_id"), &FOShip::get_design_id);
+    ClassDB::bind_method(D_METHOD("get_design_name"), &FOShip::get_design_name);
+    ClassDB::bind_method(D_METHOD("get_icon"), &FOShip::get_icon);
+    ClassDB::bind_method(D_METHOD("get_species_name"), &FOShip::get_species_name);
+    ClassDB::bind_method(D_METHOD("get_structure"), &FOShip::get_structure);
+    ClassDB::bind_method(D_METHOD("get_max_structure"), &FOShip::get_max_structure);
+    ClassDB::bind_method(D_METHOD("get_speed"), &FOShip::get_speed);
+    ClassDB::bind_method(D_METHOD("is_armed"), &FOShip::is_armed);
+    ClassDB::bind_method(D_METHOD("can_colonize"), &FOShip::can_colonize);
+    ClassDB::bind_method(D_METHOD("has_troops"), &FOShip::has_troops);
+}
+
+bool FOShip::is_valid() const
+{ return Lookup<Ship>(m_id) != nullptr; }
+
+godot::String FOShip::get_name() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    return ship ? ToGodot(ship->Name()) : godot::String();
+}
+
+int FOShip::get_fleet_id() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    return ship ? ship->FleetID() : INVALID_OBJECT_ID;
+}
+
+int FOShip::get_owner_id() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    return ship ? ship->Owner() : ALL_EMPIRES;
+}
+
+int FOShip::get_design_id() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    return ship ? ship->DesignID() : INVALID_DESIGN_ID;
+}
+
+godot::String FOShip::get_design_name() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    const auto* app = ClientApp::GetApp();
+    const auto* design = (ship && app) ? app->GetUniverse().GetShipDesign(ship->DesignID()) : nullptr;
+    return design ? ToGodot(design->Name(true)) : godot::String();
+}
+
+godot::String FOShip::get_icon() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    const auto* app = ClientApp::GetApp();
+    const auto* design = (ship && app) ? app->GetUniverse().GetShipDesign(ship->DesignID()) : nullptr;
+    if (!design)
+        return {};
+    if (!design->Icon().empty())
+        return ToGodot(design->Icon());
+    const auto* hull = GetShipHull(design->Hull());
+    return hull ? ToGodot(hull->Icon()) : godot::String();
+}
+
+godot::String FOShip::get_species_name() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    return ship ? ToGodot(ship->SpeciesName()) : godot::String();
+}
+
+double FOShip::get_structure() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    const auto* meter = ship ? ship->GetMeter(MeterType::METER_STRUCTURE) : nullptr;
+    return meter ? meter->Current() : 0.0;
+}
+
+double FOShip::get_max_structure() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    const auto* meter = ship ? ship->GetMeter(MeterType::METER_MAX_STRUCTURE) : nullptr;
+    return meter ? meter->Current() : 0.0;
+}
+
+double FOShip::get_speed() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    return ship ? ship->Speed() : 0.0;
+}
+
+bool FOShip::is_armed() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    const auto* app = ClientApp::GetApp();
+    return ship && app && ship->IsArmed(app->GetContext());
+}
+
+bool FOShip::can_colonize() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    const auto* app = ClientApp::GetApp();
+    return ship && app && ship->CanColonize(app->GetUniverse(), app->GetSpeciesManager());
+}
+
+bool FOShip::has_troops() const {
+    const auto* ship = Lookup<Ship>(m_id);
+    const auto* app = ClientApp::GetApp();
+    return ship && app && ship->HasTroops(app->GetUniverse());
 }
 
 // FOPlanet
@@ -297,6 +422,7 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_system", "id"), &FOUniverse::get_system);
     ClassDB::bind_static_method(cls, D_METHOD("get_fleet", "id"), &FOUniverse::get_fleet);
     ClassDB::bind_static_method(cls, D_METHOD("get_planet", "id"), &FOUniverse::get_planet);
+    ClassDB::bind_static_method(cls, D_METHOD("get_ship", "id"), &FOUniverse::get_ship);
     ClassDB::bind_static_method(cls, D_METHOD("get_system_ids"), &FOUniverse::get_system_ids);
     ClassDB::bind_static_method(cls, D_METHOD("get_fleet_ids"), &FOUniverse::get_fleet_ids);
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_ids"), &FOUniverse::get_planet_ids);
@@ -319,6 +445,9 @@ godot::Ref<FOFleet> FOUniverse::get_fleet(int id)
 
 godot::Ref<FOPlanet> FOUniverse::get_planet(int id)
 { return Lookup<Planet>(id) ? FOPlanet::make(id) : godot::Ref<FOPlanet>(); }
+
+godot::Ref<FOShip> FOUniverse::get_ship(int id)
+{ return Lookup<Ship>(id) ? FOShip::make(id) : godot::Ref<FOShip>(); }
 
 godot::PackedInt32Array FOUniverse::get_system_ids()
 { return AllIDs<System>(); }

@@ -33,6 +33,7 @@ void initialize_freeorion_module(godot::ModuleInitializationLevel p_level) {
     GDREGISTER_CLASS(FOSystem);
     GDREGISTER_CLASS(FOFleet);
     GDREGISTER_CLASS(FOPlanet);
+    GDREGISTER_CLASS(FOShip);
     GDREGISTER_ABSTRACT_CLASS(FOUniverse);
     GDREGISTER_ABSTRACT_CLASS(FOOrders);
     GDREGISTER_ABSTRACT_CLASS(FOPedia);

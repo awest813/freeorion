@@ -2,6 +2,8 @@
 #define _FOOrders_h_
 
 #include <godot_cpp/classes/object.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/string.hpp>
 
 /** Static order API for GDScript: FOOrders.issue_fleet_move(...), ...
   *
@@ -20,6 +22,20 @@ public:
       * such order or its type can't be undone (for example fleet moves; issue a
       * new move instead). */
     static bool rescind_order(int order_id);
+
+    /** Set a fleet's stance: "passive", "defensive", "obstructive" or
+      * "aggressive". Returns false if refused. */
+    static bool set_fleet_aggression(int fleet_id, const godot::String& aggression);
+
+    /** Move \a ship_ids (all in one fleet) into a new fleet with the same
+      * stance. Returns the new fleet's ID, or -1 if refused. */
+    static int split_ships(const godot::PackedInt32Array& ship_ids);
+
+    /** Move \a ship_ids into fleet \a dest_fleet_id (same system, owner). */
+    static bool merge_ships(int dest_fleet_id, const godot::PackedInt32Array& ship_ids);
+
+    /** Rename an own fleet, ship, or other object. */
+    static bool rename(int object_id, const godot::String& new_name);
 
     /** Number of orders issued so far this turn. */
     static int get_order_count();
