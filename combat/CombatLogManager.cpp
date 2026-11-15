@@ -111,8 +111,10 @@ void CombatLogManager::CompleteLog(int id, CombatLog log) {
     m_logs.insert_or_assign(id, std::move(log));
 
     if (id > m_latest_log_id) {
-        for (++m_latest_log_id; m_latest_log_id <= id; ++m_latest_log_id)
-            m_incomplete_logs.insert(m_latest_log_id);
+        // Request the logs in between; this one is complete.
+        for (int missing_id = m_latest_log_id + 1; missing_id < id; ++missing_id)
+            m_incomplete_logs.insert(missing_id);
+        m_latest_log_id = id;
         ErrorLogger(combat_log) << "CombatLogManager::CompleteLog id = " << id
                                 << " is greater than m_latest_log_id, m_latest_log_id was increased and intervening logs will be requested.";
     }
@@ -121,7 +123,10 @@ void CombatLogManager::CompleteLog(int id, CombatLog log) {
 void CombatLogManager::Clear() {
     m_logs.clear();
     m_incomplete_logs.clear();
-    m_latest_log_id = -1;
+    // As a new manager: no logs yet, the first is 1. Loading the latest id
+    // then marks ids 1..latest as incomplete; -1 here also marked id 0,
+    // which never exists, so clients asked the server for it every turn.
+    m_latest_log_id = 0;
 }
 
 

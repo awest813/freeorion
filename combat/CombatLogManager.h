@@ -46,6 +46,9 @@ public:
     /** Return the requested combat log or boost::none.*/
     [[nodiscard]] boost::optional<const CombatLog&> GetLog(int log_id) const;
 
+    /** Return the highest log id known (complete or not); ids start at 0. */
+    [[nodiscard]] int LatestLogID() const noexcept { return m_latest_log_id.load(); }
+
     /** Return the ids of all incomplete logs, if any. */
     [[nodiscard]] std::vector<int> IncompleteLogIDs() const { return m_incomplete_logs | range_to_vec; }
 
