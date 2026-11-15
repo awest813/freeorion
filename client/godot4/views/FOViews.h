@@ -126,6 +126,10 @@ public:
     bool is_armed() const;
     bool can_colonize() const;
     bool has_troops() const;
+    /** As the GG fleet window's ship stats: {damage, destroy (fighters it
+      * can shoot down), fighters, fighters_max, troops, colony, structure,
+      * max_structure, shield, fuel, max_fuel, speed}. */
+    godot::Dictionary get_stats() const;
 
 protected:
     static void _bind_methods();

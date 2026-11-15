@@ -50,15 +50,15 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 ## Fleets and ships (`FleetWnd`, `MeterBrowseWnd`)
 
 - [ ] Explore order (with auto-explore above) — M
-- [ ] Merge all own fleets at the system — S
-- [ ] Split damaged, unfueled, or without full fighters — S
-- [ ] Split one fleet per ship, or by design — S
-- [ ] Scrap or keep the whole fleet in one action — S
-- [ ] Rename a ship — S
-- [ ] Fleet totals: damage, fighters, troops, colonists, structure, shield, lowest fuel, slowest speed — M
-- [ ] Per-ship stat icons in the fleet's ship rows — S
-- [ ] New fleets' stance, including Auto (`ui.fleet.aggression`) — S
-- [ ] Drag a whole fleet onto another to merge — S
+- [x] Merge all own fleets at the system — S
+- [x] Split damaged, unfueled, or without full fighters — S
+- [x] Split one fleet per ship, or by design — S
+- [x] Scrap or keep the whole fleet in one action — S
+- [x] Rename a ship — S
+- [x] Fleet totals: damage, fighters, troops, colonists, structure, shield, lowest fuel, slowest speed — M
+- [x] Per-ship stat icons in the fleet's ship rows — S
+- [x] New fleets' stance, including Auto (`ui.fleet.aggression`) — S
+- [x] Drag a whole fleet onto another to merge — S
 - [ ] Ship damage breakdown per weapon; fighter breakdown — M
 
 ## Objects list (`ObjectListWnd`)
@@ -113,7 +113,7 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [ ] Randomise-seed button in galaxy setup — S
 - [ ] Save list: galaxy details, sortable columns — S
 - [ ] Message log: turn begun, game saved, diplomatic changes, chat, `/pedia` — M
-- [ ] Content checksum mismatch warning — S
+- [x] Content checksum mismatch warning — S
 - [ ] Pedia: empire articles; species opinions and who likes or dislikes what — M
 - [ ] Pedia: unlocked by, prerequisites and exclusions, location requirements — M
 - [ ] Pedia: meter types, galaxy setup and game rules, objects; full-text search — S

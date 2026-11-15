@@ -17,7 +17,8 @@ void FOOrders::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("rescind_order", "order_id"), &FOOrders::rescind_order);
     ClassDB::bind_static_method(cls, D_METHOD("get_order_count"), &FOOrders::get_order_count);
     ClassDB::bind_static_method(cls, D_METHOD("set_fleet_aggression", "fleet_id", "aggression"), &FOOrders::set_fleet_aggression);
-    ClassDB::bind_static_method(cls, D_METHOD("split_ships", "ship_ids"), &FOOrders::split_ships);
+    ClassDB::bind_static_method(cls, D_METHOD("split_ships", "ship_ids", "aggression"), &FOOrders::split_ships,
+                                DEFVAL(godot::String()));
     ClassDB::bind_static_method(cls, D_METHOD("merge_ships", "dest_fleet_id", "ship_ids"), &FOOrders::merge_ships);
     ClassDB::bind_static_method(cls, D_METHOD("rename", "object_id", "new_name"), &FOOrders::rename);
 }
@@ -81,16 +82,23 @@ bool FOOrders::set_fleet_aggression(int fleet_id, const godot::String& aggressio
     return true;
 }
 
-int FOOrders::split_ships(const godot::PackedInt32Array& ship_ids) {
+int FOOrders::split_ships(const godot::PackedInt32Array& ship_ids, const godot::String& stance) {
     auto* app = ClientApp::GetApp();
     if (!app || ship_ids.is_empty())
         return -1;
     auto& context = app->GetContext();
     const auto ships = ToVector(ship_ids);
-    // Keep the stance of the fleet the ships come from.
-    const auto* first = context.ContextObjects().getRaw<Ship>(ships.front());
-    const auto* source = first ? context.ContextObjects().getRaw<Fleet>(first->FleetID()) : nullptr;
-    const auto aggression = source ? source->Aggression() : FleetAggression::FLEET_OBSTRUCTIVE;
+    auto aggression = ParseAggression(stance);
+    if (stance == "auto") {
+        const auto armed = context.ContextObjects().check_if_any<Ship>(
+            [&context](const Ship* ship) { return ship && ship->CanDamageShips(context); }, ships);
+        aggression = armed ? FleetDefaults::FLEET_DEFAULT_ARMED : FleetDefaults::FLEET_DEFAULT_UNARMED;
+    } else if (aggression == FleetAggression::INVALID_FLEET_AGGRESSION) {
+        // Keep the stance of the fleet the ships come from.
+        const auto* first = context.ContextObjects().getRaw<Ship>(ships.front());
+        const auto* source = first ? context.ContextObjects().getRaw<Fleet>(first->FleetID()) : nullptr;
+        aggression = source ? source->Aggression() : FleetAggression::FLEET_OBSTRUCTIVE;
+    }
     if (!NewFleetOrder::Check(app->EmpireID(), "", ships, aggression, context))
         return -1;
     const auto order = app->Orders().IssueOrder<NewFleetOrder>(context, app->EmpireID(), "", ships, aggression);

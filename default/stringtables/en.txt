@@ -2779,6 +2779,15 @@ Done
 FLEETS_SELECTED
 %1% fleets selected: right-click a system to send them all.
 
+SHIP_PANEL_RENAME
+Type a new name and press Enter to rename the ship
+
+FLEET_PANEL_MENU
+More fleet actions
+
+FLEET_PANEL_NEW_FLEET_STANCE
+Stance of new fleets
+
 FLEETS_MERGE_ALL
 Merge into one
 

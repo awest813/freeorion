@@ -326,6 +326,7 @@ void FOShip::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_armed"), &FOShip::is_armed);
     ClassDB::bind_method(D_METHOD("can_colonize"), &FOShip::can_colonize);
     ClassDB::bind_method(D_METHOD("has_troops"), &FOShip::has_troops);
+    ClassDB::bind_method(D_METHOD("get_stats"), &FOShip::get_stats);
 }
 
 bool FOShip::is_valid() const
@@ -408,6 +409,35 @@ bool FOShip::has_troops() const {
     const auto* ship = Lookup<Ship>(m_id);
     const auto* app = ClientApp::GetApp();
     return ship && app && ship->HasTroops(app->GetUniverse());
+}
+
+godot::Dictionary FOShip::get_stats() const {
+    godot::Dictionary stats;
+    const auto* ship = Lookup<Ship>(m_id);
+    const auto* app = ClientApp::GetApp();
+    if (!ship || !app)
+        return stats;
+    const auto& context = app->GetContext();
+    const auto& universe = context.ContextUniverse();
+    const auto meter = [ship](MeterType type) {
+        const auto* m = ship->UniverseObject::GetMeter(type);
+        return m ? static_cast<double>(m->Initial()) : 0.0;
+    };
+    stats["damage"] = ship->TotalWeaponsShipDamage(context, 0.0f, true);
+    stats["destroy"] = ship->TotalWeaponsFighterDamage(context, true);
+    stats["fighters"] = static_cast<double>(ship->FighterCount());
+    stats["fighters_max"] = static_cast<double>(ship->FighterMax());
+    stats["troops"] = ship->TroopCapacity(universe);
+    stats["colony"] = ship->ColonyCapacity(universe);
+    stats["structure"] = meter(MeterType::METER_STRUCTURE);
+    stats["max_structure"] = meter(MeterType::METER_MAX_STRUCTURE);
+    stats["shield"] = meter(MeterType::METER_SHIELD);
+    stats["fuel"] = meter(MeterType::METER_FUEL);
+    stats["max_fuel"] = meter(MeterType::METER_MAX_FUEL);
+    stats["speed"] = meter(MeterType::METER_SPEED);
+    stats["design_id"] = ship->DesignID();
+    stats["scrapping"] = ship->OrderedScrapped();
+    return stats;
 }
 
 // FOPlanet

@@ -135,8 +135,11 @@ func _rebuild_fleet_list(fleets: Array) -> void:
 		button.toggled.connect(_on_fleet_toggled.bind(fleet["id"]))
 		if fleet.get("own", false):
 			_own_fleets[fleet["id"]] = true
+			# Drag a whole fleet onto another to merge them.
 			button.set_drag_forwarding(
-				Callable(), can_drop_ships.bind(fleet["id"]), drop_ships.bind(fleet["id"])
+				fleet_drag_data.bind(fleet),
+				can_drop_ships.bind(fleet["id"]),
+				drop_ships.bind(fleet["id"])
 			)
 		else:
 			button.theme_type_variation = "GhostButton"
@@ -148,6 +151,19 @@ func _rebuild_fleet_list(fleets: Array) -> void:
 		_selected_fleet = -1
 		fleet_selected.emit(-1)
 	_update_hint()
+
+
+## Drag data for own \a fleet: all its ships, as the fleet panel drags ships.
+func fleet_drag_data(_at: Vector2, fleet: Dictionary) -> Variant:
+	var ship_ids: PackedInt32Array = fleet.get("ship_ids", PackedInt32Array())
+	if ship_ids.is_empty():
+		return null
+	if get_viewport() and get_viewport().gui_is_dragging():
+		var preview := PanelContainer.new()
+		preview.theme_type_variation = "OverlayPanel"
+		preview.add_child(_label(fleet.get("name", "")))
+		set_drag_preview(preview)
+	return {"type": FleetPanel.SHIP_DRAG, "fleet_id": fleet["id"], "ship_ids": ship_ids}
 
 
 ## Whether \a data (ships dragged from the fleet panel) can join own fleet
@@ -222,6 +238,7 @@ static func from_universe(id: int) -> Dictionary:
 					"id": fleet_id,
 					"name": fleet.get_name(),
 					"ships": fleet.get_ship_ids().size(),
+					"ship_ids": fleet.get_ship_ids(),
 					"own": own,
 					"owner_color": FOUniverse.get_empire_color(fleet.get_owner_id()),
 					"owner_name":

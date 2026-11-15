@@ -12,6 +12,8 @@ const GALAXY_MAP_VIEW := preload("res://map/GalaxyMapView.tscn")
 ## Keys for screens opened from the in-game menu rather than the top bar.
 ## Hotkeys for screens without a top-bar button.
 const MENU_HOTKEYS := {"screen_save": "save", "screen_options": "options"}
+## Remembers the stance of new fleets (FleetPanel.NEW_FLEET_STANCES).
+const OPTION_NEW_FLEET_STANCE := "ui.fleet.new.aggression"
 
 ## Set false before adding to the tree to feed map and panel directly (tests).
 var follow_game := true
@@ -216,9 +218,18 @@ func _ready() -> void:
 	fleet_panel.merge_requested.connect(_on_fleet_merge)
 	fleet_panel.scrap_requested.connect(_on_fleet_scrap)
 	fleet_panel.ship_selected.connect(show_ship)
+	fleet_panel.split_groups_requested.connect(_on_fleet_split_groups)
+	fleet_panel.merge_all_requested.connect(_on_fleet_merge_all)
+	fleet_panel.new_fleet_stance_changed.connect(_on_new_fleet_stance)
 	ship_panel = ShipPanel.new()
 	ship_panel.close_requested.connect(ship_panel.show_data.bind({}))
 	ship_panel.link_activated.connect(_on_link_activated)
+	ship_panel.rename_requested.connect(
+		func(ship_id: int, new_name: String):
+			if follow_game and FOOrders.rename(ship_id, new_name):
+				ship_panel.refresh()
+				fleet_panel.refresh()
+	)
 	column.add_child(ship_panel)
 	system_panel.planet_action_requested.connect(_on_planet_action)
 	system_panel.focus_requested.connect(_on_focus_requested)
@@ -285,6 +296,8 @@ func _ready() -> void:
 		if options.exists("ui.map.detection.shown"):
 			map_view.map.show_detection = options.get_value("ui.map.detection.shown")
 		map_modes.load_map_aids(options)
+		options.add_option(OPTION_NEW_FLEET_STANCE, "OPTIONS_DB_FLEET_WND_AGGRESSION", "auto")
+		fleet_panel.new_fleet_stance = str(options.get_value(OPTION_NEW_FLEET_STANCE))
 		if options.exists(MapModes.OPTION_MAP_MODE):
 			map_modes.set_map_mode(options.get_value(MapModes.OPTION_MAP_MODE))
 		# A loaded game that was already won or lost isn't announced again.
@@ -650,8 +663,39 @@ func _on_fleet_aggression(fleet_id: int, aggression: String) -> void:
 
 
 func _on_fleet_split(ship_ids: PackedInt32Array) -> void:
-	var new_fleet := FOOrders.split_ships(ship_ids)
+	var new_fleet := FOOrders.split_ships(ship_ids, fleet_panel.new_fleet_stance)
 	_refresh_fleet_views(new_fleet if new_fleet >= 0 else fleet_panel.fleet_id)
+
+
+# Several new fleets at once (split damaged, per ship, per design, ...);
+# the fleet they left stays selected.
+func _on_fleet_split_groups(groups: Array) -> void:
+	var source := fleet_panel.fleet_id
+	for ship_ids: PackedInt32Array in groups:
+		if not ship_ids.is_empty():
+			FOOrders.split_ships(ship_ids, fleet_panel.new_fleet_stance)
+	_refresh_fleet_views(source)
+
+
+# Every other own fleet at the fleet's system joins it.
+func _on_fleet_merge_all(fleet_id: int) -> void:
+	var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
+	var system: FOSystem = FOUniverse.get_system(fleet.get_system_id()) if fleet else null
+	if system == null:
+		return
+	for other_id in system.get_fleet_ids():
+		var other: FOFleet = FOUniverse.get_fleet(other_id)
+		if other and other_id != fleet_id and other.get_owner_id() == fleet.get_owner_id():
+			FOOrders.merge_ships(fleet_id, other.get_ship_ids())
+	_refresh_fleet_views(fleet_id)
+
+
+func _on_new_fleet_stance(stance: String) -> void:
+	var options := Engine.get_singleton("FOOptions") if follow_game else null
+	if options:
+		options.add_option(OPTION_NEW_FLEET_STANCE, "OPTIONS_DB_FLEET_WND_AGGRESSION", "auto")
+		options.set_value(OPTION_NEW_FLEET_STANCE, stance)
+		options.commit()
 
 
 func _on_fleet_merge(dest_fleet_id: int, ship_ids: PackedInt32Array) -> void:

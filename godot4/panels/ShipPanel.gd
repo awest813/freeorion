@@ -10,6 +10,8 @@ extends PanelContainer
 
 signal close_requested
 signal link_activated(kind: String, arg: String)
+## An own ship was renamed (Enter in its name).
+signal rename_requested(ship_id: int, new_name: String)
 
 const WIDTH := 340
 ## Combat and cargo stats: key, icon (icons/meter/), title key, tip key.
@@ -34,7 +36,7 @@ var accounting_provider: Callable:
 		_meters.accounting_provider = value
 
 var _icon: TextureRect
-var _title: Label
+var _title: LineEdit
 var _swatch: ColorRect
 var _subtitle: RichTextLabel
 var _stats: HFlowContainer
@@ -73,7 +75,10 @@ func show_data(data: Dictionary) -> void:
 	if was_hidden:
 		FOUi.fade_in(self)
 	_icon.texture = FOArt.icon(data.get("icon", ""))
-	_title.text = data.get("name", "")
+	if not _title.has_focus():
+		_title.text = data.get("name", "")
+	_title.editable = data.get("own", false)
+	_title.tooltip_text = tr("SHIP_PANEL_RENAME") if _title.editable else ""
 	var owner_name: String = data.get("owner_name", "")
 	_swatch.visible = not owner_name.is_empty()
 	_swatch.color = data.get("owner_color", Color.WHITE)
@@ -133,9 +138,12 @@ func _build() -> void:
 	_swatch.custom_minimum_size = Vector2(FOUi.tokens.space_3, FOUi.tokens.space_3)
 	_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	title_row.add_child(_swatch)
-	_title = ScreenKit.label("", "TitleLabel")
-	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# The name; own ships are renamed in place (Enter).
+	_title = LineEdit.new()
+	_title.flat = true
+	_title.add_theme_font_size_override("font_size", FOUi.tokens.font_size_title)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title.text_submitted.connect(_on_name_submitted)
 	title_row.add_child(_title)
 	_subtitle = RichTextLabel.new()
 	_subtitle.bbcode_enabled = true
@@ -199,6 +207,12 @@ func _fill_parts(parts: Array) -> void:
 		capacity.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		capacity.tooltip_text = tr("SHIP_PANEL_CAPACITY")
 		_parts.add_child(capacity)
+
+
+func _on_name_submitted(new_name: String) -> void:
+	_title.release_focus()
+	if not new_name.strip_edges().is_empty():
+		rename_requested.emit(ship_id, new_name.strip_edges())
 
 
 func _on_meta_clicked(meta: Variant) -> void:

@@ -29,7 +29,11 @@ public:
 
     /** Move \a ship_ids (all in one fleet) into a new fleet with the same
       * stance. Returns the new fleet's ID, or -1 if refused. */
-    static int split_ships(const godot::PackedInt32Array& ship_ids);
+    /** New fleet with \a ship_ids; its stance is \a aggression ("passive",
+        "defensive", "obstructive", "aggressive"), "auto" (aggressive if a
+        ship can do damage, else defensive, as GG's Auto) or "" (that of the
+        fleet the ships leave). Returns the new fleet's id or -1. */
+    static int split_ships(const godot::PackedInt32Array& ship_ids, const godot::String& aggression);
 
     /** Move \a ship_ids into fleet \a dest_fleet_id (same system, owner). */
     static bool merge_ships(int dest_fleet_id, const godot::PackedInt32Array& ship_ids);
