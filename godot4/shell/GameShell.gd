@@ -179,6 +179,7 @@ func _ready() -> void:
 	system_panel.planet_action_requested.connect(_on_planet_action)
 	system_panel.focus_requested.connect(_on_focus_requested)
 	system_panel.planet_selected.connect(_on_planet_selected)
+	system_panel.ships_dropped.connect(_on_fleet_merge)
 
 	# The menu covers everything, the top bar included.
 	game_menu = GameMenu.new()

@@ -189,3 +189,16 @@ func test_unaffordable_annex_is_disabled():
 	)
 	assert_eq(annex.size(), 1)
 	assert_true(annex[0].disabled)
+
+
+func test_ships_dropped_on_a_fleet():
+	panel.show_data(SAMPLE)
+	watch_signals(panel)
+	var target_id := 8
+	var data := {"type": FleetPanel.SHIP_DRAG, "fleet_id": 999, "ship_ids": PackedInt32Array([5])}
+	assert_true(panel.can_drop_ships(Vector2.ZERO, data, target_id))
+	assert_false(panel.can_drop_ships(Vector2.ZERO, {"type": "other"}, target_id))
+	panel.drop_ships(Vector2.ZERO, data, target_id)
+	assert_signal_emitted_with_parameters(
+		panel, "ships_dropped", [target_id, PackedInt32Array([5])]
+	)

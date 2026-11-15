@@ -130,3 +130,21 @@ func test_big_fleets_scroll():
 		panel._ships.size.y,
 		"Fourteen ships don't all fit; the list scrolls"
 	)
+
+
+func test_drag_ships():
+	var data: Dictionary = panel.ship_drag_data(Vector2.ZERO, 71)
+	assert_eq(data["ship_ids"], PackedInt32Array([71]), "An unticked ship goes alone")
+	assert_eq(data["fleet_id"], 7)
+	panel._on_ship_toggled(true, 70)
+	panel._on_ship_toggled(true, 71)
+	data = panel.ship_drag_data(Vector2.ZERO, 70)
+	assert_eq(data["ship_ids"], PackedInt32Array([70, 71]), "A ticked ship takes the others along")
+	assert_true(FleetPanel.is_ship_drag(data, 8))
+	assert_false(FleetPanel.is_ship_drag(data, 7), "Not onto its own fleet")
+	assert_false(panel._can_drop_on_split(Vector2.ZERO, data), "Can't split off every ship")
+	watch_signals(panel)
+	var one: Dictionary = {"type": FleetPanel.SHIP_DRAG, "fleet_id": 7, "ship_ids": [71]}
+	assert_true(panel._can_drop_on_split(Vector2.ZERO, one))
+	panel._drop_on_split(Vector2.ZERO, one)
+	assert_signal_emitted_with_parameters(panel, "split_requested", [[71]])

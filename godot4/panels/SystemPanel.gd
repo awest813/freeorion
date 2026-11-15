@@ -17,6 +17,8 @@ signal planet_action_requested(planet_id: int, action: String)
 signal focus_requested(planet_id: int, focus: String)
 ## A planet's name was clicked: show its details.
 signal planet_selected(planet_id: int)
+## Ships dragged from the fleet panel were dropped on own fleet \a fleet_id.
+signal ships_dropped(fleet_id: int, ship_ids: PackedInt32Array)
 
 const WIDTH := 340
 
@@ -128,6 +130,9 @@ func _rebuild_fleet_list(fleets: Array) -> void:
 			button.set_meta("fleet_id", fleet["id"])
 			button.button_pressed = fleet["id"] == _selected_fleet
 			button.toggled.connect(_on_fleet_toggled.bind(fleet["id"]))
+			button.set_drag_forwarding(
+				Callable(), can_drop_ships.bind(fleet["id"]), drop_ships.bind(fleet["id"])
+			)
 			_fleet_list.add_child(button)
 			still_listed = still_listed or fleet["id"] == _selected_fleet
 		else:
@@ -143,6 +148,16 @@ func _rebuild_fleet_list(fleets: Array) -> void:
 		_selected_fleet = -1
 		fleet_selected.emit(-1)
 	_update_hint()
+
+
+## Whether \a data (ships dragged from the fleet panel) can join own fleet
+## \a fleet_id.
+func can_drop_ships(_at: Vector2, data: Variant, fleet_id: int) -> bool:
+	return FleetPanel.is_ship_drag(data, fleet_id)
+
+
+func drop_ships(_at: Vector2, data: Variant, fleet_id: int) -> void:
+	ships_dropped.emit(fleet_id, data["ship_ids"])
 
 
 func _on_fleet_toggled(pressed: bool, fleet_id: int) -> void:

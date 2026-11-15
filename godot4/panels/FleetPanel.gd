@@ -15,6 +15,9 @@ signal scrap_requested(ship_ids: PackedInt32Array)
 ## A ship's name was clicked: show its details.
 signal ship_selected(ship_id: int)
 
+## Type of the drag data ship rows give: {type, fleet_id, ship_ids}.
+const SHIP_DRAG := "fo_ships"
+
 const WIDTH := 340
 ## Ship rows shown before the list scrolls.
 const VISIBLE_SHIPS := 5
@@ -209,6 +212,8 @@ func _build() -> void:
 	_split.text = tr("FLEET_PANEL_SPLIT")
 	_split.tooltip_text = tr("FLEET_PANEL_SPLIT_DESC")
 	_split.pressed.connect(func(): split_requested.emit(selected_ship_ids()))
+	# Ships of this fleet dropped on Split go to a new fleet.
+	_split.set_drag_forwarding(Callable(), _can_drop_on_split, _drop_on_split)
 	actions.add_child(_split)
 	_merge_target = OptionButton.new()
 	_merge_target.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -231,6 +236,10 @@ func _build() -> void:
 
 func _ship_row(ship: Dictionary) -> Control:
 	var row := HBoxContainer.new()
+	# Drag a ship (or the ticked ships, if it is one) onto another fleet to
+	# move them there, or onto Split to make a new fleet.
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.set_drag_forwarding(ship_drag_data.bind(ship["id"]), Callable(), Callable())
 	var pick := CheckBox.new()
 	pick.button_pressed = _selected.has(ship["id"])
 	pick.tooltip_text = tr("FLEET_PANEL_SELECT_SHIP")
@@ -273,6 +282,55 @@ func _ship_row(ship: Dictionary) -> Control:
 		)
 		text.add_child(structure)
 	return row
+
+
+## Drag data for ship \a ship_id's row: the ticked ships if it is one of
+## them, else that ship alone.
+func ship_drag_data(_at: Vector2, ship_id: int) -> Variant:
+	var ids := selected_ship_ids() if _selected.has(ship_id) else PackedInt32Array([ship_id])
+	if get_viewport() and get_viewport().gui_is_dragging():
+		var preview := PanelContainer.new()
+		preview.theme_type_variation = "OverlayPanel"
+		preview.add_child(
+			ScreenKit.label(
+				(
+					tr("FLEET_PANEL_DRAG_SHIPS").replace("%1%", str(ids.size()))
+					if ids.size() > 1
+					else _ship_name(ship_id)
+				)
+			)
+		)
+		set_drag_preview(preview)
+	return {"type": SHIP_DRAG, "fleet_id": fleet_id, "ship_ids": ids}
+
+
+## Whether \a data is ships dragged from a fleet other than \a target_fleet.
+static func is_ship_drag(data: Variant, target_fleet := -1) -> bool:
+	return (
+		data is Dictionary
+		and data.get("type", "") == SHIP_DRAG
+		and data.get("fleet_id", -1) != target_fleet
+	)
+
+
+func _can_drop_on_split(_at: Vector2, data: Variant) -> bool:
+	return (
+		data is Dictionary
+		and data.get("type", "") == SHIP_DRAG
+		and data.get("fleet_id", -1) == fleet_id
+		and data.get("ship_ids", []).size() < _data.get("ships", []).size()
+	)
+
+
+func _drop_on_split(_at: Vector2, data: Variant) -> void:
+	split_requested.emit(data["ship_ids"])
+
+
+func _ship_name(ship_id: int) -> String:
+	for ship: Dictionary in _data.get("ships", []):
+		if ship["id"] == ship_id:
+			return ship.get("name", "")
+	return ""
 
 
 func _update_buttons() -> void:

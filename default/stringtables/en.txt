@@ -2378,7 +2378,7 @@ FLEET_PANEL_SPLIT
 Split
 
 FLEET_PANEL_SPLIT_DESC
-Move the checked ships into a new fleet.
+Move the checked ships into a new fleet. Ships can also be dragged here, or onto another of your fleets in the system panel to join it.
 
 FLEET_PANEL_MERGE
 Merge
@@ -2388,6 +2388,10 @@ Move all ships of this fleet into the chosen fleet.
 
 FLEET_PANEL_SELECT_SHIP
 Check to include this ship when splitting.
+
+# %1% number of ships being dragged
+FLEET_PANEL_DRAG_SHIPS
+%1% ships
 
 FLEET_PANEL_SHIP_DETAIL
 Show this ship's details: meters, parts, combat strength
