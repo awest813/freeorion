@@ -1947,6 +1947,21 @@ Right-click a system on the map to send the selected fleet there.
 SYSTEM_PANEL_ORDER_REFUSED
 The selected fleet can't move to that system.
 
+MAP_ROUTE_ETA
+%1% turns
+
+MAP_ROUTE_ETA_ONE
+1 turn
+
+MAP_ROUTE_UNREACHABLE
+Unreachable
+
+NOTIFICATIONS_HEADER
+Turn %1% · %2% events
+
+NOTIFICATIONS_HEADER_ONE
+Turn %1% · 1 event
+
 OPTIONS_DB_UI_TITLE_FONT
 Sets UI title font resource file.
 

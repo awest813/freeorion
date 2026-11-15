@@ -11,6 +11,7 @@ var follow_game := true
 var map_view: GalaxyMapView
 var top_bar: TopBar
 var system_panel: SystemPanel
+var feed: NotificationFeed
 
 
 func _init() -> void:
@@ -42,6 +43,23 @@ func _ready() -> void:
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layout.add_child(body)
+	var feed_margin := MarginContainer.new()
+	feed_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		feed_margin.add_theme_constant_override(side, _gap())
+	body.add_child(feed_margin)
+	var feed_column := VBoxContainer.new()
+	feed_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	feed_margin.add_child(feed_column)
+	var feed_spacer := Control.new()
+	feed_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	feed_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	feed_column.add_child(feed_spacer)
+	feed = NotificationFeed.new()
+	feed.follow_game = follow_game
+	feed.link_activated.connect(_on_link_activated)
+	feed_column.add_child(feed)
+
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -57,12 +75,22 @@ func _ready() -> void:
 	system_panel = SystemPanel.new()
 	column.add_child(system_panel)
 
+	top_bar.resized.connect(_update_frame_margins)
+
 	map_view.system_selected.connect(_on_system_selected)
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
 	system_panel.close_requested.connect(map_view.map.select_system.bind(GalaxyMap.NO_SYSTEM))
 	system_panel.fleet_selected.connect(_show_route)
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
+
+
+# Frame the galaxy below the top bar; refit while the player hasn't moved.
+func _update_frame_margins() -> void:
+	var camera := map_view.map.camera
+	camera.frame_margins = Vector4(0, top_bar.size.y + _gap(), 0, _gap())
+	if not camera.user_moved and map_view.map.bounds.has_area():
+		camera.fit_rect(map_view.map.bounds)
 
 
 func _on_system_selected(system_id: int) -> void:
@@ -93,7 +121,42 @@ func _show_route(fleet_id: int) -> void:
 	if fleet == null:
 		map_view.map.set_route(Vector2.ZERO, PackedInt32Array())
 		return
-	map_view.map.set_route(fleet.get_position(), fleet.get_travel_route())
+	map_view.map.set_route(
+		fleet.get_position(), fleet.get_travel_route(), eta_text(fleet.get_eta())
+	)
+
+
+## Route label for an ETA from FOFleet.get_eta().
+static func eta_text(eta: int) -> String:
+	if eta < 0:
+		return TranslationServer.translate("MAP_ROUTE_UNREACHABLE")
+	if eta == 0:
+		return ""
+	if eta == 1:
+		return TranslationServer.translate("MAP_ROUTE_ETA_ONE")
+	return TranslationServer.translate("MAP_ROUTE_ETA").replace("%1%", str(eta))
+
+
+# Links in sitreps: objects on the map select (and centre on) their system.
+func _on_link_activated(kind: String, arg: String) -> void:
+	if not follow_game or not arg.is_valid_int():
+		return
+	var system_id := -1
+	match kind:
+		"system":
+			system_id = arg.to_int()
+		"planet":
+			var planet: FOPlanet = FOUniverse.get_planet(arg.to_int())
+			system_id = planet.get_system_id() if planet else -1
+		"fleet":
+			var fleet: FOFleet = FOUniverse.get_fleet(arg.to_int())
+			if fleet:
+				system_id = fleet.get_system_id()
+				if system_id < 0:
+					map_view.map.camera.center_on(fleet.get_position())
+					return
+	if system_id >= 0:
+		map_view.map.focus_system(system_id)
 
 
 func _gap() -> int:

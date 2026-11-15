@@ -52,7 +52,8 @@ func _fill_shell(shell: GameShell) -> void:
 	shell.system_panel.show_data(preload("res://test/unit/test_system_panel.gd").SAMPLE)
 	shell.system_panel.select_fleet(7)
 	var map := shell.map_view.map
-	map.set_route(map.system_position(10), PackedInt32Array([85, 22]))
+	map.set_route(map.system_position(10), PackedInt32Array([85, 22]), GameShell.eta_text(3))
+	shell.feed.show_entries(preload("res://test/unit/test_notification_feed.gd").ENTRIES, 12)
 	map.hover_system(50)
 
 

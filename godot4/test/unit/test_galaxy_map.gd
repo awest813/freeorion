@@ -77,6 +77,23 @@ func test_route_follows_systems():
 	assert_eq(map.route_points().size(), 0, "Cleared")
 
 
+func test_framing_keeps_out_of_margins():
+	map.camera.frame_margins = Vector4(0, 200, 0, 0)
+	map.camera.fit_rect(map.bounds)
+	var top_left := map.camera.world_to_screen(map.bounds.position)
+	assert_gte(top_left.y, 200.0, "Galaxy starts below the top margin")
+	var bottom_right := map.camera.world_to_screen(map.bounds.end)
+	assert_lte(bottom_right.y, map.get_viewport_rect().size.y + 0.5)
+
+
+func test_focus_system_selects_and_centers():
+	FOUi.reduce_motion = true
+	map.focus_system(_id(5, 3))
+	FOUi.reduce_motion = false
+	assert_eq(map.selected_system_id(), _id(5, 3))
+	assert_eq(map.camera.position, Vector2(500, 300))
+
+
 func _right_click(at: Vector2, drag: Vector2) -> void:
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_RIGHT

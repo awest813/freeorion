@@ -41,6 +41,7 @@ var _label_order := PackedInt32Array()
 var _star_colors := PackedColorArray()
 var _starfield_texture: ImageTexture
 var _route := PackedVector2Array()
+var _route_label := ""
 
 @onready var camera: GalaxyCamera = $Camera
 @onready var _lane_layer: MapLayer = $Lanes
@@ -125,7 +126,8 @@ func selected_system_id() -> int:
 
 ## Show a fleet route: \a start (the fleet's position) through the systems in
 ## \a system_ids. An empty array clears it.
-func set_route(start: Vector2, system_ids: PackedInt32Array) -> void:
+func set_route(start: Vector2, system_ids: PackedInt32Array, label := "") -> void:
+	_route_label = label
 	_route = PackedVector2Array()
 	if not system_ids.is_empty():
 		_route.push_back(start)
@@ -133,6 +135,7 @@ func set_route(start: Vector2, system_ids: PackedInt32Array) -> void:
 			if _index_by_id.has(system_id):
 				_route.push_back(_positions[_index_by_id[system_id]])
 	_overlay.queue_redraw()
+	_label_layer.queue_redraw()
 
 
 func route_points() -> PackedVector2Array:
@@ -149,6 +152,14 @@ func hover_system(system_id: int) -> void:
 	_overlay.queue_redraw()
 	_label_layer.queue_redraw()
 	system_hovered.emit(system_id)
+
+
+## Select \a system_id and glide the camera to it.
+func focus_system(system_id: int) -> void:
+	if not _index_by_id.has(system_id):
+		return
+	select_system(system_id)
+	camera.center_on(_positions[_index_by_id[system_id]])
 
 
 func select_system(system_id: int) -> void:
@@ -338,6 +349,7 @@ func _draw_labels(layer: CanvasItem) -> void:
 	var size := MapStyle.LABEL_FONT_SIZE
 	var screen := Rect2(Vector2.ZERO, get_viewport_rect().size)
 	var placed := _LabelGrid.new()
+	_draw_route_chip(layer, placed)
 	_draw_hover_chip(layer, placed)
 	for i in _label_order:
 		if i == _hovered:
@@ -359,6 +371,30 @@ func _draw_labels(layer: CanvasItem) -> void:
 			size,
 			text_color
 		)
+
+
+# ETA (or other route text) next to the end of the planned route.
+func _draw_route_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
+	if _route.size() < 2 or _route_label.is_empty():
+		return
+	var tokens: FOTokens = FOUi.tokens
+	var size := MapStyle.LABEL_FONT_SIZE
+	var width := _label_font.get_string_size(_route_label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var end := camera.world_to_screen(_route[_route.size() - 1])
+	var pad := Vector2(tokens.space_2, tokens.space_1)
+	var top_left := (end + Vector2(MapStyle.SELECTION_RING_PX + pad.x, -size * 0.6)).round()
+	var chip := Rect2(top_left - pad, Vector2(width, size * 1.25) + pad * 2.0)
+	placed.try_place(chip)
+	layer.draw_rect(chip, Color(tokens.accent, 0.9))
+	layer.draw_string(
+		_label_font,
+		top_left + Vector2(0, size),
+		_route_label,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		size,
+		tokens.text_on_accent
+	)
 
 
 # The hovered system always gets its name, as a chip that also reserves its

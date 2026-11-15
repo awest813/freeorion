@@ -30,6 +30,9 @@ var user_moved := false
 ## Pixels the mouse moved during the current or last right/middle drag; a
 ## release under CLICK_SLOP_PX counts as a click (GalaxyMap uses it for orders).
 var drag_distance := 0.0
+## Screen pixels covered by UI on each side (left, top, right, bottom), kept
+## out of the area fit_rect frames.
+var frame_margins := Vector4.ZERO
 
 var _target_zoom := 1.0
 var _anchor_screen := Vector2.ZERO
@@ -37,6 +40,7 @@ var _anchor_world := Vector2.ZERO
 var _anchored := false
 var _dragging := false
 var _home_rect := Rect2()
+var _pan_tween: Tween
 var _last_position := Vector2.INF
 var _last_zoom := -1.0
 
@@ -46,6 +50,19 @@ func _ready() -> void:
 	anchor_mode = Camera2D.ANCHOR_MODE_DRAG_CENTER
 	_target_zoom = zoom.x
 	_ensure_actions()
+
+
+## Glide to \a world_pos (instantly when motion is reduced).
+func center_on(world_pos: Vector2) -> void:
+	user_moved = true
+	_anchored = false
+	if _pan_tween:
+		_pan_tween.kill()
+	if FOUi.reduce_motion:
+		position = world_pos
+		return
+	_pan_tween = create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_pan_tween.tween_property(self, "position", world_pos, FOUi.tokens.motion * 2.0)
 
 
 ## True if the last right/middle button press-release moved less than the slop.
@@ -62,15 +79,20 @@ func fit_rect(rect: Rect2) -> void:
 	_home_rect = rect
 	user_moved = false
 	var view := get_viewport_rect().size
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0 or view.x <= 0.0 or view.y <= 0.0:
+	# Frame inside the part of the view not covered by UI (frame_margins).
+	var area := view - Vector2(frame_margins.x + frame_margins.z, frame_margins.y + frame_margins.w)
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0 or area.x <= 0.0 or area.y <= 0.0:
 		return
 	var fit := minf(
-		view.x / (rect.size.x * (1.0 + FIT_MARGIN)), view.y / (rect.size.y * (1.0 + FIT_MARGIN))
+		area.x / (rect.size.x * (1.0 + FIT_MARGIN)), area.y / (rect.size.y * (1.0 + FIT_MARGIN))
 	)
 	min_zoom = fit * 0.5
 	max_zoom = maxf(fit * 40.0, 4.0)
 	_anchored = false
-	position = rect.get_center()
+	var area_offset := (
+		Vector2(frame_margins.x - frame_margins.z, frame_margins.y - frame_margins.w) * 0.5
+	)
+	position = rect.get_center() - area_offset / fit
 	_target_zoom = fit
 	_set_zoom_now(fit)
 	_notify_view_change()

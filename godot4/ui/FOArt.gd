@@ -23,6 +23,11 @@ static func meter_icon(meter: String) -> Texture2D:
 	return _icon("icons/meter/%s.png" % meter)
 
 
+## Any image relative to the art directory, e.g. a sitrep icon path.
+static func icon(relative_path: String) -> Texture2D:
+	return _icon(relative_path) if not relative_path.is_empty() else null
+
+
 static func _icon(relative_path: String) -> Texture2D:
 	if _cache.has(relative_path):
 		return _cache[relative_path]

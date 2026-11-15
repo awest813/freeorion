@@ -412,3 +412,35 @@ All ten tickets in §9 are implemented on `claude/happy-allen-oas1fr`. They were
 3. Multiplayer connect, join, and auth messages.
 4. The rich-text converter.
 5. Then the system/planet context panel on top of the map selection.
+
+### 2026-11-15 (later): first playable shell
+
+Done since the starter tickets:
+
+**Performance**
+- Galaxy map perf test: 1000 systems and 2000 fleets load in about 15 ms, and zooming costs about 7 ms per frame (CPU, headless).
+- Map rendering: culling, screen-space labels, and a backdrop baked into one texture.
+
+**Bridge**
+- `FOOptions`, a typed options API with change signals.
+- `FOPlanet.get_meter`, `FOUniverse.get_empire_name`, `FOFleet.get_eta`, and `FOUniverse.get_sitreps`.
+
+**UI**
+- `FORichText`: FreeOrion markup to BBCode, with `fo://` object links.
+- `GameShell`, which replaces upstream `MapWnd`'s toolbar and contains:
+  - Top bar: empire, turn, and End Turn (Ctrl+Enter) with a waiting state.
+  - System panel: planets with type, focus and population icons, plus fleets. Own fleets can be selected.
+  - Fleet orders: right-click a system to send the selected fleet. The route is drawn with an ETA chip.
+  - Notification feed: this turn's sitreps. Links to planets, systems and fleets select and centre on them.
+- Map hover chip; the galaxy is framed below the top bar; `ui.reduce-motion` option.
+
+**Core bugs fixed along the way**
+- **Option validators:** range, step and discrete validators were skipped for every `string_view` path, including `config.xml` and the command line. Now covered by a C++ test.
+- **UTF-8 decoding:** the Godot bridge decoded stringtables and paths as Latin-1.
+- **Auto-translation:** upstream `MapWnd`'s `ALWAYS` setting turned every name in child UI into "ERROR: <name>".
+
+**Next**
+1. Production screen (the Phase 4 order).
+2. Fleet panel details: ships, split and merge, aggression.
+3. Pedia links from the feed.
+4. Ctrl+click to append waypoints.

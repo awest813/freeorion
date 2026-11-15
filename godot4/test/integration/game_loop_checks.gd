@@ -46,6 +46,7 @@ func before_turn() -> void:
 	_test.assert_false(FOOrders.rescind_order(-12345), "Rescinding an unknown order fails")
 
 	_test.assert_gt(FOOrders.issue_fleet_move(_fleet_id, _dest_id), -1, "Move order re-issued")
+	_test.assert_gt(fleet.get_eta(), 0, "Moving fleet has an ETA")
 
 
 ## Call after the first turn update arrived.
@@ -56,6 +57,12 @@ func after_turn() -> void:
 	_test.assert_not_null(fleet, "Fleet still known after the turn")
 	if fleet:
 		_test.assert_ne(fleet.get_position(), _start_position, "Fleet moved during the turn")
+	var sitreps: Array = FOUniverse.get_sitreps()
+	_test.assert_gt(sitreps.size(), 0, "Turn produced situation reports")
+	for entry: Dictionary in sitreps:
+		_test.assert_false(entry["text"].is_empty(), "Sitrep has text")
+		var bbcode := FORichText.to_bbcode(entry["text"])
+		_test.assert_false(bbcode.contains("<"), "Sitrep markup converts: %s" % entry["text"])
 
 
 func _check_galaxy_map() -> void:
