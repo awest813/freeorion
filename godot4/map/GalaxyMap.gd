@@ -11,6 +11,8 @@ extends Node2D
 
 signal system_selected(system_id: int)
 signal system_hovered(system_id: int)
+## Right-click (not drag) on a system, e.g. to order the active fleet there.
+signal system_context_requested(system_id: int)
 
 const PICK_RADIUS_PX := 14.0
 const GRID_CELL := 64.0
@@ -38,6 +40,7 @@ var _label_widths := PackedFloat32Array()
 var _label_order := PackedInt32Array()
 var _star_colors := PackedColorArray()
 var _starfield_texture: ImageTexture
+var _route := PackedVector2Array()
 
 @onready var camera: GalaxyCamera = $Camera
 @onready var _lane_layer: MapLayer = $Lanes
@@ -120,6 +123,22 @@ func selected_system_id() -> int:
 	return _system_ids[_selected] if _selected != NO_SYSTEM else NO_SYSTEM
 
 
+## Show a fleet route: \a start (the fleet's position) through the systems in
+## \a system_ids. An empty array clears it.
+func set_route(start: Vector2, system_ids: PackedInt32Array) -> void:
+	_route = PackedVector2Array()
+	if not system_ids.is_empty():
+		_route.push_back(start)
+		for system_id in system_ids:
+			if _index_by_id.has(system_id):
+				_route.push_back(_positions[_index_by_id[system_id]])
+	_overlay.queue_redraw()
+
+
+func route_points() -> PackedVector2Array:
+	return _route
+
+
 func select_system(system_id: int) -> void:
 	var index: int = _index_by_id.get(system_id, NO_SYSTEM)
 	if index == _selected:
@@ -168,6 +187,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
 			select_system(pick_system(camera.screen_to_world(button.position)))
 			get_viewport().set_input_as_handled()
+		elif (
+			button.button_index == MOUSE_BUTTON_RIGHT and not button.pressed and camera.was_click()
+		):
+			var system_id := pick_system(camera.screen_to_world(button.position))
+			if system_id != NO_SYSTEM:
+				system_context_requested.emit(system_id)
+				get_viewport().set_input_as_handled()
 
 
 func _on_zoom_changed(zoom_level: float) -> void:
@@ -240,6 +266,7 @@ func _draw_overlay(layer: CanvasItem) -> void:
 	var px := 1.0 / camera.zoom_level()
 	var view := visible_world_rect()
 	_draw_unexplored_rings(layer, px, view)
+	_draw_route(layer, px)
 	_draw_fleets(layer, px, view)
 	var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
 	var ring := MapStyle.SELECTION_RING_PX * px
@@ -247,6 +274,17 @@ func _draw_overlay(layer: CanvasItem) -> void:
 		layer.draw_arc(_positions[_hovered], ring, 0, TAU, 32, Color(accent, 0.5), 1.5 * px, true)
 	if _selected != NO_SYSTEM:
 		layer.draw_arc(_positions[_selected], ring, 0, TAU, 40, accent, 2.0 * px, true)
+
+
+func _draw_route(layer: CanvasItem, px: float) -> void:
+	if _route.size() < 2:
+		return
+	var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
+	for i in _route.size() - 1:
+		layer.draw_dashed_line(
+			_route[i], _route[i + 1], accent, 2.0 * px, MapStyle.ROUTE_DASH_PX * px, true, true
+		)
+	layer.draw_circle(_route[_route.size() - 1], 4.0 * px, accent)
 
 
 func _draw_unexplored_rings(layer: CanvasItem, px: float, view: Rect2) -> void:

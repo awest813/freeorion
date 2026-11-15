@@ -1923,6 +1923,18 @@ No known planets
 SYSTEM_PANEL_FLEETS
 %1% fleets here, %2% yours
 
+SYSTEM_PANEL_FLEET_LINE
+%1% · %2% ships
+
+SYSTEM_PANEL_FLEET_DESTINATION
+→ %1%
+
+SYSTEM_PANEL_MOVE_HINT
+Right-click a system on the map to send the selected fleet there.
+
+SYSTEM_PANEL_ORDER_REFUSED
+The selected fleet can't move to that system.
+
 OPTIONS_DB_UI_TITLE_FONT
 Sets UI title font resource file.
 

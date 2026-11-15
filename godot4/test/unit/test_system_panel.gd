@@ -21,6 +21,12 @@ const SAMPLE := {
 	],
 	"fleets_total": 3,
 	"fleets_own": 2,
+	"fleets":
+	[
+		{"id": 7, "name": "Battle Fleet", "ships": 2, "own": true, "destination": ""},
+		{"id": 8, "name": "Scout", "ships": 1, "own": true, "destination": "Mu Arae"},
+		{"id": 9, "name": "Monsters", "ships": 3, "own": false, "owner_color": Color.RED},
+	],
 }
 
 var panel: SystemPanel
@@ -69,6 +75,35 @@ func test_close_button_requests_close():
 	var close: Button = panel.find_children("*", "Button", true, false)[0]
 	close.pressed.emit()
 	assert_signal_emitted(panel, "close_requested")
+
+
+func test_own_fleets_are_selectable():
+	panel.show_data(SAMPLE)
+	await wait_process_frames(1)
+	var buttons := panel._fleet_list.find_children("*", "Button", true, false)
+	assert_eq(buttons.size(), 2, "Only own fleets are buttons")
+	assert_string_contains(buttons[1].text, "Mu Arae", "Destination shown")
+	watch_signals(panel)
+	buttons[0].button_pressed = true
+	assert_signal_emitted_with_parameters(panel, "fleet_selected", [7])
+	assert_eq(panel.selected_fleet_id(), 7)
+	assert_true(panel._notice.visible, "Move hint shown")
+	buttons[1].button_pressed = true
+	assert_eq(panel.selected_fleet_id(), 8, "Single selection")
+	assert_false(buttons[0].button_pressed)
+
+
+func test_selection_survives_refresh_until_fleet_leaves():
+	panel.show_data(SAMPLE)
+	panel.select_fleet(7)
+	panel.show_data(SAMPLE)
+	assert_eq(panel.selected_fleet_id(), 7, "Kept while listed")
+	watch_signals(panel)
+	var without := SAMPLE.duplicate(true)
+	without["fleets"] = without["fleets"].slice(1)
+	panel.show_data(without)
+	assert_eq(panel.selected_fleet_id(), -1, "Cleared when the fleet is gone")
+	assert_signal_emitted_with_parameters(panel, "fleet_selected", [-1])
 
 
 func _texts(node: Node) -> Array:

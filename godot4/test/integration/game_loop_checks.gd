@@ -69,6 +69,34 @@ func _check_galaxy_map() -> void:
 	)
 	_test.assert_true(view.map.bounds.has_area(), "Map has galaxy bounds")
 	_check_home_system_panel()
+	await _check_fleet_order_from_shell()
+
+
+# Select the home system and an own fleet in the shell, then right-click a
+# neighbouring system: the order is issued and the route is drawn.
+func _check_fleet_order_from_shell() -> void:
+	var shell := GameShell.new()
+	_test.add_child_autofree(shell)
+	await _test.wait_process_frames(2)
+	shell.map_view.refresh()
+	var empire_id: int = FOUniverse.get_empire_id()
+	var fleet: FOFleet = null
+	for fleet_id in FOUniverse.get_fleet_ids():
+		var candidate: FOFleet = FOUniverse.get_fleet(fleet_id)
+		if candidate.get_owner_id() == empire_id and candidate.get_speed() > 0.0:
+			fleet = candidate
+			break
+	_test.assert_not_null(fleet, "Own movable fleet")
+	if fleet == null:
+		return
+	var home := fleet.get_system_id()
+	var target: int = FOUniverse.get_system(home).get_starlanes()[0]
+	shell.map_view.map.select_system(home)
+	_test.assert_eq(shell.system_panel.system_id, home, "Panel follows map selection")
+	shell.system_panel.select_fleet(fleet.get_id())
+	shell.map_view.map.system_context_requested.emit(target)
+	_test.assert_eq(fleet.get_final_destination_id(), target, "Right-click ordered the move")
+	_test.assert_gt(shell.map_view.map.route_points().size(), 1, "Route drawn")
 
 
 func _check_home_system_panel() -> void:

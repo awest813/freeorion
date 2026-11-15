@@ -59,6 +59,41 @@ func test_refits_on_resize_until_user_moves_camera():
 	assert_eq(map.camera._target_zoom, zoom_after_user, "No refit after the user zoomed")
 
 
+func test_right_click_requests_context_but_drag_does_not():
+	watch_signals(map)
+	var at := map.camera.world_to_screen(Vector2(200, 100))
+	_right_click(at, Vector2.ZERO)
+	assert_signal_emitted_with_parameters(map, "system_context_requested", [_id(2, 1)])
+	_right_click(at, Vector2(30, 0))
+	assert_signal_emit_count(map, "system_context_requested", 1, "Drag is not a click")
+
+
+func test_route_follows_systems():
+	map.set_route(Vector2(0, 0), PackedInt32Array([_id(1, 0), _id(2, 0)]))
+	assert_eq(
+		map.route_points(), PackedVector2Array([Vector2(0, 0), Vector2(100, 0), Vector2(200, 0)])
+	)
+	map.set_route(Vector2.ZERO, PackedInt32Array())
+	assert_eq(map.route_points().size(), 0, "Cleared")
+
+
+func _right_click(at: Vector2, drag: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_RIGHT
+	press.pressed = true
+	press.position = at
+	map.get_viewport().push_input(press)
+	if drag != Vector2.ZERO:
+		var motion := InputEventMouseMotion.new()
+		motion.position = at + drag
+		motion.relative = drag
+		map.get_viewport().push_input(motion)
+	var release := press.duplicate()
+	release.pressed = false
+	release.position = at + drag
+	map.get_viewport().push_input(release)
+
+
 func test_zoom_keeps_point_under_cursor():
 	var cam := map.camera
 	var cursor := Vector2(900, 300)

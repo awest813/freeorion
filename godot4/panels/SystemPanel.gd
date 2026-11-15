@@ -7,6 +7,8 @@ extends PanelContainer
 ## data directly (tests, previews). See from_universe() for the layout.
 
 signal close_requested
+## An own fleet was selected in the list (-1: selection cleared).
+signal fleet_selected(fleet_id: int)
 
 const WIDTH := 340
 
@@ -16,6 +18,9 @@ var _title: Label
 var _subtitle: Label
 var _planets: VBoxContainer
 var _fleets: Label
+var _fleet_list: VBoxContainer
+var _notice: Label
+var _selected_fleet := -1
 
 
 func _init() -> void:
@@ -63,6 +68,76 @@ func show_data(data: Dictionary) -> void:
 	_fleets.text = (tr("SYSTEM_PANEL_FLEETS").replace("%1%", str(fleets_total)).replace(
 		"%2%", str(fleets_own)
 	))
+	_notice.visible = false
+	_rebuild_fleet_list(data.get("fleets", []))
+
+
+func selected_fleet_id() -> int:
+	return _selected_fleet
+
+
+## Select one of the listed own fleets (-1 clears), emitting fleet_selected.
+func select_fleet(fleet_id: int) -> void:
+	if fleet_id == _selected_fleet:
+		return
+	_selected_fleet = fleet_id
+	for button in _fleet_list.find_children("*", "Button", true, false):
+		button.set_pressed_no_signal(button.get_meta("fleet_id", -1) == fleet_id)
+	_notice.visible = false
+	fleet_selected.emit(fleet_id)
+
+
+## Short message under the fleet list, e.g. why an order was refused.
+func show_notice(text: String) -> void:
+	_notice.text = text
+	_notice.visible = not text.is_empty()
+
+
+func _rebuild_fleet_list(fleets: Array) -> void:
+	for child in _fleet_list.get_children():
+		child.queue_free()
+	var still_listed := false
+	for fleet: Dictionary in fleets:
+		var line := tr("SYSTEM_PANEL_FLEET_LINE").replace("%1%", fleet.get("name", "")).replace(
+			"%2%", str(fleet.get("ships", 0))
+		)
+		var destination: String = fleet.get("destination", "")
+		if not destination.is_empty():
+			line += "  " + tr("SYSTEM_PANEL_FLEET_DESTINATION").replace("%1%", destination)
+		if fleet.get("own", false):
+			var button := Button.new()
+			button.text = line
+			button.toggle_mode = true
+			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			button.set_meta("fleet_id", fleet["id"])
+			button.button_pressed = fleet["id"] == _selected_fleet
+			button.toggled.connect(_on_fleet_toggled.bind(fleet["id"]))
+			_fleet_list.add_child(button)
+			still_listed = still_listed or fleet["id"] == _selected_fleet
+		else:
+			var row := HBoxContainer.new()
+			var swatch := ColorRect.new()
+			swatch.color = fleet.get("owner_color", Color.WHITE)
+			swatch.custom_minimum_size = Vector2(FOUi.tokens.space_2, FOUi.tokens.space_2) * 1.5
+			swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(swatch)
+			row.add_child(_label(line, "SecondaryLabel"))
+			_fleet_list.add_child(row)
+	if _selected_fleet != -1 and not still_listed:
+		_selected_fleet = -1
+		fleet_selected.emit(-1)
+	_update_hint()
+
+
+func _on_fleet_toggled(pressed: bool, fleet_id: int) -> void:
+	select_fleet(fleet_id if pressed else -1)
+	_update_hint()
+
+
+func _update_hint() -> void:
+	if _selected_fleet != -1 and not _notice.visible:
+		show_notice(tr("SYSTEM_PANEL_MOVE_HINT"))
 
 
 ## Panel data for system \a id from the client universe.
@@ -94,12 +169,35 @@ static func from_universe(id: int) -> Dictionary:
 			)
 		)
 	var fleets_own := 0
+	var fleets: Array[Dictionary] = []
 	var fleet_ids := system.get_fleet_ids()
 	for fleet_id in fleet_ids:
 		var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
-		if fleet and fleet.get_owner_id() == empire_id:
+		if fleet == null:
+			continue
+		var own := fleet.get_owner_id() == empire_id
+		if own:
 			fleets_own += 1
+		var destination := ""
+		var destination_id := fleet.get_final_destination_id()
+		if destination_id >= 0 and destination_id != fleet.get_system_id():
+			var target: FOSystem = FOUniverse.get_system(destination_id)
+			destination = target.get_name() if target else ""
+		(
+			fleets
+			. push_back(
+				{
+					"id": fleet_id,
+					"name": fleet.get_name(),
+					"ships": fleet.get_ship_ids().size(),
+					"own": own,
+					"owner_color": FOUniverse.get_empire_color(fleet.get_owner_id()),
+					"destination": destination,
+				}
+			)
+		)
 	return {
+		"fleets": fleets,
 		"name": system.get_name(),
 		"star_type": system.get_star_type(),
 		"planets": planets,
@@ -137,6 +235,12 @@ func _build() -> void:
 	box.add_child(HSeparator.new())
 	_fleets = _label("", "SecondaryLabel")
 	box.add_child(_fleets)
+	_fleet_list = VBoxContainer.new()
+	box.add_child(_fleet_list)
+	_notice = _label("", "SmallLabel")
+	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_notice.visible = false
+	box.add_child(_notice)
 
 
 func _planet_row(planet: Dictionary) -> Control:

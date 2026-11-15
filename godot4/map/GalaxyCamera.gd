@@ -11,6 +11,7 @@ const KEY_ZOOM_FACTOR := 1.5
 const SMOOTHING := 14.0
 const KEY_PAN_SPEED_PX := 900.0
 const FIT_MARGIN := 0.08
+const CLICK_SLOP_PX := 4.0
 
 const ACTIONS := {
 	"map_pan_left": [KEY_A, KEY_LEFT],
@@ -26,6 +27,9 @@ var min_zoom := 0.02
 var max_zoom := 8.0
 ## True once the player zoomed or panned; until then the map re-frames on resize.
 var user_moved := false
+## Pixels the mouse moved during the current or last right/middle drag; a
+## release under CLICK_SLOP_PX counts as a click (GalaxyMap uses it for orders).
+var drag_distance := 0.0
 
 var _target_zoom := 1.0
 var _anchor_screen := Vector2.ZERO
@@ -42,6 +46,11 @@ func _ready() -> void:
 	anchor_mode = Camera2D.ANCHOR_MODE_DRAG_CENTER
 	_target_zoom = zoom.x
 	_ensure_actions()
+
+
+## True if the last right/middle button press-release moved less than the slop.
+func was_click() -> bool:
+	return drag_distance < CLICK_SLOP_PX
 
 
 func zoom_level() -> float:
@@ -120,8 +129,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT:
 				_dragging = button.pressed
+				if button.pressed:
+					drag_distance = 0.0
 	elif event is InputEventMouseMotion and _dragging:
-		position -= (event as InputEventMouseMotion).relative / zoom.x
+		var relative := (event as InputEventMouseMotion).relative
+		drag_distance += relative.length()
+		position -= relative / zoom.x
 		_anchored = false
 		user_moved = true
 		get_viewport().set_input_as_handled()

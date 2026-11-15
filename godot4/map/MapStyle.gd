@@ -23,6 +23,7 @@ const UNEXPLORED_RING_PX := 6.0
 ## Sizes in screen pixels, kept constant across zoom levels.
 const STAR_PX := 16.0
 const LANE_PX := 1.5
+const ROUTE_DASH_PX := 8.0
 const FLEET_PX := 7.0
 const SELECTION_RING_PX := 13.0
 const LABEL_FONT_SIZE := 13
