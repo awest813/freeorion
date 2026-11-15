@@ -2074,6 +2074,73 @@ Show each shot
 COMBAT_REPORT_NO_EVENTS
 Nothing happened that your empire could see.
 
+OBJECTS_PLANETS
+Planets
+
+OBJECTS_FLEETS
+Fleets
+
+OBJECTS_SHIPS
+Ships
+
+OBJECTS_BUILDINGS
+Buildings
+
+OBJECTS_SYSTEMS
+Systems
+
+OBJECTS_ONLY_MINE
+Only mine
+
+OBJECTS_SEARCH
+Filter by name…
+
+# %1% number of objects listed.
+OBJECTS_COUNT
+%1% objects
+
+OBJECTS_EMPTY
+Nothing to list.
+
+OBJECTS_ACTIVATE_HINT
+Double-click a row to show it on the map.
+
+OBJECTS_COL_LOCATION
+Location
+
+OBJECTS_COL_TYPE
+Type
+
+OBJECTS_COL_DESIGN
+Design
+
+OBJECTS_COL_FLEET
+Fleet
+
+OBJECTS_COL_SHIPS
+Ships
+
+OBJECTS_COL_DESTINATION
+Destination
+
+OBJECTS_COL_STANCE
+Stance
+
+OBJECTS_COL_ETA
+Arrives
+
+OBJECTS_COL_PLANET
+Planet
+
+OBJECTS_COL_STAR
+Star
+
+OBJECTS_COL_PLANETS
+Planets
+
+OBJECTS_COL_FLEETS
+Fleets
+
 SYSTEM_PANEL_PLANETS
 Planets
 

@@ -128,6 +128,18 @@ func _fill_combat(screen: CombatScreen) -> void:
 	toggles[1].button_pressed = true
 
 
+func test_objects_screen():
+	var screen := ObjectsScreen.new()
+	screen.source = preload("res://test/unit/fake_objects_source.gd").new()
+	await _check_scene(screen, "objects_screen", _fill_objects)
+
+
+func _fill_objects(screen: ObjectsScreen) -> void:
+	screen._only_mine.button_pressed = false
+	screen.sort_by("population")
+	screen._tree.get_root().get_child(1).select(0)
+
+
 func test_designer_screen():
 	var screen := DesignerScreen.new()
 	screen.source = preload("res://test/unit/fake_designer_source.gd").new()

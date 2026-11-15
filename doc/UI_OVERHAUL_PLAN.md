@@ -509,6 +509,28 @@ UI fixes:
 - **Theme:** new `DangerButton` variation for destructive actions.
 
 **Next**
+1. Combat reports.
+2. Objects list.
+3. Multiplayer lobby.
+
+### 2026-11-15 (late night): combat reports, objects list
+
+- **Combat reports** (Combat, F7):
+  - The player's combats, newest first, each with its losses on both sides.
+  - The chosen combat shows each side's remaining structure, losses and damage dealt, and its ships and planets.
+  - The log is grouped by round; an attack expands into its single shots, which are only built when opened.
+  - Combat links in the turn events open the report. The Combat button counts last turn's combats until they're seen.
+- **Fetching combat logs:** the client only learns of combats by ID. It now fetches their contents from the server after each game start and turn, in batches of 50, as the GG client does.
+- **Shared-code fixes in `CombatLogManager`:**
+  - `Clear()` reset the latest ID to -1 instead of 0, so every client asked for a non-existent log 0 every turn, and the server logged an error each time.
+  - `CompleteLog()` beyond the latest ID left that ID one too high.
+  - Unit tests added for both.
+- **Objects** (F8): known planets, fleets, ships, buildings or systems in one table.
+  - Sorts by any column; filters by name or owner, and to the player's own objects.
+  - Double-click a row to show the object on the map.
+  - Rows come from one bridge call per list (`FOObjects`), so large galaxies don't need a call per cell.
+- **Theme:** tables (`Tree`) now have themed headers, selection and hover. Godot's defaults were grey on grey.
+- **Top bar:** Save moved to the in-game menu (F5 still works), making room for Objects and Combat.
+
+**Next**
 1. Multiplayer lobby.
-2. Combat reports.
-3. Objects list.

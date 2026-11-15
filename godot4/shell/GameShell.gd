@@ -27,6 +27,7 @@ var load_screen: SaveLoadScreen
 var game_menu: GameMenu
 var designer_screen: DesignerScreen
 var combat_screen: CombatScreen
+var objects_screen: ObjectsScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
 
@@ -76,6 +77,8 @@ func _ready() -> void:
 	designer_screen = DesignerScreen.new()
 	combat_screen = CombatScreen.new()
 	combat_screen.link_activated.connect(_on_link_activated)
+	objects_screen = ObjectsScreen.new()
+	objects_screen.link_activated.connect(_on_link_activated)
 	save_screen = SaveLoadScreen.new()
 	save_screen.mode = "save"
 	load_screen = SaveLoadScreen.new()
@@ -90,6 +93,7 @@ func _ready() -> void:
 		research_screen,
 		government_screen,
 		designer_screen,
+		objects_screen,
 		combat_screen,
 		pedia_screen,
 		options_screen,
@@ -220,6 +224,7 @@ func _screens() -> Dictionary:
 		"research": research_screen,
 		"government": government_screen,
 		"design": designer_screen,
+		"objects": objects_screen,
 		"combat": combat_screen,
 		"pedia": pedia_screen,
 		"options": options_screen,
@@ -350,6 +355,8 @@ func _on_turn_update() -> void:
 		research_screen.refresh()
 	if government_screen.visible:
 		government_screen.refresh()
+	if objects_screen.visible:
+		objects_screen.refresh()
 	_show_route(system_panel.selected_fleet_id())
 
 

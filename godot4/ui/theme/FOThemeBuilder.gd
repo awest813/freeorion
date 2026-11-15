@@ -18,6 +18,7 @@ static func build(tokens: FOTokens) -> Theme:
 	_tabs(theme, tokens)
 	_ranges(theme, tokens)
 	_separators(theme, tokens)
+	_trees(theme, tokens)
 	return theme
 
 
@@ -336,3 +337,36 @@ static func _stroke(
 					continue
 				if Vector2(x + 0.5, y + 0.5).distance_to(c) <= half_width:
 					image.set_pixel(x, y, color)
+
+
+# Tables (Tree with columns): flat rows, a quiet header, an accent selection.
+static func _trees(theme: Theme, t: FOTokens) -> void:
+	theme.set_stylebox("panel", "Tree", box(t, t.surface, t.border, t.space_1, t.space_1))
+	theme.set_stylebox("focus", "Tree", focus_box(t))
+	var selected := box(t, Color(t.accent, 0.22), Color(t.accent, 0.0), 0, 0)
+	selected.set_corner_radius_all(t.radius_small)
+	theme.set_stylebox("selected", "Tree", selected)
+	theme.set_stylebox("selected_focus", "Tree", selected)
+	var hovered := box(t, t.surface_raised, Color(0, 0, 0, 0), 0, 0)
+	hovered.set_corner_radius_all(t.radius_small)
+	theme.set_stylebox("hovered", "Tree", hovered)
+	theme.set_stylebox("cursor", "Tree", StyleBoxEmpty.new())
+	theme.set_stylebox("cursor_unfocused", "Tree", StyleBoxEmpty.new())
+	var title := box(t, t.surface_raised, t.surface_raised, t.space_2, t.space_1)
+	title.set_corner_radius_all(0)
+	var title_hover := box(t, t.surface_overlay, t.surface_overlay, t.space_2, t.space_1)
+	title_hover.set_corner_radius_all(0)
+	theme.set_stylebox("title_button_normal", "Tree", title)
+	theme.set_stylebox("title_button_hover", "Tree", title_hover)
+	theme.set_stylebox("title_button_pressed", "Tree", title_hover)
+	theme.set_color("title_button_color", "Tree", t.text_secondary)
+	theme.set_color("font_color", "Tree", t.text_primary)
+	theme.set_color("font_selected_color", "Tree", t.text_primary)
+	theme.set_color("guide_color", "Tree", Color(t.border, 0.5))
+	theme.set_constant("draw_guides", "Tree", 1)
+	theme.set_constant("draw_relationship_lines", "Tree", 0)
+	theme.set_constant("item_margin", "Tree", 0)
+	theme.set_constant("inner_item_margin_left", "Tree", t.space_2)
+	theme.set_constant("inner_item_margin_right", "Tree", t.space_2)
+	theme.set_constant("v_separation", "Tree", t.space_1)
+	theme.set_constant("h_separation", "Tree", t.space_1)

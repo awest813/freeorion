@@ -18,6 +18,7 @@ const SCREENS := [
 	["research", "MAP_BTN_RESEARCH", KEY_F3],
 	["government", "GOVERNMENT_TAB", KEY_F4],
 	["design", "DESIGNER_TAB", KEY_F6],
+	["objects", "MAP_BTN_OBJECTS", KEY_F8],
 	["combat", "COMBAT_TAB", KEY_F7],
 	["pedia", "MAP_BTN_PEDIA", KEY_F1],
 	["options", "OPTIONS_TITLE", KEY_F10],
