@@ -12,23 +12,23 @@ jobs:
       matrix:
         os: [ubuntu-26.04, ubuntu-24.04]
         compiler: [gcc, clang]
-        client-godot: ["3"]
+        client-godot: ["4"]
         build-parsers: ["ON"]
         asan: [false]
         include:
           - os: ubuntu-26.04
             compiler: gcc
-            client-godot: "3"
+            client-godot: "4"
             build-parsers: "ON"
             asan: true
           - os: ubuntu-26.04
             compiler: clang
-            client-godot: "3"
+            client-godot: "4"
             build-parsers: "ON"
             asan: true
           - os: ubuntu-24.04
             compiler: gcc
-            client-godot: "3"
+            client-godot: "4"
             build-parsers: "OFF"
             asan: false
     env:
@@ -141,11 +141,21 @@ jobs:
           fi
           cd build
           cmake --build . --config $BUILD_TYPE --target unittest
+      - name: Install Godot 4
+        if: matrix.client-godot == '4' && matrix.build-parsers == 'ON'
+        run: |
+          GODOT_VERSION=$(cat godot4/.godot-version)
+          curl -sSLo godot4.zip "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot4.zip -d build/
+          mv "build/Godot_v${GODOT_VERSION}-stable_linux.x86_64" build/godot4
       - name: Run Godot unit tests
-        if: matrix.client-godot == '3' && matrix.build-parsers == 'ON'
+        if: matrix.client-godot == '4' && matrix.build-parsers == 'ON'
         env:
           ASAN_OPTIONS: ${{ matrix.asan && 'detect_leaks=0:abort_on_error=1' || ''}}
         run: |
+          echo "::group::Import Godot 4 project"
+          ./build/godot4 --headless --import --path godot4
+          echo "::endgroup::"
           if [ "${{ matrix.asan }}" = "true" ]; then
             if [ "${{ matrix.compiler }}" = "clang" ]; then
               export LD_PRELOAD=$($CC -print-file-name=libclang_rt.asan-x86_64.so)
@@ -153,5 +163,10 @@ jobs:
               export LD_PRELOAD=$($CC -print-file-name=libasan.so)
             fi
           fi
-          cp `which godot3-server` build/
-          ./build/godot3-server --disable-render-loop --verbose -s --path godot addons/gut/gut_cmdln.gd -gdir=res://test/ -ginclude_subdirs -gexit
+          echo "::group::Test Godot 4 project"
+          ./build/godot4 --headless --verbose -s --path godot4 addons/gut/gut_cmdln.gd -gdir=res://test/ -ginclude_subdirs -gexit 2>&1 | tee godot4_test_output.log
+          echo "::endgroup::"
+          if grep -E "ERROR:|Missing class_names:" godot4_test_output.log; then
+            echo "::error::Godot completed with code 0, but execution errors occurred!"
+            exit 1
+          fi

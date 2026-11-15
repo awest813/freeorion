@@ -32,13 +32,19 @@ jobs:
         run: |
           pushd build
           cmake --build . --config "Release" -- /maxcpucount /property:BuildInParallel=true /property:CL_MPCount=2 /verbosity:minimal
+      - name: Read Godot version
+        id: godot-version
+        shell: pwsh
+        run: |
+          $version = (Get-Content godot4/.godot-version -Raw).Trim()
+          "version=$version" >> $env:GITHUB_OUTPUT
       - name: Download Godot
         id: download-godot
         uses: suisei-cn/actions-download-file@v1.6.1
         with:
-          url: https://downloads.godotengine.org/?version=4.4.1&flavor=stable&slug=win64.exe.zip&platform=windows.64
+          url: https://downloads.godotengine.org/?version=${{ steps.godot-version.outputs.version }}&flavor=stable&slug=win64.exe.zip&platform=windows.64
           target: ../
-          filename: Godot_v4.4.1-stable_win64.exe.zip
+          filename: Godot_v${{ steps.godot-version.outputs.version }}-stable_win64.exe.zip
       - name: Install Godot
         shell: pwsh
         run: |
@@ -48,10 +54,10 @@ jobs:
         run: |
           $env:Path += ";$($pwd.Path)\\build\\Release"
           write-host "::group::Import"
-          .\build\Release\Godot_v4.4.1-stable_win64_console.exe --headless --import --path godot4
+          .\build\Release\Godot_v${{ steps.godot-version.outputs.version }}-stable_win64_console.exe --headless --import --path godot4
           write-host "::endgroup::"
           write-host "::group::Test"
-          .\build\Release\Godot_v4.4.1-stable_win64_console.exe --headless --verbose -s --path godot4 addons/gut/gut_cmdln.gd -gdir=res://test/ -ginclude_subdirs -gexit
+          .\build\Release\Godot_v${{ steps.godot-version.outputs.version }}-stable_win64_console.exe --headless --verbose -s --path godot4 addons/gut/gut_cmdln.gd -gdir=res://test/ -ginclude_subdirs -gexit
           write-host "::endgroup::"
       - name: Upload logs
         if: always()

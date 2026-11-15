@@ -17,6 +17,5 @@ sudo apt install -y libboost-all-dev \
 	cppcheck \
 	doxygen \
 	python3-pip \
-	ccache \
-	godot3-server:amd64
+	ccache
 
