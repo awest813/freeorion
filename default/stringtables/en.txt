@@ -1962,6 +1962,54 @@ Turn %1% · %2% events
 NOTIFICATIONS_HEADER_ONE
 Turn %1% · 1 event
 
+PRODUCTION_POINTS
+%1% / %2% PP
+
+PRODUCTION_LOCATION
+Build at
+
+PRODUCTION_FILTER_ALL
+All
+
+PRODUCTION_FILTER_BUILDING
+Buildings
+
+PRODUCTION_FILTER_SHIP
+Ships
+
+PRODUCTION_SEARCH
+Search…
+
+PRODUCTION_ADD
+Add
+
+PRODUCTION_NEVER
+Never
+
+PRODUCTION_EMPTY_QUEUE
+Nothing queued. Add items from the list on the right.
+
+PRODUCTION_NOTHING_BUILDABLE
+Nothing matching can be built here.
+
+PRODUCTION_ITEM_COST
+%1% PP · %2% turns
+
+PRODUCTION_QUEUE_DETAIL
+At %1% · %2% PP this turn
+
+PRODUCTION_QUANTITY
+Quantity
+
+PRODUCTION_MOVE_UP
+Move up
+
+PRODUCTION_MOVE_DOWN
+Move down
+
+PRODUCTION_REMOVE
+Remove from queue
+
 OPTIONS_DB_UI_TITLE_FONT
 Sets UI title font resource file.
 

@@ -12,6 +12,7 @@ var map_view: GalaxyMapView
 var top_bar: TopBar
 var system_panel: SystemPanel
 var feed: NotificationFeed
+var production_screen: ProductionScreen
 
 
 func _init() -> void:
@@ -39,10 +40,21 @@ func _ready() -> void:
 	top_bar.follow_game = follow_game
 	layout.add_child(top_bar)
 
+	# Below the top bar: the map overlays (body) and full screens stack here.
+	var screens := Control.new()
+	screens.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	screens.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layout.add_child(screens)
 	var body := HBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layout.add_child(body)
+	screens.add_child(body)
+	production_screen = ProductionScreen.new()
+	production_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	production_screen.visible = false
+	production_screen.close_requested.connect(show_production.bind(false))
+	screens.add_child(production_screen)
+	top_bar.production_toggled.connect(show_production)
 	var feed_margin := MarginContainer.new()
 	feed_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -85,6 +97,21 @@ func _ready() -> void:
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 
 
+## Show or hide the production screen over the map.
+func show_production(shown: bool) -> void:
+	top_bar.set_production_shown(shown)
+	if shown and follow_game:
+		production_screen.refresh()
+		# Build at the selected system's own planet, if there is one.
+		var system: FOSystem = FOUniverse.get_system(map_view.map.selected_system_id())
+		if system:
+			for planet_id in system.get_planet_ids():
+				production_screen.select_location(planet_id)
+	production_screen.visible = shown
+	if shown:
+		FOUi.fade_in(production_screen)
+
+
 # Frame the galaxy below the top bar; refit while the player hasn't moved.
 func _update_frame_margins() -> void:
 	var camera := map_view.map.camera
@@ -113,6 +140,8 @@ func _on_system_context_requested(system_id: int) -> void:
 
 func _on_turn_update() -> void:
 	system_panel.refresh()
+	if production_screen.visible:
+		production_screen.refresh()
 	_show_route(system_panel.selected_fleet_id())
 
 

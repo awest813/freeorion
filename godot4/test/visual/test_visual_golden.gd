@@ -46,6 +46,12 @@ func test_game_shell_with_system_panel():
 	await _check_scene(shell, "game_shell_system_panel", _fill_shell)
 
 
+func test_production_screen():
+	var screen := ProductionScreen.new()
+	screen.source = preload("res://test/unit/fake_production_source.gd").new()
+	await _check_scene(screen, "production_screen", func(s): s.refresh())
+
+
 func _fill_shell(shell: GameShell) -> void:
 	_fill_galaxy(shell.map_view)
 	shell.top_bar.set_state("Empire Blue", Color("#3d9bff"), 12, false)

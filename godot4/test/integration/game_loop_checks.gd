@@ -19,6 +19,7 @@ func before_turn() -> void:
 
 	_check_snapshot()
 	await _check_galaxy_map()
+	_check_production()
 
 	_test.assert_null(FOUniverse.get_system(-1), "No view for an invalid system ID")
 	_test.assert_null(FOUniverse.get_fleet(-1), "No view for an invalid fleet ID")
@@ -129,6 +130,42 @@ func _check_home_system_panel() -> void:
 		_test.assert_gt(own_planets[0]["population"], 0.0, "Own planet has population")
 		_test.assert_false(own_planets[0]["species"].is_empty(), "Own planet has species")
 		_test.assert_false(own_planets[0]["owner_name"].is_empty(), "Owner empire has a name")
+
+
+# Production bridge against the real empire: locations, catalog, enqueue,
+# quantity, reorder and remove.
+func _check_production() -> void:
+	var locations := FOProduction.get_production_locations()
+	_test.assert_gt(locations.size(), 0, "Empire can produce somewhere")
+	if locations.is_empty():
+		return
+	var buildable := FOProduction.get_buildable(locations[0])
+	var ships := buildable.filter(func(item): return item["build_type"] == "ship")
+	_test.assert_gt(ships.size(), 0, "Ships can be built at the capital")
+	_test.assert_gt(FOProduction.get_points()["available"], 0.0, "Industry available")
+	if ships.is_empty():
+		return
+	var queue_before := FOProduction.get_queue().size()
+	_test.assert_true(
+		FOProduction.enqueue_ship(ships[0]["design_id"], locations[0], 1), "Enqueue ship"
+	)
+	_test.assert_true(
+		FOProduction.enqueue_ship(ships[0]["design_id"], locations[0], 1), "Enqueue again"
+	)
+	var queue := FOProduction.get_queue()
+	_test.assert_eq(queue.size(), queue_before + 2, "Two items queued")
+	var last: int = queue.size() - 1
+	_test.assert_true(FOProduction.set_quantity(last, 3), "Set quantity")
+	_test.assert_eq(FOProduction.get_queue()[last]["remaining"], 3, "Quantity applied")
+	_test.assert_true(FOProduction.move(last, last - 1), "Move up")
+	_test.assert_eq(FOProduction.get_queue()[last - 1]["remaining"], 3, "Moved item is earlier")
+	_test.assert_true(FOProduction.remove(last - 1), "Remove")
+	_test.assert_eq(FOProduction.get_queue().size(), queue_before + 1, "One item left")
+	_test.assert_false(FOProduction.enqueue_ship(-1, locations[0], 1), "Unknown design refused")
+	var screen := ProductionScreen.new()
+	_test.add_child_autofree(screen)
+	screen.refresh()
+	_test.assert_gt(screen._queue_list.get_child_count(), 0, "Screen lists the real queue")
 
 
 func _check_snapshot() -> void:

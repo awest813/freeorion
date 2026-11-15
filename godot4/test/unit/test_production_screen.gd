@@ -1,0 +1,88 @@
+extends GutTest
+## ProductionScreen with an in-memory source.
+
+const FakeSource := preload("res://test/unit/fake_production_source.gd")
+
+var screen: ProductionScreen
+var fake: RefCounted
+
+
+func before_each():
+	screen = ProductionScreen.new()
+	fake = FakeSource.new()
+	screen.source = fake
+	add_child_autofree(screen)
+	screen.refresh()
+	await wait_process_frames(1)
+
+
+func test_queue_rows_and_points():
+	assert_eq(screen._queue_list.get_child_count(), 2)
+	assert_eq(
+		screen._points.text, tr("PRODUCTION_POINTS").replace("%1%", "9.5").replace("%2%", "15.0")
+	)
+	var labels := _texts(screen._queue_list.get_child(1))
+	assert_has(labels, "Outpost Ship")
+	assert_has(labels, tr("PRODUCTION_NEVER"), "Unfunded item shows Never")
+
+
+func test_first_location_selected_and_catalog_filled():
+	assert_eq(screen.selected_location_id(), 101)
+	assert_eq(_catalog_names(), [tr("BLD_SHIPYARD_BASE"), "Outpost Ship", "Scout"])
+
+
+func test_filter_and_search():
+	screen._filter.current_tab = ProductionScreen.FILTERS.find("ship")
+	await wait_process_frames(1)
+	assert_eq(_catalog_names(), ["Outpost Ship", "Scout"])
+	screen._search.text = "sco"
+	screen._search.text_changed.emit("sco")
+	await wait_process_frames(1)
+	assert_eq(_catalog_names(), ["Scout"])
+
+
+func test_other_location_without_items():
+	screen.select_location(102)
+	await wait_process_frames(1)
+	assert_eq(_texts(screen._catalog), [tr("PRODUCTION_NOTHING_BUILDABLE")])
+
+
+func test_add_remove_and_reorder_issue_orders():
+	_button_in(screen._catalog.get_child(2), tr("PRODUCTION_ADD")).pressed.emit()
+	_button_in(screen._queue_list.get_child(0), "▼").pressed.emit()
+	_button_in(screen._queue_list.get_child(1), "✕").pressed.emit()
+	assert_eq(fake.calls, [["enqueue", "Scout", 101], ["move", 0, 1], ["remove", 1]])
+	assert_true(_button_in(screen._queue_list.get_child(0), "▲").disabled, "First can't move up")
+	assert_true(_button_in(screen._queue_list.get_child(1), "▼").disabled, "Last can't move down")
+
+
+func test_escape_requests_close():
+	watch_signals(screen)
+	var escape := InputEventAction.new()
+	escape.action = "ui_cancel"
+	escape.pressed = true
+	screen._unhandled_key_input(escape)
+	assert_signal_emitted(screen, "close_requested")
+
+
+func _catalog_names() -> Array:
+	var names := []
+	for row in screen._catalog.get_children():
+		var labels := row.find_children("*", "Label", true, false)
+		if labels.size() > 0:
+			names.push_back(labels[0].text)
+	return names
+
+
+func _button_in(node: Node, text: String) -> Button:
+	for button: Button in node.find_children("*", "Button", true, false):
+		if button.text == text:
+			return button
+	return null
+
+
+func _texts(node: Node) -> Array:
+	var texts := []
+	for label in node.find_children("*", "Label", true, false):
+		texts.push_back(label.text)
+	return texts
