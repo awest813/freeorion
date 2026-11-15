@@ -10,6 +10,7 @@
 
 #include "../../ClientApp.h"
 #include "../../../Empire/Empire.h"
+#include "../../../Empire/EmpireManager.h"
 #include "../../../Empire/Supply.h"
 #include "../../../universe/Building.h"
 #include "../../../universe/BuildingType.h"
@@ -439,6 +440,8 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_name", "empire_id"), &FOUniverse::get_empire_name);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_resources"), &FOUniverse::get_empire_resources);
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_detail", "planet_id"), &FOUniverse::get_planet_detail);
+    ClassDB::bind_static_method(cls, D_METHOD("get_playable_species"), &FOUniverse::get_playable_species);
+    ClassDB::bind_static_method(cls, D_METHOD("get_empire_colors"), &FOUniverse::get_empire_colors);
     ClassDB::bind_static_method(cls, D_METHOD("get_sitreps", "turn"), &FOUniverse::get_sitreps, DEFVAL(-1));
     ClassDB::bind_static_method(cls, D_METHOD("get_map_snapshot"), &FOUniverse::get_map_snapshot);
 }
@@ -753,5 +756,33 @@ godot::Dictionary FOUniverse::get_planet_detail(int planet_id) {
         specials.push_back(entry);
     }
     result["specials"] = specials;
+    return result;
+}
+
+godot::Array FOUniverse::get_playable_species() {
+    godot::Array result;
+    const auto* app = ClientApp::GetApp();
+    if (!app)
+        return result;
+    try {
+        for (const auto& [name, species] : app->GetSpeciesManager().AllSpecies()) {
+            if (!species.Playable())
+                continue;
+            godot::Dictionary entry;
+            entry["name"] = ToGodot(name);
+            entry["icon"] = ToGodot(species.Graphic());
+            result.push_back(entry);
+        }
+    } catch (const std::exception& e) {
+        // Content still being parsed, or failed to.
+        ErrorLogger() << "FOUniverse::get_playable_species: " << e.what();
+    }
+    return result;
+}
+
+godot::PackedColorArray FOUniverse::get_empire_colors() {
+    godot::PackedColorArray result;
+    for (const auto& c : EmpireColors())
+        result.push_back(godot::Color::from_rgba8(c[0], c[1], c[2], c[3]));
     return result;
 }

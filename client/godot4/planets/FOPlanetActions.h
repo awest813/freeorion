@@ -23,6 +23,7 @@ public:
       *   target_population
       * - invade: troops, defenders, ships
       * - annex: cost
+      * - bombard: ships
       * - focus: current, options (focus names), icons */
     static godot::Dictionary get_actions(int planet_id);
 
@@ -34,6 +35,10 @@ public:
 
     /** Order (or cancel) annexing \a planet_id. */
     static bool annex(int planet_id);
+
+    /** Order (or stop) bombarding \a planet_id with the ships in its
+      * system whose weapons suit it. */
+    static bool bombard(int planet_id);
 
     /** Change own planet \a planet_id's focus to \a focus. */
     static bool set_focus(int planet_id, const godot::String& focus);

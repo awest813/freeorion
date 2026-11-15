@@ -7,6 +7,7 @@
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_color_array.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/vector2.hpp>
@@ -158,6 +159,13 @@ public:
       * has), buildings ({id, type, name, icon, scrapping}) and specials
       * ({name, icon, capacity}). {} if unknown. */
     static godot::Dictionary get_planet_detail(int planet_id);
+
+    /** Species a player can start with, by name: [{name, icon}]. Needs
+      * parsed content; [] before. */
+    static godot::Array get_playable_species();
+
+    /** The colours empires can have; setup.empire.color.index indexes it. */
+    static godot::PackedColorArray get_empire_colors();
 
     /** The player's situation reports for \a turn (default: current turn),
       * as dictionaries {text, icon, label, turn}. text keeps FreeOrion link

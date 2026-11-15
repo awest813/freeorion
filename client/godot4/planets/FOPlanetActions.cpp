@@ -144,6 +144,44 @@ namespace {
         return ships;
     }
 
+    constexpr std::string_view TAG_BOMBARD_ALWAYS = "CTRL_ALWAYS_BOMBARD";
+    constexpr std::string_view TAG_BOMBARD_PREFIX = "CTRL_BOMBARD_";
+
+    // A ship bombards planets carrying one of its CTRL_BOMBARD_<TAG> tags,
+    // or any planet with CTRL_ALWAYS_BOMBARD.
+    bool BombardsPlanet(const Ship& ship, const Planet& planet, const ScriptingContext& context) {
+        if (ship.HasTag(TAG_BOMBARD_ALWAYS, context))
+            return true;
+        const auto tags = ship.Tags(context);
+        for (const auto& range : {tags.first, tags.second}) {
+            for (std::string_view tag : range) {
+                if (tag.substr(0, TAG_BOMBARD_PREFIX.size()) == TAG_BOMBARD_PREFIX &&
+                    planet.HasTag(tag.substr(TAG_BOMBARD_PREFIX.size()), context))
+                { return true; }
+            }
+        }
+        return false;
+    }
+
+    std::vector<const Ship*> ChooseBombardShips(const Planet& planet, int empire_id, const ScriptingContext& context) {
+        std::vector<const Ship*> ships;
+        for (const auto* ship : context.ContextObjects().allRaw<Ship>()) {
+            if (ship && IsAvailable(*ship, planet.SystemID(), empire_id, context) &&
+                ship->CanBombard(context.ContextUniverse()) && BombardsPlanet(*ship, planet, context))
+            { ships.push_back(ship); }
+        }
+        return ships;
+    }
+
+    // Own ships already set to bombard \a planet (orders persist over turns).
+    std::vector<const Ship*> BombardingShips(const Planet& planet, int empire_id, const ScriptingContext& context) {
+        std::vector<const Ship*> ships;
+        for (const auto* ship : context.ContextObjects().allRaw<Ship>())
+            if (ship && ship->OwnedBy(empire_id) && ship->OrderedBombardPlanet() == planet.ID())
+                ships.push_back(ship);
+        return ships;
+    }
+
     template <typename OrderType, typename Pred>
     std::vector<int> PendingOrderIDs(const OrderSet& orders, Pred pred) {
         std::vector<int> ids;
@@ -248,6 +286,26 @@ namespace {
         return result;
     }
 
+    godot::Dictionary BombardAction(const Planet& planet, int empire_id, ClientApp& app) {
+        const auto& context = app.GetContext();
+        godot::Dictionary result;
+        result["state"] = "";
+        if (!BombardingShips(planet, empire_id, context).empty()) {
+            result["state"] = "pending";
+            return result;
+        }
+        const bool visible = context.ContextUniverse().GetObjectVisibilityByEmpire(planet.ID(), empire_id) >=
+            Visibility::VIS_PARTIAL_VISIBILITY;
+        if (!AtWarWith(planet, empire_id, context) || !visible)
+            return result;
+        const auto ships = ChooseBombardShips(planet, empire_id, context);
+        if (ships.empty())
+            return result;
+        result["state"] = "available";
+        result["ships"] = static_cast<int>(ships.size());
+        return result;
+    }
+
     godot::Dictionary AnnexAction(const Planet& planet, int empire_id, ClientApp& app) {
         const auto& context = app.GetContext();
         godot::Dictionary result;
@@ -309,6 +367,7 @@ void FOPlanetActions::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("colonize", "planet_id"), &FOPlanetActions::colonize);
     ClassDB::bind_static_method(cls, D_METHOD("invade", "planet_id"), &FOPlanetActions::invade);
     ClassDB::bind_static_method(cls, D_METHOD("annex", "planet_id"), &FOPlanetActions::annex);
+    ClassDB::bind_static_method(cls, D_METHOD("bombard", "planet_id"), &FOPlanetActions::bombard);
     ClassDB::bind_static_method(cls, D_METHOD("set_focus", "planet_id", "focus"), &FOPlanetActions::set_focus);
     ClassDB::bind_static_method(cls, D_METHOD("scrap", "object_id"), &FOPlanetActions::scrap);
     ClassDB::bind_static_method(cls, D_METHOD("is_scrapping", "object_id"), &FOPlanetActions::is_scrapping);
@@ -327,6 +386,7 @@ godot::Dictionary FOPlanetActions::get_actions(int planet_id) {
         result["colonize"] = ColonizeAction(*planet, empire_id, *app);
         result["invade"] = InvadeAction(*planet, empire_id, *app);
         result["annex"] = AnnexAction(*planet, empire_id, *app);
+        result["bombard"] = BombardAction(*planet, empire_id, *app);
         result["focus"] = FocusAction(*planet, empire_id, app->GetContext());
     } catch (const std::exception& e) {
         ErrorLogger() << "FOPlanetActions::get_actions(" << planet_id << "): " << e.what();
@@ -415,6 +475,41 @@ bool FOPlanetActions::annex(int planet_id) {
         return true;
     } catch (const std::exception& e) {
         ErrorLogger() << "FOPlanetActions::annex(" << planet_id << "): " << e.what();
+    }
+    return false;
+}
+
+bool FOPlanetActions::bombard(int planet_id) {
+    auto* app = ClientApp::GetApp();
+    if (!app || app->EmpireID() == ALL_EMPIRES)
+        return false;
+    try {
+        auto& context = app->GetContext();
+        const int empire_id = app->EmpireID();
+        const auto* planet = context.ContextObjects().getRaw<Planet>(planet_id);
+        if (!planet)
+            return false;
+        // Cancel: drop this turn's orders and stop ships set on it earlier.
+        const auto pending = PendingOrderIDs<BombardOrder>(
+            app->Orders(), [&](const BombardOrder& o) { return o.PlanetID() == planet_id; });
+        const auto bombarding = BombardingShips(*planet, empire_id, context);
+        if (!pending.empty() || !bombarding.empty()) {
+            Rescind(pending, *app);
+            for (const auto* ship : BombardingShips(*planet, empire_id, context))
+                if (StopBombardOrder::Check(empire_id, ship->ID(), planet_id, context))
+                    app->Orders().IssueOrder<StopBombardOrder>(context, empire_id, ship->ID(), planet_id);
+            return true;
+        }
+        bool issued = false;
+        for (const auto* ship : ChooseBombardShips(*planet, empire_id, context)) {
+            if (!BombardOrder::Check(empire_id, ship->ID(), planet_id, context))
+                continue;
+            app->Orders().IssueOrder<BombardOrder>(context, empire_id, ship->ID(), planet_id);
+            issued = true;
+        }
+        return issued;
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOPlanetActions::bombard(" << planet_id << "): " << e.what();
     }
     return false;
 }
