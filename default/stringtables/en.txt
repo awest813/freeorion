@@ -2798,6 +2798,9 @@ Clear
 FLEETS_ORDERED
 %1% of %2% on their way.
 
+TOPBAR_WASTED_SHOW
+Click to show where.
+
 OPTIONS_LANGUAGE_NAME
 Language
 

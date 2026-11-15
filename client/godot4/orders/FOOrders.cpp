@@ -16,6 +16,7 @@ void FOOrders::_bind_methods() {
                                 &FOOrders::issue_fleet_move, DEFVAL(false));
     ClassDB::bind_static_method(cls, D_METHOD("rescind_order", "order_id"), &FOOrders::rescind_order);
     ClassDB::bind_static_method(cls, D_METHOD("get_order_count"), &FOOrders::get_order_count);
+    ClassDB::bind_static_method(cls, D_METHOD("revert_all"), &FOOrders::revert_all);
     ClassDB::bind_static_method(cls, D_METHOD("set_fleet_aggression", "fleet_id", "aggression"), &FOOrders::set_fleet_aggression);
     ClassDB::bind_static_method(cls, D_METHOD("split_ships", "ship_ids", "aggression"), &FOOrders::split_ships,
                                 DEFVAL(godot::String()));
@@ -50,6 +51,14 @@ bool FOOrders::rescind_order(int order_id) {
 int FOOrders::get_order_count() {
     const auto* app = ClientApp::GetApp();
     return app ? static_cast<int>(app->Orders().size()) : 0;
+}
+
+bool FOOrders::revert_all() {
+    auto* app = ClientApp::GetApp();
+    if (!app)
+        return false;
+    app->RevertOrders();  // does nothing without a connection
+    return true;
 }
 
 namespace {

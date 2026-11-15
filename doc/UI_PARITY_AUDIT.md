@@ -19,17 +19,17 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 
 ## Map and system panel (`MapWnd`, `SidePanel`, `SystemIcon`, `FleetButton`, resource panels)
 
-- [ ] Turn button menu: send orders and start, revoke all orders — S
-- [ ] Auto end-turn toggle — S
+- [x] Turn button menu: send orders and start, revoke all orders — S
+- [x] Auto end-turn toggle — S
 - [ ] Auto-explore for fleets — M
-- [ ] Double-click a system or planet: production there — S
+- [x] Double-click a system or planet: production there — S
 - [x] Route and ETA preview when hovering a system with a fleet selected — S
 - [x] Movement lines for all visible fleets, with ETA markers per turn — M
 - [x] Click fleet icons on the map (in transit too; repeated clicks cycle) (fleets sharing a place are stacked apart, so each is clicked directly) — M
 - [x] Inspect foreign and monster fleets — M
 - [ ] Dismiss sensor ghosts (forget objects no longer seen) — S
-- [ ] Ships tooltip in the top bar (armed, colony, troop, carrier counts) — S
-- [ ] Wasted PP: centre on a system wasting PP — S
+- [x] Ships tooltip in the top bar (armed, colony, troop, carrier counts) — S
+- [x] Wasted PP: centre on a system wasting PP — S
 - [ ] Map options menu (system circles, empire-coloured lanes, fleet supply lines, ...) — S
 - [ ] Zoom slider; rebindable zoom and pan keys; sitrep panel key — S
 - [ ] System names and circles in their owners' colours — S

@@ -17,6 +17,8 @@ signal planet_action_requested(planet_id: int, action: String)
 signal focus_requested(planet_id: int, focus: String)
 ## A planet's name was clicked: show its details.
 signal planet_selected(planet_id: int)
+## An own planet's row was double-clicked: production there.
+signal production_requested(planet_id: int)
 ## Ships dragged from the fleet panel were dropped on own fleet \a fleet_id.
 signal ships_dropped(fleet_id: int, ship_ids: PackedInt32Array)
 
@@ -303,6 +305,18 @@ func _build() -> void:
 # the only carrier of information).
 func _planet_row(planet: Dictionary) -> Control:
 	var row := HBoxContainer.new()
+	if planet.get("own", false):
+		# Double-click an own planet to build there (as the GG side panel).
+		row.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.gui_input.connect(
+			func(event: InputEvent):
+				if (
+					event is InputEventMouseButton
+					and event.double_click
+					and event.button_index == MOUSE_BUTTON_LEFT
+				):
+					production_requested.emit(planet.get("id", -1))
+		)
 	var type_icon := _icon(FOArt.planet_type_icon(planet.get("type", "")), FOUi.tokens.icon)
 	type_icon.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	type_icon.tooltip_text = tr(planet.get("type", ""))

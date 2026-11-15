@@ -802,11 +802,42 @@ godot::Dictionary FOUniverse::get_empire_resources() {
     result["influence_change"] = empire->GetInfluenceQueue().ExpectedNewStockpileAmount() - influence;
     result["population"] = empire->GetPopulationPool().Population();
     const auto& destroyed = context.ContextUniverse().EmpireKnownDestroyedObjectIDs(empire->EmpireID());
-    int ships = 0;
-    for (const auto* ship : context.ContextObjects().allRaw<Ship>())
-        if (ship->OwnedBy(empire->EmpireID()) && !destroyed.contains(ship->ID()))
-            ++ships;
+    // Ships, and how many are armed, carry troops or colonists, or fighters
+    // (the GG top bar's ships tooltip).
+    int ships = 0, armed = 0, troops = 0, colony = 0, carriers = 0;
+    for (const auto* ship : context.ContextObjects().allRaw<Ship>()) {
+        if (!ship->OwnedBy(empire->EmpireID()) || destroyed.contains(ship->ID()))
+            continue;
+        ++ships;
+        if (ship->IsArmed(context))
+            ++armed;
+        if (ship->HasTroops(context.ContextUniverse()))
+            ++troops;
+        if (ship->CanColonize(context.ContextUniverse(), context.species))
+            ++colony;
+        if (ship->HasFighters(context.ContextUniverse()))
+            ++carriers;
+    }
     result["ships"] = ships;
+    result["ships_armed"] = armed;
+    result["ships_unarmed"] = ships - armed;
+    result["ships_troops"] = troops;
+    result["ships_colony"] = colony;
+    result["ships_carriers"] = carriers;
+    // A system where industry goes unspent, to show it (GG's wasted PP button).
+    int wasted_system = INVALID_OBJECT_ID;
+    for (const auto& ids : empire->GetProductionQueue().ObjectsWithWastedPP(empire->GetIndustryPool())) {
+        for (const int id : ids) {
+            const auto* object = context.ContextObjects().getRaw(id);
+            if (object && object->SystemID() != INVALID_OBJECT_ID) {
+                wasted_system = object->SystemID();
+                break;
+            }
+        }
+        if (wasted_system != INVALID_OBJECT_ID)
+            break;
+    }
+    result["wasted_pp_system"] = wasted_system;
     const auto* detection = empire->GetMeter("METER_DETECTION_STRENGTH");
     result["detection"] = detection ? detection->Current() : 0.0f;
     result["capital_id"] = empire->CapitalID();

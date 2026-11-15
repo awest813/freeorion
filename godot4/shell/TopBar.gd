@@ -11,6 +11,11 @@ signal screen_requested(screen_name: String)
 signal menu_requested
 ## The messages button was pressed (opens the chat window).
 signal messages_requested
+## Industry goes unspent in system \a system_id: show it (the industry
+## chip, while PP are wasted).
+signal wasted_pp_requested(system_id: int)
+## Drop this turn's orders (End turn's menu).
+signal revert_requested
 ## End turn was pressed but TurnReadiness found \a issues; end_turn() ends it
 ## anyway.
 signal readiness_issues(issues: Array)
@@ -46,6 +51,10 @@ const WAITING_PHASE := "TURN_PROGRESS_PHASE_WAITING"
 const WASTE_EPSILON := 0.05
 
 var follow_game := true
+## End each turn as soon as it starts (GG's automatic turn advance).
+var auto_end_turn := false
+## Orders given this turn, for End turn's menu.
+var order_count_provider: Callable = func() -> int: return FOOrders.get_order_count()
 ## Returns TurnReadiness.check()'s warnings; the game's by default.
 var readiness_provider: Callable = _game_readiness
 
@@ -60,6 +69,10 @@ var _turn_number := 0
 var _phase := ""
 var _phase_text := ""
 var _messages: Button
+var _auto_turn: Button
+var _turn_menu: PopupMenu
+## Last resources shown (set_resources()).
+var _resources := {}
 ## When the server ends the turn regardless (multiplayer), in msec ticks; 0 for none.
 var _turn_deadline := 0
 var _timeout_timer: Timer
@@ -193,6 +206,7 @@ func _update_shortcut_tips() -> void:
 
 ## Show the empire's resources (FOUniverse.get_empire_resources()).
 func set_resources(data: Dictionary) -> void:
+	_resources = data
 	for entry in RESOURCES:
 		var chip: Button = _resource_chips[entry[0]]
 		chip.visible = data.has(entry[0])
@@ -219,6 +233,8 @@ func _fill_chip(chip: Button, entry: Array, data: Dictionary) -> void:
 			if value - spent > WASTE_EPSILON:
 				color = FOUi.tokens.warning
 				tooltip += "\n" + tr("TOPBAR_WASTED").replace("%1%", "%.1f" % (value - spent))
+				if key == "industry" and data.get("wasted_pp_system", -1) >= 0:
+					tooltip += "\n" + tr("TOPBAR_WASTED_SHOW")
 		"influence":
 			var change: float = data.get("influence_change", 0.0)
 			text = "%.1f (%+.1f)" % [value, change]
@@ -227,6 +243,15 @@ func _fill_chip(chip: Button, entry: Array, data: Dictionary) -> void:
 				color = FOUi.tokens.negative
 		"ships":
 			text = str(int(value))
+			for line in [
+				["ships_armed", "MAP_FLEET_ARMED_COUNT"],
+				["ships_unarmed", "MAP_FLEET_UNARMED_COUNT"],
+				["ships_troops", "MAP_FLEET_TROOP_COUNT"],
+				["ships_colony", "MAP_FLEET_COLONY_COUNT"],
+				["ships_carriers", "MAP_FLEET_CARRIER_COUNT"],
+			]:
+				if data.has(line[0]):
+					tooltip += "\n%s: %d" % [tr(line[1]), data[line[0]]]
 		"detection":
 			text = "%.0f" % value
 	chip.text = text
@@ -287,13 +312,23 @@ func _build() -> void:
 		chip.add_theme_font_size_override("font_size", FOUi.tokens.font_size_small)
 		chip.focus_mode = Control.FOCUS_NONE if entry[2].is_empty() else Control.FOCUS_ALL
 		if not entry[2].is_empty():
-			chip.pressed.connect(screen_requested.emit.bind(entry[2]))
+			chip.pressed.connect(_on_chip_pressed.bind(entry[0], entry[2]))
 		resources.add_child(chip)
 		_resource_chips[entry[0]] = chip
-	# Messages at the right end of the resources row: the top row is full.
+	# Messages and automatic turns at the right end of the resources row:
+	# the top row is full.
 	var resource_gap := Control.new()
 	resource_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	resources.add_child(resource_gap)
+	_auto_turn = Button.new()
+	_auto_turn.toggle_mode = true
+	_auto_turn.icon = FOArt.icon("icons/buttons/manual_turn.png")
+	_auto_turn.expand_icon = false
+	_auto_turn.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_small)
+	_auto_turn.theme_type_variation = "GhostButton"
+	_auto_turn.tooltip_text = tr("MAP_BTN_MANUAL_TURN_ADVANCE")
+	_auto_turn.toggled.connect(set_auto_end_turn)
+	resources.add_child(_auto_turn)
 	_messages = Button.new()
 	_messages.icon = FOArt.icon("icons/buttons/messages.png")
 	_messages.expand_icon = false
@@ -339,6 +374,19 @@ func _build() -> void:
 	_end_turn.shortcut_in_tooltip = false
 	_end_turn.set_meta("sound", "turn")
 	_end_turn.pressed.connect(_on_end_turn_pressed)
+	# Right-click: send the orders and start, or revoke them all.
+	_end_turn.gui_input.connect(
+		func(event: InputEvent):
+			if (
+				event is InputEventMouseButton
+				and event.pressed
+				and event.button_index == MOUSE_BUTTON_RIGHT
+			):
+				open_turn_menu()
+	)
+	_turn_menu = PopupMenu.new()
+	_turn_menu.id_pressed.connect(_on_turn_menu)
+	add_child(_turn_menu)
 	row.add_child(_end_turn)
 	_timeout_timer = Timer.new()
 	_timeout_timer.wait_time = 1.0
@@ -351,6 +399,52 @@ func _build() -> void:
 	menu.pressed.connect(menu_requested.emit)
 	row.add_child(menu)
 	set_state("", Color.WHITE, 0, false)
+
+
+## End turn's menu, as GG's: send the orders and start the turn, or revoke
+## all of this turn's orders.
+func open_turn_menu() -> void:
+	var count: int = order_count_provider.call() if follow_game else 0
+	_turn_menu.clear()
+	_turn_menu.add_item(
+		tr("MAP_BTN_TURN_SEND_AND_START").replace("%1%", str(_turn_number)).replace(
+			"%2%", str(count)
+		),
+		0
+	)
+	_turn_menu.set_item_disabled(0, _waiting or _turn_number < 1)
+	_turn_menu.add_item(
+		tr("MAP_BTN_TURN_REVOKE").replace("%1%", str(_turn_number)).replace("%2%", str(count)), 1
+	)
+	_turn_menu.set_item_disabled(1, _waiting or count < 1)
+	var at := _end_turn.get_screen_position() + Vector2(0, _end_turn.size.y)
+	_turn_menu.popup(Rect2i(Vector2i(at), Vector2i.ZERO))
+
+
+func _on_turn_menu(id: int) -> void:
+	if id == 0:
+		end_turn()
+	else:
+		revert_requested.emit()
+
+
+## Turn automatic turn advance on or off: each new turn then ends at once.
+func set_auto_end_turn(on: bool) -> void:
+	auto_end_turn = on
+	_auto_turn.set_pressed_no_signal(on)
+	_auto_turn.icon = FOArt.icon("icons/buttons/%s_turn.png" % ("auto" if on else "manual"))
+	_auto_turn.tooltip_text = tr(
+		"MAP_BTN_AUTO_ADVANCE_ENABLED" if on else "MAP_BTN_MANUAL_TURN_ADVANCE"
+	)
+
+
+func _on_chip_pressed(key: String, screen_name: String) -> void:
+	var wasted_system: int = _resources.get("wasted_pp_system", -1)
+	var unspent: float = _resources.get("industry", 0.0) - _resources.get("industry_spent", 0.0)
+	if key == "industry" and wasted_system >= 0 and unspent > WASTE_EPSILON:
+		wasted_pp_requested.emit(wasted_system)
+		return
+	screen_requested.emit(screen_name)
 
 
 func _on_end_turn_pressed() -> void:

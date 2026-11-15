@@ -17,6 +17,8 @@ signal snapshot_changed
 signal system_clicked(system_id: int)
 ## A box was dragged from empty space: \a fleet_ids are the fleets inside.
 signal fleets_boxed(fleet_ids: PackedInt32Array)
+## A system was double-clicked (to build there).
+signal system_activated(system_id: int)
 ## A fleet's marker was clicked.
 signal fleet_clicked(fleet_id: int)
 ## Right-click (not drag) on a system, e.g. to order the active fleet there.
@@ -435,6 +437,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				select_system(system_id)
 				system_clicked.emit(system_id)
+				if button.double_click:
+					system_activated.emit(system_id)
 			get_viewport().set_input_as_handled()
 		elif (
 			button.button_index == MOUSE_BUTTON_RIGHT and not button.pressed and camera.was_click()

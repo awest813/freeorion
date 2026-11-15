@@ -146,6 +146,12 @@ func _ready() -> void:
 	top_bar.screen_requested.connect(show_screen)
 	top_bar.menu_requested.connect(open_menu)
 	top_bar.readiness_issues.connect(show_readiness)
+	top_bar.revert_requested.connect(
+		func():
+			if follow_game:
+				FOOrders.revert_all()
+	)
+	top_bar.wasted_pp_requested.connect(_show_wasted_pp)
 	var feed_margin := MarginContainer.new()
 	feed_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -287,6 +293,13 @@ func _ready() -> void:
 		map_view.map.own_empire_id = FOUniverse.get_empire_id()
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
 	map_view.map.fleet_clicked.connect(_on_fleet_clicked)
+	# Double-click a system or an own planet: production there.
+	map_view.map.system_activated.connect(func(_id): show_screen("production"))
+	system_panel.production_requested.connect(
+		func(planet_id: int):
+			show_screen("production")
+			production_screen.select_location(planet_id)
+	)
 	map_view.map.system_hovered.connect(_on_system_hovered)
 	map_view.map.field_activated.connect(
 		func(field_type: String): open_pedia("fieldtype", field_type)
@@ -575,6 +588,13 @@ func _active_fleet() -> int:
 	if fleet_panel.visible and fleet_panel.fleet_id >= 0:
 		return fleet_panel.fleet_id if fleet_panel.is_own() else -1
 	return system_panel.selected_fleet_id()
+
+
+# Where industry goes unspent: that system on the map, and production
+# there.
+func _show_wasted_pp(system_id: int) -> void:
+	map_view.map.focus_system(system_id)
+	show_screen("production")
 
 
 # Back to the map at planet \a planet_id, its details shown.
@@ -893,6 +913,9 @@ func _on_turn_update() -> void:
 	if objects_screen.visible:
 		objects_screen.refresh()
 	_show_route(system_panel.selected_fleet_id())
+	# Automatic turn advance: the new turn ends at once.
+	if top_bar.auto_end_turn:
+		top_bar.end_turn.call_deferred()
 
 
 func _show_route(fleet_id: int) -> void:

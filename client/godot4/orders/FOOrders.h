@@ -43,6 +43,8 @@ public:
 
     /** Number of orders issued so far this turn. */
     static int get_order_count();
+    /** Drop every order given this turn; the server sends the turn again. */
+    static bool revert_all();
 
 protected:
     static void _bind_methods();
