@@ -30,6 +30,8 @@ public:
     static bool enqueue(const godot::String& name, int position = -1);
     static bool remove(const godot::String& name);
     static bool move(const godot::String& name, int position);
+    /** Hold research of a queued tech (it keeps its place) or resume it. */
+    static bool set_paused(const godot::String& name, bool paused);
 
 protected:
     static void _bind_methods();

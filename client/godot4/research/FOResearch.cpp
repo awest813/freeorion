@@ -41,6 +41,7 @@ void FOResearch::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("enqueue", "name", "position"), &FOResearch::enqueue, DEFVAL(-1));
     ClassDB::bind_static_method(cls, D_METHOD("remove", "name"), &FOResearch::remove);
     ClassDB::bind_static_method(cls, D_METHOD("move", "name", "position"), &FOResearch::move);
+    ClassDB::bind_static_method(cls, D_METHOD("set_paused", "name", "paused"), &FOResearch::set_paused);
 }
 
 godot::Array FOResearch::get_queue() {
@@ -63,6 +64,7 @@ godot::Array FOResearch::get_queue() {
         entry["allocated_rp"] = element.allocated_rp;
         entry["turns_left"] = element.turns_left;
         entry["progress"] = cost > 0.0f ? empire->ResearchProgress(element.name, context) / cost : 0.0f;
+        entry["paused"] = element.paused;
         result.push_back(entry);
     }
     return result;
@@ -174,6 +176,22 @@ bool FOResearch::move(const godot::String& name, int position) {
         return false;
     auto& context = app->GetContext();
     app->Orders().IssueOrder<ResearchQueueOrder>(context, empire->EmpireID(), std::move(tech_name), position);
+    Reproject(*empire, context);
+    return true;
+}
+
+bool FOResearch::set_paused(const godot::String& name, bool paused) {
+    auto* app = ClientApp::GetApp();
+    auto* empire = PlayerEmpire();
+    std::string tech_name = name.utf8().get_data();
+    if (!app || !empire)
+        return false;
+    const auto& queue = empire->GetResearchQueue();
+    const auto it = queue.find(tech_name);
+    if (it == queue.end() || it->paused == paused)
+        return false;
+    auto& context = app->GetContext();
+    app->Orders().IssueOrder<ResearchQueueOrder>(context, empire->EmpireID(), std::move(tech_name), paused, 0.0f);
     Reproject(*empire, context);
     return true;
 }

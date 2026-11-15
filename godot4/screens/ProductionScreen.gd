@@ -1,23 +1,45 @@
 class_name ProductionScreen
 extends PanelContainer
-## Production: the queue (progress, ETA, quantity, reorder, remove) on the
-## left, and what can be built at the chosen location on the right (filter,
-## search, add). Reads and orders through `source` (ProductionSource by
-## default; tests set a fake before calling refresh()).
+## Production: the queue (progress, ETA, quantity and batch size, reorder,
+## remove, and a menu per item: to the top or bottom, duplicate, split off
+## the batches not started, rally ships, show the location, Pedia) with
+## what was removed this turn (restorable) on the left, and what can be
+## built at the chosen location on the right (filter, search, add; Shift
+## adds to the top). Delete removes the focused queue item. Reads and
+## orders through `source` (ProductionSource by default; tests set a fake
+## before calling refresh()).
 
 signal close_requested
 signal pedia_requested(kind: String, article_name: String)
 ## Show where \a item can be built on the map, to place it there:
 ## \a locations as get_item_locations() gives them.
 signal build_on_map_requested(item: Dictionary, locations: Array)
+## Show where a queue item is built, on the map: planet \a location_id.
+signal location_requested(location_id: int)
+
+## Queue item menu entries: id, label key.
+const ITEM_MENU := [
+	[0, "PRODUCTION_MOVE_TOP"],
+	[1, "PRODUCTION_MOVE_BOTTOM"],
+	[2, "PRODUCTION_DUPLICATE"],
+	[3, "PRODUCTION_SPLIT_INCOMPLETE"],
+	[4, "PRODUCTION_RALLY"],
+	[5, "PRODUCTION_RALLY_CLEAR"],
+	[6, "PRODUCTION_SHOW_LOCATION"],
+	[7, "PEDIA_OPEN"],
+]
 
 const FILTERS := ["all", "building", "ship"]
 
 var source: Variant = ProductionSource.new()
+## The system ships rally to from the item menu (the map's selected
+## system), and its name: [id, name]; [-1, ""] for none. GameShell sets it.
+var rally_target: Callable = func() -> Array: return [-1, ""]
 
 var _points: Label
 var _stockpile: Label
 var _queue_list: VBoxContainer
+var _removed_list: VBoxContainer
 var _location: OptionButton
 var _filter: TabBar
 var _search: LineEdit
@@ -86,8 +108,13 @@ func _build() -> void:
 	_stockpile.tooltip_text = tr("PRODUCTION_STOCKPILE_TIP")
 	_stockpile.mouse_filter = Control.MOUSE_FILTER_PASS
 	queue_column.add_child(_stockpile)
+	var queue_box := VBoxContainer.new()
+	queue_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_queue_list = ScreenKit.list()
-	queue_column.add_child(ScreenKit.scrolling(_queue_list))
+	queue_box.add_child(_queue_list)
+	_removed_list = ScreenKit.list()
+	queue_box.add_child(_removed_list)
+	queue_column.add_child(ScreenKit.scrolling(queue_box))
 
 	# Catalog column
 	var catalog_column := VBoxContainer.new()
@@ -133,6 +160,32 @@ func _refresh_queue() -> void:
 		_queue_list.add_child(ScreenKit.label(tr("PRODUCTION_EMPTY_QUEUE"), "SecondaryLabel"))
 	for i in queue.size():
 		_queue_list.add_child(_queue_row(queue[i], i, queue.size()))
+	_refresh_removed()
+
+
+# Items removed this turn can be put back until the turn ends.
+func _refresh_removed() -> void:
+	ScreenKit.clear(_removed_list)
+	var removed: Array = source.get_removed()
+	if removed.is_empty():
+		return
+	_removed_list.add_child(ScreenKit.label(tr("PRODUCTION_REMOVED_THIS_TURN"), "SecondaryLabel"))
+	for entry: Dictionary in removed:
+		var row := HBoxContainer.new()
+		row.modulate = Color(1, 1, 1, 0.6)
+		row.add_child(ScreenKit.icon(entry.get("icon", ""), FOUi.tokens.icon_small))
+		var label := ScreenKit.label(
+			"%s · %s" % [_display_name(entry), entry.get("location_name", "")], "SmallLabel"
+		)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		row.add_child(label)
+		var restore := Button.new()
+		restore.text = tr("PRODUCTION_RESTORE")
+		restore.theme_type_variation = "GhostButton"
+		restore.pressed.connect(func(): _order(source.restore(entry["index"])))
+		row.add_child(restore)
+		_removed_list.add_child(row)
 
 
 func _refresh_catalog() -> void:
@@ -155,6 +208,15 @@ func _refresh_catalog() -> void:
 
 func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	var card := PanelContainer.new()
+	var index: int = entry.get("index", position)
+	# Click a card to focus it; Delete then removes it.
+	card.focus_mode = Control.FOCUS_CLICK
+	card.gui_input.connect(
+		func(event: InputEvent):
+			if event is InputEventKey and event.pressed and event.keycode == KEY_DELETE:
+				_order(source.remove(index))
+				card.accept_event()
+	)
 	var row := HBoxContainer.new()
 	card.add_child(row)
 	row.add_child(ScreenKit.icon(entry.get("icon", "")))
@@ -183,13 +245,15 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 		. replace("%1%", entry.get("location_name", ""))
 		. replace("%2%", "%.1f" % entry.get("allocated_pp", 0.0))
 	)
+	var rally: String = entry.get("rally_point_name", "")
+	if not rally.is_empty():
+		detail += " · " + tr("PRODUCTION_RALLY_TO").replace("%1%", rally)
 	var paused: bool = entry.get("paused", false)
 	if paused:
 		detail += " · " + tr("PRODUCTION_PAUSED")
 		card.modulate = Color(1, 1, 1, 0.6)
 	text.add_child(ScreenKit.label(detail, "SmallLabel"))
 
-	var index: int = entry.get("index", position)
 	# Pause or resume; allow or forbid drawing on the imperial stockpile.
 	var toggles := VBoxContainer.new()
 	toggles.add_theme_constant_override("separation", 0)
@@ -218,6 +282,16 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 		quantity.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		quantity.value_changed.connect(func(value): _order(source.set_quantity(index, int(value))))
 		row.add_child(quantity)
+		# Batch size: ships built together, finishing on the same turn.
+		row.add_child(ScreenKit.label("×", "SecondaryLabel"))
+		var blocksize := SpinBox.new()
+		blocksize.min_value = 1
+		blocksize.max_value = 99
+		blocksize.value = entry.get("blocksize", 1)
+		blocksize.tooltip_text = tr("PRODUCTION_BLOCKSIZE")
+		blocksize.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		blocksize.value_changed.connect(func(v): _order(source.set_blocksize(index, int(v))))
+		row.add_child(blocksize)
 	var buttons := VBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 0)
 	row.add_child(buttons)
@@ -227,11 +301,75 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	var down := ScreenKit.small_button("▼", "PRODUCTION_MOVE_DOWN", position < count - 1)
 	down.pressed.connect(func(): _order(source.move(index, index + 1)))
 	buttons.add_child(down)
+	var menu := MenuButton.new()
+	menu.text = "⋯"
+	menu.flat = false
+	menu.tooltip_text = tr("PRODUCTION_ITEM_MENU")
+	menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	menu.about_to_popup.connect(_fill_item_menu.bind(menu.get_popup(), entry, count))
+	menu.get_popup().id_pressed.connect(func(id): run_item_action(id, entry, count))
+	row.add_child(menu)
 	var remove := ScreenKit.small_button("✕", "PRODUCTION_REMOVE", true)
 	remove.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	remove.pressed.connect(func(): _order(source.remove(index)))
 	row.add_child(remove)
 	return card
+
+
+## Item menu entries (ITEM_MENU ids) for queue \a entry of \a count.
+func item_actions(entry: Dictionary, count: int) -> Array:
+	var actions := []
+	var index: int = entry.get("index", 0)
+	if index > 0:
+		actions.push_back(0)
+	if index < count - 1:
+		actions.push_back(1)
+	actions.push_back(2)
+	var ship: bool = entry.get("build_type") == "ship"
+	if ship and entry.get("remaining", 1) > 1 and entry.get("progress", 0.0) > 0.0:
+		actions.push_back(3)
+	if ship and rally_target.call()[0] >= 0:
+		actions.push_back(4)
+	if ship and entry.get("rally_point_id", -1) >= 0:
+		actions.push_back(5)
+	if entry.get("location_id", -1) >= 0:
+		actions.push_back(6)
+	if entry.get("build_type") == "building":
+		actions.push_back(7)
+	return actions
+
+
+## Do item menu entry \a id for queue \a entry of \a count.
+func run_item_action(id: int, entry: Dictionary, count: int) -> void:
+	var index: int = entry.get("index", 0)
+	match id:
+		0:
+			_order(source.move(index, 0))
+		1:
+			_order(source.move(index, count - 1))
+		2:
+			_order(source.duplicate_item(index))
+		3:
+			_order(source.split_incomplete(index))
+		4:
+			_order(source.set_rally_point(index, rally_target.call()[0]))
+		5:
+			_order(source.set_rally_point(index, -1))
+		6:
+			location_requested.emit(entry.get("location_id", -1))
+		7:
+			pedia_requested.emit("buildingtype", entry.get("name", ""))
+
+
+func _fill_item_menu(popup: PopupMenu, entry: Dictionary, count: int) -> void:
+	popup.clear()
+	var actions := item_actions(entry, count)
+	for item in ITEM_MENU:
+		if item[0] in actions:
+			var text := tr(item[1])
+			if item[0] == 4:
+				text = text.replace("%1%", rally_target.call()[1])
+			popup.add_item(text, item[0])
 
 
 func _catalog_row(item: Dictionary) -> Control:
@@ -259,8 +397,13 @@ func _catalog_row(item: Dictionary) -> Control:
 	row.add_child(where)
 	var add := Button.new()
 	add.text = tr("PRODUCTION_ADD")
+	add.tooltip_text = tr("QUEUE_ADD_TOP_TIP")
 	add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	add.pressed.connect(func(): _order(source.enqueue(item, selected_location_id())))
+	add.pressed.connect(
+		func():
+			var top := Input.is_key_pressed(KEY_SHIFT)
+			_order(source.enqueue(item, selected_location_id(), 0 if top else -1))
+	)
 	row.add_child(add)
 	return row
 

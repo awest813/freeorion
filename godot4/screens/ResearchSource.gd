@@ -20,8 +20,9 @@ func get_categories() -> PackedStringArray:
 	return FOResearch.get_categories()
 
 
-func enqueue(tech_name: String) -> bool:
-	return FOResearch.enqueue(tech_name)
+## Queue \a tech_name (and what it needs) at the end, or at \a position.
+func enqueue(tech_name: String, position := -1) -> bool:
+	return FOResearch.enqueue(tech_name, position)
 
 
 func remove(tech_name: String) -> bool:
@@ -30,3 +31,7 @@ func remove(tech_name: String) -> bool:
 
 func move(tech_name: String, position: int) -> bool:
 	return FOResearch.move(tech_name, position)
+
+
+func set_paused(tech_name: String, paused: bool) -> bool:
+	return FOResearch.set_paused(tech_name, paused)

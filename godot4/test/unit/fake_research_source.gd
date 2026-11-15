@@ -90,8 +90,11 @@ func get_categories() -> PackedStringArray:
 	)
 
 
-func enqueue(tech_name: String) -> bool:
-	calls.push_back(["enqueue", tech_name])
+func enqueue(tech_name: String, position := -1) -> bool:
+	if position < 0:
+		calls.push_back(["enqueue", tech_name])
+	else:
+		calls.push_back(["enqueue_at", tech_name, position])
 	return true
 
 
@@ -102,4 +105,9 @@ func remove(tech_name: String) -> bool:
 
 func move(tech_name: String, position: int) -> bool:
 	calls.push_back(["move", tech_name, position])
+	return true
+
+
+func set_paused(tech_name: String, paused: bool) -> bool:
+	calls.push_back(["set_paused", tech_name, paused])
 	return true

@@ -70,6 +70,8 @@ var buildable: Array = [
 	},
 ]
 var calls: Array = []
+## Items removed this turn (get_removed()).
+var removed: Array = []
 
 
 func get_queue() -> Array:
@@ -98,8 +100,11 @@ func get_item_locations(item: Dictionary) -> Array:
 	return [{"id": 101, "name": "Hegira β I", "system_id": 11}]
 
 
-func enqueue(item: Dictionary, location_id: int) -> bool:
-	calls.push_back(["enqueue", item.get("label"), location_id])
+func enqueue(item: Dictionary, location_id: int, position := -1) -> bool:
+	if position < 0:
+		calls.push_back(["enqueue", item.get("label"), location_id])
+	else:
+		calls.push_back(["enqueue_at", item.get("label"), location_id, position])
 	return true
 
 
@@ -125,4 +130,33 @@ func set_paused(index: int, paused: bool) -> bool:
 
 func set_stockpile_allowed(index: int, allowed: bool) -> bool:
 	calls.push_back(["set_stockpile_allowed", index, allowed])
+	return true
+
+
+func set_blocksize(index: int, blocksize: int) -> bool:
+	calls.push_back(["set_blocksize", index, blocksize])
+	return true
+
+
+func duplicate_item(index: int) -> bool:
+	calls.push_back(["duplicate", index])
+	return true
+
+
+func split_incomplete(index: int) -> bool:
+	calls.push_back(["split_incomplete", index])
+	return true
+
+
+func set_rally_point(index: int, system_id: int) -> bool:
+	calls.push_back(["set_rally_point", index, system_id])
+	return true
+
+
+func get_removed() -> Array:
+	return removed
+
+
+func restore(index: int) -> bool:
+	calls.push_back(["restore", index])
 	return true

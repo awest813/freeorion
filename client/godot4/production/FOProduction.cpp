@@ -93,17 +93,24 @@ void FOProduction::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_buildable", "location_id"), &FOProduction::get_buildable);
     ClassDB::bind_static_method(cls, D_METHOD("get_production_locations"), &FOProduction::get_production_locations);
     ClassDB::bind_static_method(cls, D_METHOD("get_item_locations", "item"), &FOProduction::get_item_locations);
-    ClassDB::bind_static_method(cls, D_METHOD("enqueue_building", "name", "location_id"), &FOProduction::enqueue_building);
-    ClassDB::bind_static_method(cls, D_METHOD("enqueue_ship", "design_id", "location_id", "quantity"),
-                                &FOProduction::enqueue_ship, DEFVAL(1));
+    ClassDB::bind_static_method(cls, D_METHOD("enqueue_building", "name", "location_id", "position"),
+                                &FOProduction::enqueue_building, DEFVAL(-1));
+    ClassDB::bind_static_method(cls, D_METHOD("enqueue_ship", "design_id", "location_id", "quantity", "position"),
+                                &FOProduction::enqueue_ship, DEFVAL(1), DEFVAL(-1));
     ClassDB::bind_static_method(cls, D_METHOD("remove", "index"), &FOProduction::remove);
     ClassDB::bind_static_method(cls, D_METHOD("move", "index", "new_index"), &FOProduction::move);
     ClassDB::bind_static_method(cls, D_METHOD("set_quantity", "index", "quantity"), &FOProduction::set_quantity);
     ClassDB::bind_static_method(cls, D_METHOD("set_paused", "index", "paused"), &FOProduction::set_paused);
     ClassDB::bind_static_method(cls, D_METHOD("set_stockpile_allowed", "index", "allowed"),
                                 &FOProduction::set_stockpile_allowed);
-    ClassDB::bind_static_method(cls, D_METHOD("enqueue_stockpile_project", "location_id"),
-                                &FOProduction::enqueue_stockpile_project);
+    ClassDB::bind_static_method(cls, D_METHOD("enqueue_stockpile_project", "location_id", "position"),
+                                &FOProduction::enqueue_stockpile_project, DEFVAL(-1));
+    ClassDB::bind_static_method(cls, D_METHOD("set_blocksize", "index", "blocksize"), &FOProduction::set_blocksize);
+    ClassDB::bind_static_method(cls, D_METHOD("duplicate", "index"), &FOProduction::duplicate);
+    ClassDB::bind_static_method(cls, D_METHOD("split_incomplete", "index"), &FOProduction::split_incomplete);
+    ClassDB::bind_static_method(cls, D_METHOD("set_rally_point", "index", "system_id"), &FOProduction::set_rally_point);
+    ClassDB::bind_static_method(cls, D_METHOD("get_removed"), &FOProduction::get_removed);
+    ClassDB::bind_static_method(cls, D_METHOD("restore", "index"), &FOProduction::restore);
 }
 
 godot::Array FOProduction::get_queue() {
@@ -133,6 +140,9 @@ godot::Array FOProduction::get_queue() {
         entry["turns_left"] = element.turns_left_to_completion;
         entry["paused"] = element.paused;
         entry["stockpile_allowed"] = element.allowed_imperial_stockpile_use;
+        entry["rally_point_id"] = element.rally_point_id;
+        const auto* rally = universe.Objects().getRaw(element.rally_point_id);
+        entry["rally_point_name"] = rally ? ToGodot(rally->Name()) : godot::String();
         result.push_back(entry);
     }
     return result;
@@ -245,7 +255,7 @@ godot::PackedInt32Array FOProduction::get_item_locations(const godot::Dictionary
     return result;
 }
 
-bool FOProduction::enqueue_building(const godot::String& name, int location_id) {
+bool FOProduction::enqueue_building(const godot::String& name, int location_id, int position) {
     auto* empire = PlayerEmpire();
     const auto* app = ClientApp::GetApp();
     if (!empire || !app)
@@ -261,10 +271,10 @@ bool FOProduction::enqueue_building(const godot::String& name, int location_id) 
     }
     return IssueQueueOrder(Action::PLACE_IN_QUEUE, empire->EmpireID(),
                            ProductionQueue::ProductionItem(BuildType::BT_BUILDING, std::move(building)),
-                           1, location_id);
+                           1, location_id, position);
 }
 
-bool FOProduction::enqueue_ship(int design_id, int location_id, int quantity) {
+bool FOProduction::enqueue_ship(int design_id, int location_id, int quantity, int position) {
     auto* empire = PlayerEmpire();
     const auto* app = ClientApp::GetApp();
     if (!empire || !app || quantity < 1)
@@ -278,7 +288,7 @@ bool FOProduction::enqueue_ship(int design_id, int location_id, int quantity) {
     }
     return IssueQueueOrder(Action::PLACE_IN_QUEUE, empire->EmpireID(),
                            ProductionQueue::ProductionItem(BuildType::BT_SHIP, design_id, app->GetUniverse()),
-                           quantity, location_id);
+                           quantity, location_id, position);
 }
 
 bool FOProduction::remove(int index) {
@@ -316,11 +326,64 @@ bool FOProduction::set_stockpile_allowed(int index, bool allowed) {
                         PlayerEmpire()->EmpireID(), element->uuid);
 }
 
-bool FOProduction::enqueue_stockpile_project(int location_id) {
+bool FOProduction::enqueue_stockpile_project(int location_id, int position) {
     auto* empire = PlayerEmpire();
     const auto* app = ClientApp::GetApp();
     if (!empire || !app || !empire->ProducibleItem(BuildType::BT_STOCKPILE, location_id, app->GetContext()))
         return false;
     return IssueQueueOrder(Action::PLACE_IN_QUEUE, empire->EmpireID(),
-                           ProductionQueue::ProductionItem(BuildType::BT_STOCKPILE), 1, location_id);
+                           ProductionQueue::ProductionItem(BuildType::BT_STOCKPILE), 1, location_id, position);
+}
+
+bool FOProduction::set_blocksize(int index, int blocksize) {
+    const auto* element = ElementAt(index);
+    return element && blocksize >= 1 && element->blocksize != blocksize &&
+        IssueQueueOrder(Action::SET_QUANTITY_AND_BLOCK_SIZE, PlayerEmpire()->EmpireID(), element->uuid,
+                        element->remaining, blocksize);
+}
+
+bool FOProduction::duplicate(int index) {
+    const auto* element = ElementAt(index);
+    return element && IssueQueueOrder(Action::DUPLICATE_ITEM, PlayerEmpire()->EmpireID(), element->uuid);
+}
+
+bool FOProduction::split_incomplete(int index) {
+    const auto* element = ElementAt(index);
+    // Only worth it with batches left after the one under way.
+    return element && element->remaining > 1 && element->progress > 0.0f &&
+        IssueQueueOrder(Action::SPLIT_INCOMPLETE, PlayerEmpire()->EmpireID(), element->uuid);
+}
+
+bool FOProduction::set_rally_point(int index, int system_id) {
+    const auto* element = ElementAt(index);
+    return element && element->item.build_type == BuildType::BT_SHIP &&
+        IssueQueueOrder(Action::SET_RALLY_POINT, PlayerEmpire()->EmpireID(), element->uuid, system_id);
+}
+
+godot::Array FOProduction::get_removed() {
+    godot::Array result;
+    const auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    if (!app || !empire)
+        return result;
+    const auto& universe = app->GetUniverse();
+    int index = 0;
+    for (const auto& element : empire->GetProductionQueue()) {
+        if (element.to_be_removed) {
+            godot::Dictionary entry;
+            entry["index"] = index;
+            Describe(element.item, universe, entry);
+            const auto* location = universe.Objects().getRaw(element.location);
+            entry["location_name"] = location ? ToGodot(location->Name()) : godot::String();
+            result.push_back(entry);
+        }
+        ++index;
+    }
+    return result;
+}
+
+bool FOProduction::restore(int index) {
+    const auto* element = ElementAt(index);
+    return element && element->to_be_removed &&
+        IssueQueueOrder(Action::UNREMOVE_FROM_QUEUE, PlayerEmpire()->EmpireID(), element->uuid);
 }

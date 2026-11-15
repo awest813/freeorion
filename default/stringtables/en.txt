@@ -2798,6 +2798,53 @@ Clear
 FLEETS_ORDERED
 %1% of %2% on their way.
 
+PRODUCTION_MOVE_TOP
+Move to the top
+
+PRODUCTION_MOVE_BOTTOM
+Move to the bottom
+
+PRODUCTION_DUPLICATE
+Duplicate
+
+PRODUCTION_SPLIT_INCOMPLETE
+Split off the batches not started
+
+# %1% system name
+PRODUCTION_RALLY
+Rally ships to %1%
+
+PRODUCTION_RALLY_CLEAR
+Stop rallying ships
+
+# %1% system name
+PRODUCTION_RALLY_TO
+ships rally to %1%
+
+PRODUCTION_SHOW_LOCATION
+Show where it is built
+
+PRODUCTION_ITEM_MENU
+More actions for this item
+
+PRODUCTION_BLOCKSIZE
+Ships per batch: each batch is built together and finishes on one turn
+
+PRODUCTION_REMOVED_THIS_TURN
+Removed this turn
+
+PRODUCTION_RESTORE
+Restore
+
+QUEUE_ADD_TOP_TIP
+Shift+click to add to the top of the queue
+
+RESEARCH_PAUSE
+Pause research of this tech; it keeps its place in the queue
+
+RESEARCH_RESUME
+Resume research of this tech
+
 PRODUCTION_NEVER
 Never
 

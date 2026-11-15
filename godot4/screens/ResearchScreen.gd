@@ -134,7 +134,7 @@ func _build() -> void:
 	tree_box.add_child(frame)
 	_tree = TechTreeView.new()
 	_tree.tech_selected.connect(_show_tech_detail)
-	_tree.tech_activated.connect(func(tech_name): _order(source.enqueue(tech_name), true))
+	_tree.tech_activated.connect(_enqueue)
 	frame.add_child(_tree)
 	var detail := HBoxContainer.new()
 	tree_box.add_child(detail)
@@ -155,7 +155,8 @@ func _build() -> void:
 	_detail_add = Button.new()
 	_detail_add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_detail_add.visible = false
-	_detail_add.pressed.connect(func(): _order(source.enqueue(_detail_tech), true))
+	_detail_add.tooltip_text = tr("QUEUE_ADD_TOP_TIP")
+	_detail_add.pressed.connect(func(): _enqueue(_detail_tech))
 	detail.add_child(_detail_add)
 	_view.tab_changed.connect(_on_view_changed)
 
@@ -207,9 +208,23 @@ func _refresh_catalog() -> void:
 		_catalog.add_child(ScreenKit.label(tr("RESEARCH_NOTHING_MATCHES"), "SecondaryLabel"))
 
 
+# Queue \a tech_name (with what it needs) at the end; with Shift, at the top.
+func _enqueue(tech_name: String) -> void:
+	var top := Input.is_key_pressed(KEY_SHIFT)
+	_order(source.enqueue(tech_name, 0 if top else -1), true)
+
+
 func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	var tech_name: String = entry.get("name", "")
 	var card := PanelContainer.new()
+	# Click a card to focus it; Delete then removes it.
+	card.focus_mode = Control.FOCUS_CLICK
+	card.gui_input.connect(
+		func(event: InputEvent):
+			if event is InputEventKey and event.pressed and event.keycode == KEY_DELETE:
+				_order(source.remove(tech_name), true)
+				card.accept_event()
+	)
 	var row := HBoxContainer.new()
 	card.add_child(row)
 	row.add_child(_tech_icon(entry))
@@ -235,7 +250,18 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	var detail := tr("RESEARCH_QUEUE_DETAIL").replace("%1%", tr(entry.get("category", ""))).replace(
 		"%2%", "%.1f" % entry.get("allocated_rp", 0.0)
 	)
+	# Paused research keeps its place but gets no RP.
+	var paused: bool = entry.get("paused", false)
+	if paused:
+		detail += " · " + tr("PRODUCTION_PAUSED")
+		card.modulate = Color(1, 1, 1, 0.6)
 	text.add_child(ScreenKit.label(detail, "SmallLabel"))
+	var pause := ScreenKit.small_button(
+		"▶" if paused else "Ⅱ", "RESEARCH_RESUME" if paused else "RESEARCH_PAUSE"
+	)
+	pause.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pause.pressed.connect(func(): _order(source.set_paused(tech_name, not paused)))
+	row.add_child(pause)
 
 	var buttons := VBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 0)
@@ -289,7 +315,9 @@ func _catalog_row(tech: Dictionary) -> Control:
 			add.tooltip_text = tr("RESEARCH_ADD_WITH_PREREQS_TIP")
 		add.disabled = queued
 		add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		add.pressed.connect(func(): _order(source.enqueue(tech_name), true))
+		if add.tooltip_text.is_empty():
+			add.tooltip_text = tr("QUEUE_ADD_TOP_TIP")
+		add.pressed.connect(_enqueue.bind(tech_name))
 		row.add_child(add)
 	return row
 

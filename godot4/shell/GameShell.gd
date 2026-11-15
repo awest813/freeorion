@@ -119,6 +119,13 @@ func _ready() -> void:
 	research_screen.pedia_requested.connect(open_pedia)
 	production_screen.pedia_requested.connect(open_pedia)
 	production_screen.build_on_map_requested.connect(map_modes.start_placement)
+	production_screen.location_requested.connect(_show_planet_on_map)
+	production_screen.rally_target = func() -> Array:
+		var system_id := map_view.map.selected_system_id()
+		var system: FOSystem = (
+			FOUniverse.get_system(system_id) if system_id >= 0 and follow_game else null
+		)
+		return [system_id, system.get_name()] if system else [-1, ""]
 	for screen in [
 		production_screen,
 		research_screen,
@@ -568,6 +575,16 @@ func _active_fleet() -> int:
 	if fleet_panel.visible and fleet_panel.fleet_id >= 0:
 		return fleet_panel.fleet_id if fleet_panel.is_own() else -1
 	return system_panel.selected_fleet_id()
+
+
+# Back to the map at planet \a planet_id, its details shown.
+func _show_planet_on_map(planet_id: int) -> void:
+	var planet: FOPlanet = FOUniverse.get_planet(planet_id) if follow_game else null
+	if planet == null:
+		return
+	show_screen("")
+	map_view.map.focus_system(planet.get_system_id())
+	_on_planet_selected(planet_id)
 
 
 # A fleet marker on the map: select that fleet where it is.

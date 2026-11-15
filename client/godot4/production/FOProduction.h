@@ -31,8 +31,9 @@ public:
       * describes it: build_type, name or design_id) can be built now. */
     static godot::PackedInt32Array get_item_locations(const godot::Dictionary& item);
 
-    static bool enqueue_building(const godot::String& name, int location_id);
-    static bool enqueue_ship(int design_id, int location_id, int quantity = 1);
+    /** Add to the queue's end, or at \a position (0: the top). */
+    static bool enqueue_building(const godot::String& name, int location_id, int position = -1);
+    static bool enqueue_ship(int design_id, int location_id, int quantity = 1, int position = -1);
     static bool remove(int index);
     static bool move(int index, int new_index);
     static bool set_quantity(int index, int quantity);
@@ -41,7 +42,20 @@ public:
     /** Let queue item \a index draw on the imperial stockpile, or not. */
     static bool set_stockpile_allowed(int index, bool allowed);
     /** Queue the project that moves PP into the imperial stockpile. */
-    static bool enqueue_stockpile_project(int location_id);
+    static bool enqueue_stockpile_project(int location_id, int position = -1);
+    /** Ships built together in each batch (all finish on the same turn). */
+    static bool set_blocksize(int index, int blocksize);
+    /** Another copy of the item, after it. */
+    static bool duplicate(int index);
+    /** Split the batches not yet started into an item of their own. */
+    static bool split_incomplete(int index);
+    /** Ships built by item \a index go to system \a system_id (-1: stay). */
+    static bool set_rally_point(int index, int system_id);
+    /** Items removed this turn, which can still be restored: [{index, label,
+        build_type, name, design_id, icon, location_name}]. */
+    static godot::Array get_removed();
+    /** Put a removed item back where it was. */
+    static bool restore(int index);
 
 protected:
     static void _bind_methods();

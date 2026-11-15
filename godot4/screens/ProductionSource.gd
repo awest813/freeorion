@@ -38,12 +38,14 @@ func get_item_locations(item: Dictionary) -> Array:
 	return locations
 
 
-func enqueue(item: Dictionary, location_id: int) -> bool:
+## Add \a item at \a location_id: at the queue's end, or at \a position
+## (0: the top).
+func enqueue(item: Dictionary, location_id: int, position := -1) -> bool:
 	if item.get("build_type") == "building":
-		return FOProduction.enqueue_building(item["name"], location_id)
+		return FOProduction.enqueue_building(item["name"], location_id, position)
 	if item.get("build_type") == "stockpile":
-		return FOProduction.enqueue_stockpile_project(location_id)
-	return FOProduction.enqueue_ship(item["design_id"], location_id, 1)
+		return FOProduction.enqueue_stockpile_project(location_id, position)
+	return FOProduction.enqueue_ship(item["design_id"], location_id, 1, position)
 
 
 func remove(index: int) -> bool:
@@ -64,3 +66,28 @@ func set_paused(index: int, paused: bool) -> bool:
 
 func set_stockpile_allowed(index: int, allowed: bool) -> bool:
 	return FOProduction.set_stockpile_allowed(index, allowed)
+
+
+func set_blocksize(index: int, blocksize: int) -> bool:
+	return FOProduction.set_blocksize(index, blocksize)
+
+
+func duplicate_item(index: int) -> bool:
+	return FOProduction.duplicate(index)
+
+
+func split_incomplete(index: int) -> bool:
+	return FOProduction.split_incomplete(index)
+
+
+func set_rally_point(index: int, system_id: int) -> bool:
+	return FOProduction.set_rally_point(index, system_id)
+
+
+## Items removed this turn, which can still be restored.
+func get_removed() -> Array:
+	return FOProduction.get_removed()
+
+
+func restore(index: int) -> bool:
+	return FOProduction.restore(index)
