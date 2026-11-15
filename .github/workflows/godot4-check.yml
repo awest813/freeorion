@@ -5,11 +5,15 @@ on:
     branches: [ 'master' ]
     paths:
       - 'godot4/**.gd'
+      - 'godot4/**.tscn'
+      - 'godot4/tools/**'
   pull_request:
     branches: [ 'master' ]
     types: ['opened', 'reopened', 'synchronize']
     paths:
       - 'godot4/**.gd'
+      - 'godot4/**.tscn'
+      - 'godot4/tools/**'
 
 jobs:
   build:
@@ -34,3 +38,6 @@ jobs:
       - name: Check lints
         run: |
           find godot4/ -iname "*.gd" -not -path "godot4/addons/gut/*" | xargs gdlint
+      - name: Check theme literals (UI_OVERHAUL_PLAN.md 7.3)
+        run: |
+          python godot4/tools/check_theme_literals.py godot4

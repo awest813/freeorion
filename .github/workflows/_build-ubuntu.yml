@@ -181,6 +181,15 @@ jobs:
             echo "::error::Godot visual tests failed"
             exit 1
           fi
+          # Variant goldens: 150% and 200% UI scale at their window sizes, and German and Russian.
+          for variant in scale150:1920x1080 scale200:2560x1600 de:1280x800 ru:1280x800; do
+            name=${variant%%:*}; size=${variant#*:}
+            VISUAL_VARIANT=$name xvfb-run -a -s "-screen 0 ${size}x24" ./build/godot4 --rendering-driver opengl3 --resolution $size -s --path godot4 addons/gut/gut_cmdln.gd -gdir=res://test/visual -gselect=test_visual_variants -gexit 2>&1 | tee godot4_visual_$name.log
+            if grep -E "SCRIPT ERROR|Parse Error|\[Failed\]" godot4_visual_$name.log; then
+              echo "::error::Godot visual tests failed for the $name variant"
+              exit 1
+            fi
+          done
       - name: Upload Godot visual test failures
         if: failure() && matrix.os == 'ubuntu-24.04' && matrix.compiler == 'gcc' && !matrix.asan
         uses: actions/upload-artifact@v7
