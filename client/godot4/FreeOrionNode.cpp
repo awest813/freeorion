@@ -57,6 +57,7 @@ void FreeOrionNode::_bind_methods() {
     ADD_SIGNAL(godot::MethodInfo("start_game", godot::PropertyInfo(godot::Variant::BOOL, "is_new_game")));
     ADD_SIGNAL(godot::MethodInfo("turn_update"));
     ADD_SIGNAL(godot::MethodInfo("game_ended"));
+    ADD_SIGNAL(godot::MethodInfo("combat_logs_updated"));
     ADD_SIGNAL(godot::MethodInfo("save_completed",
                                  godot::PropertyInfo(godot::Variant::STRING, "filename"),
                                  godot::PropertyInfo(godot::Variant::INT, "bytes_written")));
@@ -335,6 +336,8 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             GetGameRules().SetFromStrings(m_app->GetGalaxySetupData().GetGameRules());
             InitTurnState();
 
+            m_app->RequestCombatLogs();
+
             bool is_new_game = !(loaded_game_data && ui_data_available);
             m_app->StartGame(is_new_game);
             call_deferred("emit_signal", "start_game", is_new_game);
@@ -365,6 +368,7 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                                          GetCombatLogManager(), GetSupplyManager(),  m_app->Players());
             m_app->SetCurrentTurn(current_turn);
             InitTurnState();
+            m_app->RequestCombatLogs();
             call_deferred("emit_signal", "turn_update");
 
             if (m_app->AutoTurnsLeft() > 0) {
@@ -381,6 +385,15 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_app->SaveGameCompleted();
             call_deferred("emit_signal", "save_completed",
                           godot::String::utf8(save_filename.c_str()), bytes_written);
+            break;
+        }
+        case Message::MessageType::DISPATCH_COMBAT_LOGS: {
+            std::vector<std::pair<int, CombatLog>> logs;
+            ExtractDispatchCombatLogsMessageData(msg, logs);
+            auto& manager = GetCombatLogManager();
+            for (auto& [log_id, log] : logs)
+                manager.CompleteLog(log_id, std::move(log));
+            call_deferred("emit_signal", "combat_logs_updated");
             break;
         }
         case Message::MessageType::PLAYER_CHAT:

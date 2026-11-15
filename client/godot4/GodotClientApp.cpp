@@ -347,6 +347,18 @@ void GodotClientApp::SaveGameCompleted() {
         m_networking->SendMessage(HostSaveGameInitiateMessage(m_game_saves_in_progress.front()));
 }
 
+void GodotClientApp::RequestCombatLogs() {
+    const auto incomplete_ids = GetCombatLogManager().IncompleteLogIDs();
+    // At most 50 logs per message, so neither side allocates too much at once.
+    static constexpr std::size_t BATCH_SIZE = 50;
+    for (std::size_t first = 0; first < incomplete_ids.size(); first += BATCH_SIZE) {
+        const auto last = std::min(first + BATCH_SIZE, incomplete_ids.size());
+        std::vector<int> batch(incomplete_ids.begin() + first, incomplete_ids.begin() + last);
+        DebugLogger() << "Requesting " << batch.size() << " combat logs from the server";
+        m_networking->SendMessage(RequestCombatLogsMessage(batch));
+    }
+}
+
 void GodotClientApp::ResetClientData() {
     m_networking->SetPlayerID(Networking::INVALID_PLAYER_ID);
     m_networking->SetHostPlayerID(Networking::INVALID_PLAYER_ID);

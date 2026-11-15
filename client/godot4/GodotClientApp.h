@@ -40,6 +40,10 @@ public:
     /** The server finished the oldest pending save; sends the next one. */
     void SaveGameCompleted();
 
+    /** Asks the server for the contents of combat logs the client only
+      * knows by ID, in batches, as the GG client does each turn. */
+    void RequestCombatLogs();
+
     /** Starts leaving the game: asks the local server to shut down. Call
       * UpdateQuitting() each frame until it returns true; the client is then
       * back at its pre-game state, ready for a new or loaded game. */
