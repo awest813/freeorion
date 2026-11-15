@@ -21,6 +21,8 @@ var system_panel: SystemPanel
 var fleet_panel: FleetPanel
 var planet_panel: PlanetPanel
 var ship_panel: ShipPanel
+## Shown while production is being placed on the map.
+var placement_banner: PanelContainer
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
@@ -38,6 +40,9 @@ var empires_screen: EmpiresScreen
 var active_screen := ""
 
 var _side_scroll: ScrollContainer
+## While placing production on the map: {item, locations, added}.
+var _placement := {}
+var _placement_label: Label
 var _navigator := MapNavigator.new()
 
 ## Newest combat the player has seen in the combat screen.
@@ -80,6 +85,27 @@ func _ready() -> void:
 	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screens.add_child(body)
+	# A banner over the top of the map while placing production; it floats,
+	# so it never squeezes the panels.
+	var banner_center := CenterContainer.new()
+	banner_center.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	banner_center.offset_top = _gap()
+	banner_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screens.add_child(banner_center)
+	placement_banner = PanelContainer.new()
+	placement_banner.theme_type_variation = "OverlayPanel"
+	placement_banner.visible = false
+	banner_center.add_child(placement_banner)
+	var banner_row := HBoxContainer.new()
+	banner_row.add_theme_constant_override("separation", FOUi.tokens.space_3)
+	placement_banner.add_child(banner_row)
+	_placement_label = ScreenKit.label("")
+	banner_row.add_child(_placement_label)
+	var done := Button.new()
+	done.text = tr("PRODUCTION_PLACE_DONE")
+	done.theme_type_variation = "PrimaryButton"
+	done.pressed.connect(end_placement)
+	banner_row.add_child(done)
 	production_screen = ProductionScreen.new()
 	research_screen = ResearchScreen.new()
 	pedia_screen = PediaScreen.new()
@@ -100,6 +126,7 @@ func _ready() -> void:
 	pedia_screen.link_activated.connect(_on_link_activated)
 	research_screen.pedia_requested.connect(open_pedia)
 	production_screen.pedia_requested.connect(open_pedia)
+	production_screen.build_on_map_requested.connect(start_placement)
 	for screen in [
 		production_screen,
 		research_screen,
@@ -196,6 +223,7 @@ func _ready() -> void:
 	map_view.map.camera.view_changed.connect(_report_view)
 
 	map_view.system_selected.connect(_on_system_selected)
+	map_view.map.system_clicked.connect(_on_system_clicked)
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
 	map_view.map.field_activated.connect(
 		func(field_type: String): open_pedia("fieldtype", field_type)
@@ -230,7 +258,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			return
 	if not event.is_action_pressed("ui_cancel") or not active_screen.is_empty():
 		return
-	if map_view.map.selected_system_id() != GalaxyMap.NO_SYSTEM:
+	if is_placing():
+		end_placement()
+	elif map_view.map.selected_system_id() != GalaxyMap.NO_SYSTEM:
 		map_view.map.select_system(GalaxyMap.NO_SYSTEM)
 	else:
 		open_menu()
@@ -337,6 +367,11 @@ func _on_menu_screen_requested(screen_name: String) -> void:
 ## Show the full screen \a screen_name ("production", "research") over the
 ## map, or return to the map with "".
 func show_screen(screen_name: String) -> void:
+	# Opening a screen ends placing production on the map.
+	if not screen_name.is_empty() and is_placing():
+		_placement = {}
+		map_view.map.set_highlighted(PackedInt32Array())
+		placement_banner.visible = false
 	active_screen = screen_name
 	top_bar.set_active_screen(screen_name)
 	var screens := _screens()
@@ -415,6 +450,59 @@ func _update_frame_margins() -> void:
 	camera.frame_margins = Vector4(0, top_bar.size.y + _gap(), 0, _gap())
 	if not camera.user_moved and map_view.map.bounds.has_area():
 		camera.fit_rect(map_view.map.bounds)
+
+
+## Back to the map with the systems where \a item can be built ringed;
+## clicking one queues it at the first of its \a locations there.
+func start_placement(item: Dictionary, locations: Array) -> void:
+	_placement = {"item": item, "locations": locations, "added": 0}
+	var systems := PackedInt32Array()
+	for location: Dictionary in locations:
+		if location.get("system_id", -1) >= 0 and not location["system_id"] in systems:
+			systems.push_back(location["system_id"])
+	map_view.map.set_highlighted(systems)
+	show_screen("")
+	_update_placement_banner()
+	placement_banner.visible = true
+	FOUi.fade_in(placement_banner)
+
+
+## Leave placing: rings off, banner gone, back to the production screen if
+## anything was queued.
+func end_placement() -> void:
+	if _placement.is_empty():
+		return
+	var added: int = _placement.get("added", 0)
+	_placement = {}
+	map_view.map.set_highlighted(PackedInt32Array())
+	placement_banner.visible = false
+	if added > 0:
+		show_screen("production")
+
+
+func is_placing() -> bool:
+	return not _placement.is_empty()
+
+
+func _update_placement_banner() -> void:
+	var text := tr("PRODUCTION_PLACE_HINT").replace(
+		"%1%", production_screen.display_name(_placement["item"])
+	)
+	if _placement["added"] > 0:
+		text += "  " + tr("PRODUCTION_PLACE_ADDED").replace("%1%", str(_placement["added"]))
+	_placement_label.text = text
+
+
+func _on_system_clicked(system_id: int) -> void:
+	if _placement.is_empty() or not map_view.map.is_highlighted(system_id):
+		return
+	for location: Dictionary in _placement["locations"]:
+		if location.get("system_id", -1) == system_id:
+			if production_screen.source.enqueue(_placement["item"], location["id"]):
+				_placement["added"] += 1
+				top_bar.refresh_resources()
+			break
+	_update_placement_banner()
 
 
 func _on_system_selected(system_id: int) -> void:

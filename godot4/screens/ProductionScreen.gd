@@ -7,6 +7,9 @@ extends PanelContainer
 
 signal close_requested
 signal pedia_requested(kind: String, article_name: String)
+## Show where \a item can be built on the map, to place it there:
+## \a locations as get_item_locations() gives them.
+signal build_on_map_requested(item: Dictionary, locations: Array)
 
 const FILTERS := ["all", "building", "ship"]
 
@@ -275,6 +278,11 @@ func open_locations(item: Dictionary) -> FODialog:
 			tr("PRODUCTION_WHERE_MESSAGE").replace("%1%", str(locations.size())),
 			[
 				[tr("PRODUCTION_ADD_AT_TICKED"), "PrimaryButton", _add_at.bind(item, checks)],
+				[
+					tr("PRODUCTION_SHOW_ON_MAP"),
+					"GhostButton",
+					build_on_map_requested.emit.bind(item, locations)
+				],
 				[tr("CANCEL"), "GhostButton"],
 			]
 		)
@@ -308,6 +316,11 @@ func _add_at(item: Dictionary, checks: Array[CheckBox]) -> void:
 func _order(ok: bool) -> void:
 	if ok:
 		_refresh_queue.call_deferred()
+
+
+## The name shown for \a item (stringtable key or design name).
+func display_name(item: Dictionary) -> String:
+	return _display_name(item)
 
 
 func _display_name(item: Dictionary) -> String:

@@ -11,6 +11,8 @@ extends Node2D
 
 signal system_selected(system_id: int)
 signal system_hovered(system_id: int)
+## A system was left-clicked (also when it was selected already).
+signal system_clicked(system_id: int)
 ## Right-click (not drag) on a system, e.g. to order the active fleet there.
 signal system_context_requested(system_id: int)
 ## A field (no system under the cursor) was clicked: its type, for the Pedia.
@@ -67,6 +69,8 @@ var _hover_point := Vector2()
 var _detection_layer: MapLayer
 var _detection_positions := PackedVector2Array()
 var _detection_radii := PackedFloat32Array()
+## Systems ringed for the player to pick (e.g. where something can be built).
+var _highlighted := {}
 
 @onready var camera: GalaxyCamera = $Camera
 @onready var _lane_layer: MapLayer = $Lanes
@@ -190,6 +194,19 @@ func system_position(system_id: int) -> Vector2:
 	return _positions[index] if index != NO_SYSTEM else Vector2.ZERO
 
 
+## Ring \a system_ids for the player to pick from; empty clears the rings.
+func set_highlighted(system_ids: PackedInt32Array) -> void:
+	_highlighted.clear()
+	for system_id in system_ids:
+		if _index_by_id.has(system_id):
+			_highlighted[system_id] = true
+	_overlay.queue_redraw()
+
+
+func is_highlighted(system_id: int) -> bool:
+	return _highlighted.has(system_id)
+
+
 func selected_system_id() -> int:
 	return _system_ids[_selected] if _selected != NO_SYSTEM else NO_SYSTEM
 
@@ -305,6 +322,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				field_activated.emit(_field_types[field])
 			else:
 				select_system(system_id)
+				if system_id != NO_SYSTEM:
+					system_clicked.emit(system_id)
 			get_viewport().set_input_as_handled()
 		elif (
 			button.button_index == MOUSE_BUTTON_RIGHT and not button.pressed and camera.was_click()
@@ -444,6 +463,7 @@ func _draw_overlay(layer: CanvasItem) -> void:
 	var px := 1.0 / camera.zoom_level()
 	var view := visible_world_rect()
 	_draw_unexplored_rings(layer, px, view)
+	_draw_highlights(layer, px, view)
 	_draw_route(layer, px)
 	_draw_fleets(layer, px, view)
 	var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
@@ -452,6 +472,19 @@ func _draw_overlay(layer: CanvasItem) -> void:
 		layer.draw_arc(_positions[_hovered], ring, 0, TAU, 32, Color(accent, 0.5), 1.5 * px, true)
 	if _selected != NO_SYSTEM:
 		layer.draw_arc(_positions[_selected], ring, 0, TAU, 40, accent, 2.0 * px, true)
+
+
+func _draw_highlights(layer: CanvasItem, px: float, view: Rect2) -> void:
+	var color: Color = FOUi.tokens.positive if FOUi.tokens else Color.GREEN
+	var radius := MapStyle.SELECTION_RING_PX * 1.4 * px
+	for system_id in _highlighted:
+		var index: int = _index_by_id.get(system_id, NO_SYSTEM)
+		if index == NO_SYSTEM:
+			continue
+		var position := _positions[index]
+		if view.has_point(position):
+			layer.draw_circle(position, radius, Color(color, 0.12))
+			layer.draw_arc(position, radius, 0, TAU, 40, color, 2.0 * px, true)
 
 
 func _draw_route(layer: CanvasItem, px: float) -> void:

@@ -91,11 +91,11 @@ func get_locations() -> Array:
 func get_item_locations(item: Dictionary) -> Array:
 	if item.get("build_type") == "ship":
 		return [
-			{"id": 101, "name": "Hegira β I"},
-			{"id": 102, "name": "Mu Arae II"},
-			{"id": 103, "name": "Vega III"}
+			{"id": 101, "name": "Hegira β I", "system_id": 11},
+			{"id": 102, "name": "Mu Arae II", "system_id": 12},
+			{"id": 103, "name": "Vega III", "system_id": 13}
 		]
-	return [{"id": 101, "name": "Hegira β I"}]
+	return [{"id": 101, "name": "Hegira β I", "system_id": 11}]
 
 
 func enqueue(item: Dictionary, location_id: int) -> bool:

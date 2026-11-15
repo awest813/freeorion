@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 18 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P3 | 17 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -107,10 +107,12 @@ Closed:
 
 ## P3: polish and cut-over
 
+Closed:
+- **Build locations on the map:** "Show on map" in the production item's location list returns to the map with every system that can build it ringed; each click on a ringed system queues the item there, until Done or Esc.
+
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
 | Minimap, scale legend and circle | `MapWnd` | M | |
-| Build locations on the map | `BuildDesignatorWnd` | S | Highlight where the chosen production item can be built. |
 | Box-select fleets | Plan, phase 3 | M | |
 | Map modes (political, supply, detection, resources, threat) | Plan, phase 3 | L | |
 | Combat replay and charts | `CombatReport/GraphicalSummary`, plan phase 5 | L | |

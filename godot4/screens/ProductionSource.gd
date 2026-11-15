@@ -26,13 +26,15 @@ func get_locations() -> Array:
 	return locations
 
 
-## [{id, name}] of the locations where \a item can be built now.
+## [{id, name, system_id}] of the locations where \a item can be built now.
 func get_item_locations(item: Dictionary) -> Array:
 	var locations: Array = []
 	for planet_id in FOProduction.get_item_locations(item):
 		var planet: FOPlanet = FOUniverse.get_planet(planet_id)
 		if planet:
-			locations.push_back({"id": planet_id, "name": planet.get_name()})
+			locations.push_back(
+				{"id": planet_id, "name": planet.get_name(), "system_id": planet.get_system_id()}
+			)
 	return locations
 
 

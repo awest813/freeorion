@@ -132,5 +132,16 @@ func test_where_can_it_be_built():
 func test_where_dialog_cancel_adds_nothing():
 	_button_in(screen._catalog.get_child(0), "⌖").pressed.emit()
 	var dialog: FODialog = screen.get_children().filter(func(c): return c is FODialog)[0]
-	dialog.choose(1)
+	dialog.choose(2)
 	assert_eq(fake.calls, [])
+
+
+func test_where_dialog_shows_the_map():
+	_button_in(screen._catalog.get_child(2), "⌖").pressed.emit()
+	var dialog: FODialog = screen.get_children().filter(func(c): return c is FODialog)[0]
+	watch_signals(screen)
+	dialog.choose(1)
+	assert_signal_emitted(screen, "build_on_map_requested")
+	var params: Array = get_signal_parameters(screen, "build_on_map_requested")
+	assert_eq(params[0]["label"], "Scout")
+	assert_eq(params[1].size(), 3)

@@ -2589,6 +2589,20 @@ Places where this can be built now: %1%. Tick where to add it.
 PRODUCTION_ADD_AT_TICKED
 Add where ticked
 
+PRODUCTION_SHOW_ON_MAP
+Show on map
+
+# %1% item being placed
+PRODUCTION_PLACE_HINT
+Building %1%: click a ringed system to queue it there.
+
+# %1% number queued so far
+PRODUCTION_PLACE_ADDED
+%1% queued.
+
+PRODUCTION_PLACE_DONE
+Done
+
 PRODUCTION_NEVER
 Never
 
