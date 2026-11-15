@@ -3064,7 +3064,7 @@ RESEARCH_TIP_UNLOCKS
 Unlocks:
 
 RESEARCH_TIP_KEYS
-Double-click to queue (Shift: at the top); Shift+click to queue at the end.
+Double-click to queue; Shift+click or Shift+double-click to queue at the top.
 
 DESIGNER_PP
 PP
@@ -3347,6 +3347,24 @@ Starting…
 
 MP_NEEDS_HUMAN_PLAYER
 The game needs at least one player with an empire (observers and moderators don't count).
+
+PRODUCTION_LOCATION_SEARCH
+Find a planet…
+
+PRODUCTION_FILTER_STOCKPILE
+Projects
+
+RESEARCH_TIP_QUEUED
+Queued: %1%% done · %2% RP this turn (at most %3% a turn) · %4%
+
+FLEETS_STANCE_SET
+%1% of %2% fleets set.
+
+FLEETS_EXPLORING
+Exploring.
+
+FLEETS_EXPLORE
+Explore
 
 OPTIONS_LANGUAGE_NAME
 Language

@@ -363,6 +363,11 @@ func pick_field(world_pos: Vector2) -> int:
 	return best
 
 
+## The system under the pointer (NO_SYSTEM if none).
+func hovered_system_id() -> int:
+	return _system_ids[_hovered] if _hovered >= 0 and _hovered < _system_ids.size() else NO_SYSTEM
+
+
 func hover_system(system_id: int) -> void:
 	var index: int = _index_by_id.get(system_id, NO_SYSTEM)
 	if index == _hovered:

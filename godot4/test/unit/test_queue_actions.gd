@@ -69,8 +69,12 @@ func test_batch_size_for_ships():
 	var row: Control = screen._queue_list.get_child(1)
 	var spins := row.find_children("*", "SpinBox", true, false)
 	assert_eq(spins.size(), 2, "quantity and batch size")
+	spins[1].value = 2
 	spins[1].value = 3
+	assert_does_not_have(screen.source.calls, ["set_blocksize", 1, 2], "Not sent while clicking")
+	await wait_seconds(ProductionScreen.SETTLE_SECONDS + 0.2)
 	assert_has(screen.source.calls, ["set_blocksize", 1, 3])
+	assert_does_not_have(screen.source.calls, ["set_blocksize", 1, 2], "Only where it rested")
 
 
 func test_removed_items_can_be_restored():

@@ -23,13 +23,26 @@ func get_group_points(location_id: int) -> Dictionary:
 	return FOProduction.get_group_points(location_id)
 
 
-## [{id, name}] of planets where the player can produce, capital first.
+## [{id, name, system_id, system_name, populated}] of planets where the
+## player can produce, capital first.
 func get_locations() -> Array:
 	var locations: Array = []
 	for planet_id in FOProduction.get_production_locations():
 		var planet: FOPlanet = FOUniverse.get_planet(planet_id)
 		if planet:
-			locations.push_back({"id": planet_id, "name": planet.get_name()})
+			var system: FOSystem = FOUniverse.get_system(planet.get_system_id())
+			(
+				locations
+				. push_back(
+					{
+						"id": planet_id,
+						"name": planet.get_name(),
+						"system_id": planet.get_system_id(),
+						"system_name": system.get_name() if system else "",
+						"populated": not planet.get_species_name().is_empty(),
+					}
+				)
+			)
 	return locations
 
 

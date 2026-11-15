@@ -37,6 +37,8 @@ var selected := "":
 		_update_related()
 		queue_redraw()
 ## Queue position (0-based) by tech name, for the number on queued cards.
+## Queue entries by tech name (for tooltips).
+var queue_entries := {}
 var queue_positions := {}:
 	set(value):
 		queue_positions = value
@@ -104,38 +106,55 @@ func _get_tooltip(at_position: Vector2) -> String:
 	return "" if tech_name.is_empty() else tooltip_text_for(tech_name)
 
 
-## The rich tooltip of \a tech_name, as GG's tech tree: status, cost and
-## time, description, what it needs and what it unlocks.
+## The rich tooltip of \a tech_name, as GG's tech tree.
 func tooltip_text_for(tech_name: String) -> String:
 	var tech: Dictionary = _by_name.get(tech_name, {})
-	if tech.is_empty():
-		return ""
-	var lines: PackedStringArray = [tr(tech_name)]
+	return "" if tech.is_empty() else describe(tech, queue_entries.get(tech_name, {}))
+
+
+## A tech's tooltip, as GG's: status, cost and time, how it goes in the
+## queue (\a queue_entry: progress, RP this turn of the most it can take,
+## turns left), description, what it needs and unlocks, and the keys.
+static func describe(tech: Dictionary, queue_entry := {}) -> String:
+	var t := TranslationServer.translate
+	var tech_name: String = tech.get("name", "")
+	var lines: PackedStringArray = [t.call(tech_name)]
 	var status: String = tech.get("status", "")
 	if not status.is_empty():
-		lines.push_back(tr("RESEARCH_STATUS_" + status.to_upper()))
+		lines.push_back(t.call("RESEARCH_STATUS_" + status.to_upper()))
 	lines.push_back(
 		(
-			tr("RESEARCH_ITEM_COST")
+			String(t.call("RESEARCH_ITEM_COST"))
 			. replace("%1%", "%.0f" % tech.get("cost", 0.0))
 			. replace("%2%", str(tech.get("turns", 0)))
-			. replace("%3%", tr(tech.get("category", "")))
+			. replace("%3%", t.call(tech.get("category", "")))
 		)
 	)
-	var description := tr(tech.get("short_description", ""))
+	if not queue_entry.is_empty():
+		var most: float = tech.get("cost", 0.0) / maxf(float(tech.get("turns", 1)), 1.0)
+		lines.push_back(
+			(
+				String(t.call("RESEARCH_TIP_QUEUED"))
+				. replace("%1%", "%d" % roundi(queue_entry.get("progress", 0.0) * 100.0))
+				. replace("%2%", "%.1f" % queue_entry.get("allocated_rp", 0.0))
+				. replace("%3%", "%.1f" % most)
+				. replace("%4%", ScreenKit.turns_text(queue_entry.get("turns_left", -1)))
+			)
+		)
+	var description: String = t.call(tech.get("short_description", ""))
 	if not description.begins_with("ERROR: "):
 		lines.push_back(FORichText.plain_text(description))
 	var needs: PackedStringArray = []
 	for prereq in tech.get("prerequisites", PackedStringArray()):
-		needs.push_back(tr(prereq))
+		needs.push_back(t.call(prereq))
 	if not needs.is_empty():
-		lines.push_back(tr("RESEARCH_TIP_NEEDS") + " " + ", ".join(needs))
+		lines.push_back(t.call("RESEARCH_TIP_NEEDS") + " " + ", ".join(needs))
 	var unlocks: PackedStringArray = []
 	for item: Dictionary in tech.get("unlocks", []):
-		unlocks.push_back(tr(item.get("name", "")))
+		unlocks.push_back(t.call(item.get("name", "")))
 	if not unlocks.is_empty():
-		lines.push_back(tr("RESEARCH_TIP_UNLOCKS") + " " + ", ".join(unlocks))
-	lines.push_back(tr("RESEARCH_TIP_KEYS"))
+		lines.push_back(t.call("RESEARCH_TIP_UNLOCKS") + " " + ", ".join(unlocks))
+	lines.push_back(t.call("RESEARCH_TIP_KEYS"))
 	return "\n".join(lines)
 
 

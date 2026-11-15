@@ -701,13 +701,23 @@ func _on_fleet_clicked(fleet_id: int) -> void:
 # With an own fleet active, hovering a system shows the route it would take
 # there and when it would arrive (Shift: after its current route).
 func _on_system_hovered(system_id: int) -> void:
+	preview_route_to(system_id)
+
+
+## The route the fleet picked (or the box-selected fleets) would take to
+## \a system_id, with its ETA, drawn on the map; nothing if none would go.
+func preview_route_to(system_id: int) -> void:
 	var fleets := map_view.map.fleets
-	var fleet_id := _active_fleet() if follow_game else -1
-	var fleet: FOFleet = FOUniverse.get_fleet(fleet_id) if fleet_id >= 0 else null
-	if fleet == null or system_id < 0 or system_id == fleet.get_system_id():
+	var preview := {}
+	if follow_game and system_id >= 0 and map_modes.has_fleet_selection():
+		preview = map_modes.group_preview(system_id)
+	elif follow_game and system_id >= 0 and _active_fleet() >= 0:
+		var fleet: FOFleet = FOUniverse.get_fleet(_active_fleet())
+		if fleet and system_id != fleet.get_system_id():
+			preview = fleet.preview_route(system_id, Input.is_key_pressed(KEY_SHIFT))
+	if preview.is_empty():
 		fleets.set_preview(PackedVector2Array(), PackedVector2Array())
 		return
-	var preview: Dictionary = fleet.preview_route(system_id, Input.is_key_pressed(KEY_SHIFT))
 	var eta: int = preview.get("eta", -1)
 	fleets.set_preview(
 		preview.get("points", PackedVector2Array()),

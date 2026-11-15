@@ -109,7 +109,7 @@ func test_tree_tooltip_zoom_and_shift_click():
 	tree.zoom_step(-1)
 	assert_almost_eq(tree.zoom, before, 0.01)
 	tree.tech_queued.emit("PRO_ROBOTIC_PROD")
-	assert_has(fake.calls, ["enqueue", "PRO_ROBOTIC_PROD"])
+	assert_has(fake.calls, ["enqueue_at", "PRO_ROBOTIC_PROD", 0], "Shift+click: at the top")
 
 
 func test_list_sorts():

@@ -202,7 +202,8 @@ func _build() -> void:
 	_tree = TechTreeView.new()
 	_tree.tech_selected.connect(_show_tech_detail)
 	_tree.tech_activated.connect(_enqueue)
-	_tree.tech_queued.connect(func(tech_name): _order(source.enqueue(tech_name), true))
+	# Shift always means "at the top", as with Add and double-click.
+	_tree.tech_queued.connect(func(tech_name): _order(source.enqueue(tech_name, 0), true))
 	frame.add_child(_tree)
 	# Zoom out, fit, in, over the tree's top right.
 	var zoom_row := HBoxContainer.new()
@@ -256,6 +257,11 @@ func _refresh_queue() -> void:
 		_points.remove_theme_color_override("font_color")
 	ScreenKit.clear(_queue_list)
 	var queue: Array = source.get_queue()
+	var entries := {}
+	for entry: Dictionary in queue:
+		entries[entry.get("name", "")] = entry
+	# The list's and tree's tooltips tell how each queued tech goes.
+	_tree.queue_entries = entries
 	if queue.is_empty():
 		_queue_list.add_child(ScreenKit.label(tr("RESEARCH_EMPTY_QUEUE"), "SecondaryLabel"))
 	for i in queue.size():
@@ -333,6 +339,14 @@ func _fill_more_categories() -> void:
 
 
 # Queue \a tech_name (with what it needs) at the end; with Shift, at the top.
+# The tech named \a tech_name ({name} if unknown).
+func _tech(tech_name: String) -> Dictionary:
+	for tech: Dictionary in _techs:
+		if tech.get("name", "") == tech_name:
+			return tech
+	return {"name": tech_name}
+
+
 func _enqueue(tech_name: String) -> void:
 	var top := Input.is_key_pressed(KEY_SHIFT)
 	_order(source.enqueue(tech_name, 0 if top else -1), true)
@@ -343,11 +357,18 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	var card := PanelContainer.new()
 	# Click a card to focus it; Delete then removes it.
 	card.focus_mode = Control.FOCUS_CLICK
+	card.tooltip_text = TechTreeView.describe(_tech(tech_name), entry)
 	card.gui_input.connect(
 		func(event: InputEvent):
 			if event is InputEventKey and event.pressed and event.keycode == KEY_DELETE:
 				_order(source.remove(tech_name), true)
 				card.accept_event()
+			# Clicking a queued tech shows it in the tree (GG centres on it).
+			var click := event as InputEventMouseButton
+			if click and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+				if _tree_view.visible:
+					_tree.selected = tech_name
+					_tree.center_on(tech_name)
 	)
 	# Drag to reorder; techs dropped here go before it.
 	card.set_drag_forwarding(
@@ -414,11 +435,19 @@ func _catalog_row(tech: Dictionary) -> Control:
 	var tech_name: String = tech.get("name", "")
 	var status: String = tech.get("status", "")
 	var row := HBoxContainer.new()
-	row.tooltip_text = tr(tech.get("short_description", ""))
+	row.tooltip_text = TechTreeView.describe(tech, _tree.queue_entries.get(tech_name, {}))
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	if status != "complete":
 		row.set_drag_forwarding(
 			func(_at): return {"type": TECH_DRAG, "name": tech_name}, Callable(), Callable()
+		)
+		# Double-click queues it, as in the tree (Shift: at the top).
+		row.gui_input.connect(
+			func(event: InputEvent):
+				var click := event as InputEventMouseButton
+				if click and click.double_click and click.button_index == MOUSE_BUTTON_LEFT:
+					_enqueue(tech_name)
+					row.accept_event()
 		)
 	row.add_child(_tech_icon(tech))
 	var text := VBoxContainer.new()
@@ -471,8 +500,11 @@ func _refresh_tree() -> void:
 	_tree.techs = shown
 	var positions := {}
 	var queue: Array = source.get_queue()
+	var entries := {}
 	for i in queue.size():
 		positions[queue[i].get("name", "")] = i
+		entries[queue[i].get("name", "")] = queue[i]
+	_tree.queue_entries = entries
 	_tree.queue_positions = positions
 	var needle := _search.text.strip_edges().to_lower()
 	if not needle.is_empty():

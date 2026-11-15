@@ -29,7 +29,9 @@ const ITEM_MENU := [
 	[7, "PEDIA_OPEN"],
 ]
 
-const FILTERS := ["all", "building", "ship", "unavailable"]
+## Pause after a spinner's last change before its order goes out.
+const SETTLE_SECONDS := 0.6
+const FILTERS := ["all", "building", "ship", "stockpile", "unavailable"]
 ## Drag data types: a queue item moved, a catalogue item added.
 const QUEUE_DRAG := "fo_queue_item"
 const CATALOG_DRAG := "fo_catalog_item"
@@ -47,6 +49,7 @@ var _queue_indices: Array = []
 var _queue_list: VBoxContainer
 var _removed_list: VBoxContainer
 var _location: OptionButton
+var _location_search: LineEdit
 var _filter: TabBar
 var _search: LineEdit
 var _catalog: VBoxContainer
@@ -71,9 +74,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func refresh() -> void:
 	var previous_location := selected_location_id()
 	_locations = source.get_locations()
-	_location.clear()
-	for location: Dictionary in _locations:
-		_location.add_item(location["name"], location["id"])
+	_fill_locations()
 	var index := _location.get_item_index(previous_location) if previous_location >= 0 else -1
 	if index < 0 and _location.item_count > 0:
 		index = 0
@@ -81,6 +82,54 @@ func refresh() -> void:
 		_location.select(index)
 	_refresh_queue()
 	_refresh_catalog()
+
+
+## \a locations for the picker: the first (the capital) alone, then the
+## rest by system (a [system name] heading each), planets with people first;
+## only those whose planet or system name contains \a needle.
+static func group_locations(locations: Array, needle := "") -> Array:
+	var rows := []
+	var by_system := {}
+	var order := []
+	for i in locations.size():
+		var location: Dictionary = locations[i]
+		var system_name: String = location.get("system_name", "")
+		var text := (str(location["name"]) + " " + system_name).to_lower()
+		if not needle.is_empty() and not text.contains(needle.to_lower()):
+			continue
+		if i == 0 and needle.is_empty():
+			rows.push_back(location)
+			continue
+		if not by_system.has(system_name):
+			by_system[system_name] = []
+			order.push_back(system_name)
+		by_system[system_name].push_back(location)
+	order.sort_custom(func(a, b): return a.naturalnocasecmp_to(b) < 0)
+	for system_name: String in order:
+		var group: Array = by_system[system_name]
+		group.sort_custom(
+			func(a, b):
+				if a.get("populated", false) != b.get("populated", false):
+					return a.get("populated", false)
+				return str(a["name"]).naturalnocasecmp_to(str(b["name"])) < 0
+		)
+		if not system_name.is_empty():
+			rows.push_back([system_name])
+		rows.append_array(group)
+	return rows
+
+
+func _fill_locations() -> void:
+	var keep := selected_location_id()
+	_location.clear()
+	for row in group_locations(_locations, _location_search.text.strip_edges()):
+		if row is Array:
+			_location.add_separator(row[0])
+		else:
+			_location.add_item(row["name"], row["id"])
+	var index := _location.get_item_index(keep) if keep >= 0 else -1
+	if index >= 0:
+		_location.select(index)
 
 
 func selected_location_id() -> int:
@@ -139,6 +188,22 @@ func _build() -> void:
 	_location.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_location.item_selected.connect(func(_i): _refresh_catalog())
 	location_row.add_child(_location)
+	# Narrow the picker by planet or system name (many outposts later on).
+	_location_search = LineEdit.new()
+	_location_search.placeholder_text = tr("PRODUCTION_LOCATION_SEARCH")
+	_location_search.custom_minimum_size.x = 120
+	_location_search.clear_button_enabled = true
+	_location_search.text_changed.connect(
+		func(_t):
+			_fill_locations()
+			if _location.selected < 0 and _location.item_count > 0:
+				for i in _location.item_count:
+					if not _location.is_item_separator(i):
+						_location.select(i)
+						break
+			_refresh_catalog()
+	)
+	location_row.add_child(_location_search)
 	# The selected location's supply group: what it makes and what is spent
 	# there (GG's group PP).
 	_group_points = ScreenKit.label("", "SmallLabel")
@@ -341,7 +406,9 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 		quantity.value = entry.get("remaining", 1)
 		quantity.tooltip_text = tr("PRODUCTION_QUANTITY")
 		quantity.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		quantity.value_changed.connect(func(value): _order(source.set_quantity(index, int(value))))
+		quantity.value_changed.connect(
+			settle.bind(quantity, func(v): _order(source.set_quantity(index, v)))
+		)
 		row.add_child(quantity)
 		# Batch size: ships built together, finishing on the same turn.
 		row.add_child(ScreenKit.label("×", "SecondaryLabel"))
@@ -351,7 +418,9 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 		blocksize.value = entry.get("blocksize", 1)
 		blocksize.tooltip_text = tr("PRODUCTION_BLOCKSIZE")
 		blocksize.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		blocksize.value_changed.connect(func(v): _order(source.set_blocksize(index, int(v))))
+		blocksize.value_changed.connect(
+			settle.bind(blocksize, func(v): _order(source.set_blocksize(index, v)))
+		)
 		row.add_child(blocksize)
 	var buttons := VBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 0)
@@ -492,13 +561,36 @@ func _catalog_row(item: Dictionary) -> Control:
 	add.tooltip_text = tr("QUEUE_ADD_TOP_TIP")
 	add.disabled = not available
 	add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	add.pressed.connect(
-		func():
-			var top := Input.is_key_pressed(KEY_SHIFT)
-			_order(source.enqueue(item, selected_location_id(), 0 if top else -1))
-	)
+	add.pressed.connect(add_item.bind(item))
 	row.add_child(add)
+	# Double-click adds too (Shift: at the top), as the tech list and tree.
+	if available:
+		row.gui_input.connect(
+			func(event: InputEvent):
+				var click := event as InputEventMouseButton
+				if click and click.double_click and click.button_index == MOUSE_BUTTON_LEFT:
+					add_item(item)
+					row.accept_event()
+		)
 	return row
+
+
+## Once \a spinner has rested at \a value for SETTLE_SECONDS, \a apply it
+## (an int): clicking or holding the arrows sends one order, not one per step,
+## and the row isn't rebuilt under the pointer.
+func settle(value: float, spinner: SpinBox, apply: Callable) -> void:
+	var step: int = spinner.get_meta("settle_step", 0) + 1
+	spinner.set_meta("settle_step", step)
+	await get_tree().create_timer(SETTLE_SECONDS).timeout
+	if is_instance_valid(spinner) and spinner.get_meta("settle_step", 0) == step:
+		apply.call(int(value))
+
+
+## Add catalogue \a item at the location shown: at the end, or with Shift at
+## the top.
+func add_item(item: Dictionary) -> void:
+	var top := Input.is_key_pressed(KEY_SHIFT)
+	_order(source.enqueue(item, selected_location_id(), 0 if top else -1))
 
 
 ## Tooltip of queue \a entry: total cost, a turn's share, minimum time and

@@ -2,9 +2,11 @@ class_name MapModes
 extends CenterContainer
 ## What the map is being used for besides looking, for GameShell: placing
 ## production (systems that can build an item ringed, a click queues it),
-## fleets selected together by a box (moved or merged as one), and the map
-## aids (scale legend, scale circle, minimap) shown or hidden. A banner over
-## the top of the map says what is going on and offers the way out.
+## fleets selected together by a box (moved, merged, set to a stance or to
+## explore as one, with a route preview for the slowest), and the map aids
+## (scale legend, scale circle, minimap) shown or hidden. A banner over the
+## top of the map says what is going on and offers the way out. Pressing or
+## releasing Shift redraws the route preview (Shift adds to the route).
 
 ## Map aids: hotkey -> option remembering whether it's shown.
 const MAP_AIDS := {
@@ -41,13 +43,17 @@ func _init(shell: GameShell) -> void:
 	banner.theme_type_variation = "OverlayPanel"
 	banner.visible = false
 	add_child(banner)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", FOUi.tokens.space_3)
-	banner.add_child(row)
+	# The message above, its buttons below: long messages with several
+	# buttons stay narrow enough to sit between the panels.
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", FOUi.tokens.space_2)
+	banner.add_child(rows)
 	_label = ScreenKit.label("")
-	row.add_child(_label)
+	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rows.add_child(_label)
 	_buttons = HBoxContainer.new()
-	row.add_child(_buttons)
+	_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	rows.add_child(_buttons)
 
 
 ## The banner's message.
@@ -197,6 +203,47 @@ func move_selected_fleets(system_id: int) -> void:
 	_shell.system_panel.refresh()
 
 
+## Set every selected fleet to \a stance (a FleetPanel.STANCES key).
+func _set_selected_stance(stance: String) -> void:
+	var done := 0
+	for fleet_id in selected_fleets:
+		if FOOrders.set_fleet_aggression(fleet_id, stance):
+			done += 1
+	_update_fleet_banner(
+		tr("FLEETS_STANCE_SET").replace("%1%", str(done)).replace(
+			"%2%", str(selected_fleets.size())
+		)
+	)
+
+
+## Send every selected fleet exploring.
+func _explore_selected() -> void:
+	for fleet_id in selected_fleets:
+		FOExplore.set_exploring(fleet_id, true)
+	_update_fleet_banner(tr("FLEETS_EXPLORING"))
+	_shell.system_panel.refresh()
+
+
+## The route preview to \a system_id for the selected fleets: the slowest
+## one's (it decides when they're all there); {} if none can go.
+func group_preview(system_id: int) -> Dictionary:
+	var slowest := {}
+	for fleet_id in selected_fleets:
+		var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
+		if fleet == null or fleet.get_system_id() == system_id:
+			continue
+		var preview: Dictionary = fleet.preview_route(system_id, Input.is_key_pressed(KEY_SHIFT))
+		if not preview.is_empty() and preview.get("eta", -1) >= slowest.get("eta", -2):
+			slowest = preview
+	return slowest
+
+
+func _input(event: InputEvent) -> void:
+	var key := event as InputEventKey
+	if key and key.keycode == KEY_SHIFT and not key.echo and _shell.follow_game:
+		_shell.preview_route_to(_shell.map_view.map.hovered_system_id())
+
+
 func _update_fleet_banner(note: String) -> void:
 	var text := tr("FLEETS_SELECTED").replace("%1%", str(selected_fleets.size()))
 	if not note.is_empty():
@@ -204,6 +251,14 @@ func _update_fleet_banner(note: String) -> void:
 	var actions := []
 	if _shell.follow_game and _same_system(selected_fleets):
 		actions.push_back([tr("FLEETS_MERGE_ALL"), "", merge_selected_fleets])
+	if _shell.follow_game:
+		actions.push_back(
+			[tr("FLEET_STANCE_AGGRESSIVE"), "GhostButton", _set_selected_stance.bind("aggressive")]
+		)
+		actions.push_back(
+			[tr("FLEET_STANCE_PASSIVE"), "GhostButton", _set_selected_stance.bind("passive")]
+		)
+		actions.push_back([tr("FLEETS_EXPLORE"), "GhostButton", _explore_selected])
 	actions.push_back([tr("FLEETS_CLEAR"), "GhostButton", clear_fleet_selection])
 	show_banner(text, actions)
 
