@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 9 | Map modes, combat replay, moderator tools, onboarding, translations, scaled and localised goldens, TSan, packaging, CI, cut-over cleanup |
+| P3 | 8 | Map modes, combat replay, moderator tools, onboarding, translations, scaled and localised goldens, TSan, packaging, CI, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -118,10 +118,10 @@ Closed:
 - **Theme-literal lint rule:** `godot4/tools/check_theme_literals.py`, run by the GDScript lint workflow, rejects theme overrides in scenes outside `ui/theme/` (upstream's root scenes exempt), numeric size and colour-literal overrides in UI scripts, and hex colours outside the style files; `# lint-ok: theme-literal` waives a line. The one offender (a 2 px gap in combat reports) now uses a token.
 - **Scaled and localised screenshot tests:** the options, production and designer screens and the game shell also have goldens at 150% (1920×1080 window, 1280×720 layout) and 200% (2560×1600), rendered in the window as players see them, and in German and Russian. CI runs each variant (`VISUAL_VARIANT`); `FOOptions.set_language()` switches the stringtable. The visual tests share `visual_base.gd`. Note: the Russian shots show the fork's new strings in English (the translations item).
 - **Onboarding hints:** the first time a player meets the map, End turn, a screen or the fleet and planet panels, a short tip appears next to it: one at a time, "Got it" or "No more hints". Seen tips are kept in `ui.hints.seen` and the switch in `ui.hints.enabled`; Options can show them again. Tips name rebindable keys as currently bound. A guided first ten turns (plan, phase 5) is not done.
+- **Map modes:** a picker by the scale bar, and Ctrl+Tab to cycle (rebindable), switch the map between standard, political (owned systems in their owner's colour), supply (supply ranges brought forward), detection (your detection ranges), resources (your systems' industry and research as half-disks) and threat (strength of monster fleets and empires at war with you). The mode is remembered (`ui.map.mode`) and its values follow each turn. The map aids no longer widen the layout at 1280 px.
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
-| Map modes (political, supply, detection, resources, threat) | Plan, phase 3 | L | |
 | Combat replay and charts | `CombatReport/GraphicalSummary`, plan phase 5 | L | |
 | Moderator tools | `ModeratorActionsWnd` | M | |
 | Translations of the fork's new strings | `default/stringtables/*.txt` | S | New keys exist in English only; other languages fall back to English. |

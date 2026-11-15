@@ -13,8 +13,14 @@ const MAP_AIDS := {
 	"minimap": "ui.map.minimap.shown",
 }
 
+## Remembers the map mode.
+const OPTION_MAP_MODE := "ui.map.mode"
+
 ## Own fleets selected together by dragging a box on the map.
 var selected_fleets := PackedInt32Array()
+## mode -> its per-system values (GalaxyMap.mode_values); the game's by
+## default, tests replace it.
+var mode_data_provider: Callable = MapModeData.from_game
 var banner: PanelContainer
 
 var _shell: GameShell
@@ -270,3 +276,28 @@ func _apply_map_aid(aid: String, shown: bool) -> void:
 			_shell.map_view.map.show_scale_circle = shown
 		"minimap":
 			_shell.minimap.visible = shown
+
+
+# Map modes -------------------------------------------------------------
+
+
+## Switch the map to \a mode (a GalaxyMap.MODES entry), and remember it.
+func set_map_mode(mode: String) -> void:
+	var map := _shell.map_view.map
+	map.map_mode = mode
+	map.mode_values = mode_data_provider.call(map.map_mode)
+	_shell.map_mode_picker.select(GalaxyMap.MODES.find(map.map_mode))
+	_shell.map_mode_picker.tooltip_text = (tr("MAP_MODE_TIP_" + map.map_mode.to_upper()).replace(
+		"%1%", FOHotkeys.binding("map_mode")
+	))
+	var options := Engine.get_singleton("FOOptions") if _shell.follow_game else null
+	if options:
+		options.add_option(OPTION_MAP_MODE, "OPTIONS_DB_UI_MAP_MODE", "standard")
+		options.set_value(OPTION_MAP_MODE, map.map_mode)
+		options.commit()
+
+
+## The next map mode (the map-mode hotkey), back to the first after the last.
+func cycle_map_mode() -> void:
+	var modes: Array = GalaxyMap.MODES
+	set_map_mode(modes[(modes.find(_shell.map_view.map.map_mode) + 1) % modes.size()])

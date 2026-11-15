@@ -47,6 +47,19 @@ const SUPPLY_SYSTEM_RADIUS := 0.45
 ## supply uses.
 const DETECTION_ALPHA := 0.12
 const DETECTION_COLOR := Color("#b8f2e6")
+## Map modes: supply's tint in the supply mode and faded in the political
+## one; owned systems' disks; resource half-disks and threat disks, sized by
+## the square root of their value, in screen pixels.
+const SUPPLY_MODE_ALPHA := 0.3
+const SUPPLY_FADED_ALPHA := 0.04
+const POLITICAL_ALPHA := 0.4
+const RESOURCE_PX_PER_ROOT := 5.0
+const THREAT_PX_PER_ROOT := 1.2
+const MODE_MIN_PX := 5.0
+const MODE_MAX_PX := 48.0
+const INDUSTRY_COLOR := Color("#f0a030")
+const RESEARCH_COLOR := Color("#40b0f0")
+const THREAT_COLOR := Color("#ff4040")
 ## Fields (ion storms, nebulae, ...): their art, faded so lanes stay legible.
 const FIELD_ALPHA := 0.6
 ## Background star density: one star per this many screen pixels.

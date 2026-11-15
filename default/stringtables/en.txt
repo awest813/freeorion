@@ -2023,6 +2023,50 @@ Show or hide detection ranges
 HOTKEY_GODOT_MINIMAP
 Show or hide the minimap
 
+HOTKEY_GODOT_MAP_MODE
+Next map mode
+
+OPTIONS_DB_UI_MAP_MODE
+Map mode of the Godot client: standard, political, supply, detection, resources or threat
+
+# Map modes: the picker's entries and what each shows.
+MAP_MODE_STANDARD
+Standard map
+
+MAP_MODE_POLITICAL
+Political
+
+MAP_MODE_SUPPLY
+Supply
+
+MAP_MODE_DETECTION
+Detection
+
+MAP_MODE_RESOURCES
+Resources
+
+MAP_MODE_THREAT
+Threat
+
+# %1% the key for the next map mode
+MAP_MODE_TIP_STANDARD
+Map mode (%1% for the next): systems, lanes, fleets and supply.
+
+MAP_MODE_TIP_POLITICAL
+Each system in the colour of the empire owning most of its planets.
+
+MAP_MODE_TIP_SUPPLY
+Each empire's supply range brought forward.
+
+MAP_MODE_TIP_DETECTION
+Where your planets and ships can see.
+
+MAP_MODE_TIP_RESOURCES
+Your systems' industry (left, orange) and research (right, blue); bigger is more.
+
+MAP_MODE_TIP_THREAT
+Strength (structure) of monster fleets and those of empires at war with you, by system.
+
 OPTIONS_DB_UI_MAP_MINIMAP_SHOWN
 Show the minimap of the whole galaxy at the bottom of the map (Ctrl+M)
 

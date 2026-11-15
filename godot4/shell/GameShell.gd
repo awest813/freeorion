@@ -22,6 +22,7 @@ var fleet_panel: FleetPanel
 var planet_panel: PlanetPanel
 var ship_panel: ShipPanel
 var map_scale: MapScale
+var map_mode_picker: OptionButton
 var minimap: MiniMap
 var map_modes: MapModes
 var hints: HintCoach
@@ -151,28 +152,36 @@ func _ready() -> void:
 	feed.link_activated.connect(_on_link_activated)
 	feed_column.add_child(feed)
 
-	# The middle: open map, with the scale legend and minimap at the bottom.
-	var middle := VBoxContainer.new()
+	# The middle: open map, with the map mode, scale legend and minimap at
+	# its bottom right. A plain Control, so they never widen the layout and
+	# push the panels off the screen.
+	var middle := Control.new()
 	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	middle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.add_child(middle)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	middle.add_child(spacer)
 	var map_aids := HBoxContainer.new()
 	map_aids.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	map_aids.alignment = BoxContainer.ALIGNMENT_END
+	map_aids.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	map_aids.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	map_aids.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	map_aids.offset_bottom = -_gap()
 	middle.add_child(map_aids)
+	# Mode picker above the scale bar, to keep the row narrow.
+	var mode_and_scale := VBoxContainer.new()
+	mode_and_scale.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mode_and_scale.alignment = BoxContainer.ALIGNMENT_END
+	map_aids.add_child(mode_and_scale)
+	map_mode_picker = OptionButton.new()
+	for mode in GalaxyMap.MODES:
+		map_mode_picker.add_item(tr("MAP_MODE_" + mode.to_upper()))
+	map_mode_picker.item_selected.connect(
+		func(index: int): map_modes.set_map_mode(GalaxyMap.MODES[index])
+	)
+	mode_and_scale.add_child(map_mode_picker)
 	map_scale = MapScale.new()
-	map_scale.size_flags_vertical = Control.SIZE_SHRINK_END
-	map_aids.add_child(map_scale)
+	mode_and_scale.add_child(map_scale)
 	minimap = MiniMap.new()
 	map_aids.add_child(minimap)
-	var aids_gap := Control.new()
-	aids_gap.custom_minimum_size.y = _gap()
-	aids_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	middle.add_child(aids_gap)
 	var panel_margin := MarginContainer.new()
 	panel_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -258,6 +267,8 @@ func _ready() -> void:
 		if options.exists("ui.map.detection.shown"):
 			map_view.map.show_detection = options.get_value("ui.map.detection.shown")
 		map_modes.load_map_aids(options)
+		if options.exists(MapModes.OPTION_MAP_MODE):
+			map_modes.set_map_mode(options.get_value(MapModes.OPTION_MAP_MODE))
 		# A loaded game that was already won or lost isn't announced again.
 		check_game_over(FOUniverse.get_empire_resources(), true)
 		hints.offer("map")
@@ -297,6 +308,9 @@ func _handle_map_key(hotkey: String) -> bool:
 		return true
 	if hotkey == "detection":
 		set_detection_shown(not map_view.map.show_detection)
+		return true
+	if hotkey == "map_mode":
+		map_modes.cycle_map_mode()
 		return true
 	if MapModes.MAP_AIDS.has(hotkey):
 		map_modes.toggle_map_aid(hotkey)
@@ -725,6 +739,8 @@ func _on_diplomacy_changed() -> void:
 
 func _on_turn_update() -> void:
 	check_game_over(FOUniverse.get_empire_resources())
+	# The map mode's values follow the new turn.
+	map_modes.set_map_mode(map_view.map.map_mode)
 	_on_diplomacy_changed()
 	system_panel.refresh()
 	if fleet_panel.visible:

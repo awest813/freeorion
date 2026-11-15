@@ -27,11 +27,26 @@ const GRID_CELL := 64.0
 const NO_SYSTEM := -1
 ## Extra margin around the view when culling, in screen pixels.
 const CULL_MARGIN_PX := 32.0
+## Map modes: "standard", or a view that brings one thing forward.
+const MODES := ["standard", "political", "supply", "detection", "resources", "threat"]
 ## Screen pixels the mouse must move before a press becomes a box.
 const BOX_SLOP_PX := 6.0
 
 var bounds := Rect2()
 ## Show the player's detection ranges (option ui.map.detection.shown).
+## The map mode (a MODES entry); mode_values feeds it.
+var map_mode := "standard":
+	set(value):
+		map_mode = value if value in MODES else "standard"
+		if is_node_ready():
+			_apply_mode()
+## Per system for the mode: {system_id: {color} (political), {industry,
+## research} (resources) or {threat}}.
+var mode_values := {}:
+	set(value):
+		mode_values = value
+		if is_node_ready():
+			_mode_layer.values = value
 ## Draw a circle as wide as the scale legend around the selected system, to
 ## judge distances (GG's scale circle).
 var show_scale_circle := false:
@@ -45,7 +60,7 @@ var show_detection := false:
 	set(value):
 		show_detection = value
 		if _detection_layer:
-			_detection_layer.get_parent().visible = value
+			_detection_layer.get_parent().visible = value or map_mode == "detection"
 			_detection_layer.queue_redraw()
 
 var _system_ids := PackedInt32Array()
@@ -93,6 +108,9 @@ var _field_types := PackedStringArray()
 var _hovered_field := -1
 var _hover_point := Vector2()
 var _detection_layer: MapLayer
+var _mode_layer: ModeLayer
+var _supply_group: CanvasGroup
+var _detection_group: CanvasGroup
 var _detection_positions := PackedVector2Array()
 var _detection_radii := PackedFloat32Array()
 ## Systems ringed for the player to pick (e.g. where something can be built).
@@ -115,6 +133,7 @@ func _ready() -> void:
 	var supply_group := CanvasGroup.new()
 	supply_group.name = "Supply"
 	supply_group.self_modulate = Color(1, 1, 1, MapStyle.SUPPLY_SYSTEM_ALPHA)
+	_supply_group = supply_group
 	_supply_area = MapLayer.new()
 	_supply_area.draw_callback = _draw_supply_area
 	supply_group.add_child(_supply_area)
@@ -125,6 +144,7 @@ func _ready() -> void:
 	detection_group.name = "Detection"
 	detection_group.self_modulate = Color(1, 1, 1, MapStyle.DETECTION_ALPHA)
 	detection_group.visible = show_detection
+	_detection_group = detection_group
 	_detection_layer = MapLayer.new()
 	_detection_layer.draw_callback = _draw_detection
 	detection_group.add_child(_detection_layer)
@@ -136,6 +156,11 @@ func _ready() -> void:
 	_field_layer.draw_callback = _draw_fields
 	add_child(_field_layer)
 	move_child(_field_layer, supply_group.get_index())
+	# Map modes draw above the lanes, under fleets and selection.
+	_mode_layer = ModeLayer.new()
+	_mode_layer.map = self
+	add_child(_mode_layer)
+	move_child(_mode_layer, _lane_layer.get_index() + 1)
 	_overlay.draw_callback = _draw_overlay
 	_starfield.draw_callback = _draw_starfield
 	_label_layer.draw_callback = _draw_labels
@@ -432,6 +457,7 @@ func _on_zoom_changed(zoom_level: float) -> void:
 
 func _on_view_changed() -> void:
 	_field_layer.queue_redraw()
+	_mode_layer.queue_redraw()
 	if show_detection:
 		_detection_layer.queue_redraw()
 	_supply_area.queue_redraw()
@@ -522,6 +548,20 @@ func _draw_fields(layer: CanvasItem) -> void:
 
 # Supplied systems: a disk each in the supplying empire's colour, opaque
 # (the group around this layer fades it).
+func _apply_mode() -> void:
+	var supply_alpha := MapStyle.SUPPLY_SYSTEM_ALPHA
+	match map_mode:
+		"supply":
+			supply_alpha = MapStyle.SUPPLY_MODE_ALPHA
+		"political", "resources", "threat":
+			supply_alpha = MapStyle.SUPPLY_FADED_ALPHA
+	_supply_group.self_modulate = Color(1, 1, 1, supply_alpha)
+	_detection_group.visible = show_detection or map_mode == "detection"
+	if _detection_group.visible:
+		_detection_layer.queue_redraw()
+	_mode_layer.mode = map_mode
+
+
 func _draw_supply_area(layer: CanvasItem) -> void:
 	var radius := _typical_spacing() * MapStyle.SUPPLY_SYSTEM_RADIUS
 	if not is_finite(radius):

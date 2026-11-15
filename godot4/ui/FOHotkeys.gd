@@ -26,6 +26,7 @@ const HOTKEYS := [
 	["scale_legend", "HOTKEY_MAP_TOGGLE_SCALE_LINE", "Ctrl+L"],
 	["scale_circle", "HOTKEY_MAP_TOGGLE_SCALE_CIRCLE", "Alt+C"],
 	["minimap", "HOTKEY_GODOT_MINIMAP", "Ctrl+M"],
+	["map_mode", "HOTKEY_GODOT_MAP_MODE", "Ctrl+Tab"],
 	["system_prev", "HOTKEY_MAP_ZOOM_PREV_SYSTEM", "Ctrl+Comma"],
 	["system_next", "HOTKEY_MAP_ZOOM_NEXT_SYSTEM", "Ctrl+Period"],
 	["owned_prev", "HOTKEY_MAP_ZOOM_PREV_OWNED_SYSTEM", "Shift+Ctrl+Comma"],
