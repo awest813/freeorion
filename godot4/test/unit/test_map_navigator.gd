@@ -34,19 +34,18 @@ func test_no_targets():
 
 
 func test_keys():
-	var key := InputEventKey.new()
-	key.keycode = KEY_PERIOD
-	key.ctrl_pressed = true
-	assert_eq(MapNavigator.match_key(key), ["system", 1])
-	key.shift_pressed = true
-	assert_eq(MapNavigator.match_key(key), ["owned", 1])
-	key = InputEventKey.new()
-	key.keycode = KEY_F
-	key.alt_pressed = true
-	assert_eq(MapNavigator.match_key(key), ["idle", -1])
-	key = InputEventKey.new()
-	key.keycode = KEY_X
-	assert_eq(MapNavigator.match_key(key), [])
+	assert_eq(MapNavigator.match_hotkey(FOHotkeys.match_event(_key("Ctrl+Period"))), ["system", 1])
+	assert_eq(
+		MapNavigator.match_hotkey(FOHotkeys.match_event(_key("Shift+Ctrl+Period"))), ["owned", 1]
+	)
+	assert_eq(MapNavigator.match_hotkey(FOHotkeys.match_event(_key("Alt+F"))), ["idle", -1])
+	assert_eq(MapNavigator.match_hotkey(FOHotkeys.match_event(_key("X"))), [])
+
+
+func _key(text: String) -> InputEventKey:
+	var key := FOHotkeys.parse(text)
+	key.pressed = true
+	return key
 
 
 func test_shell_goes_to_targets_and_toggles_detection():

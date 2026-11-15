@@ -1983,6 +1983,59 @@ Show the detection ranges of your planets and ships on the map (Ctrl+D)
 OPTIONS_DB_UI_TURN_READINESS_CHECK
 Before a turn ends, point out unspent points and ships still waiting for orders
 
+# Keyboard shortcuts of the Godot client, and their page in Options.
+HOTKEY_GODOT_OPTION
+Keyboard shortcut of the Godot client, such as Ctrl+H or F2; empty for none
+
+HOTKEY_GODOT_PRODUCTION
+Open production
+
+HOTKEY_GODOT_RESEARCH
+Open research
+
+HOTKEY_GODOT_GOVERNMENT
+Open government
+
+HOTKEY_GODOT_DESIGN
+Open the ship designer
+
+HOTKEY_GODOT_COMBAT
+Open combat reports
+
+HOTKEY_GODOT_OBJECTS
+Open the objects list
+
+HOTKEY_GODOT_EMPIRES
+Open empires and diplomacy
+
+HOTKEY_GODOT_PEDIA
+Open the Pedia
+
+HOTKEY_GODOT_SAVE
+Save the game
+
+HOTKEY_GODOT_OPTIONS
+Open options
+
+HOTKEY_GODOT_DETECTION
+Show or hide detection ranges
+
+OPTIONS_HOTKEY_PRESS
+Press a key… (Esc cancels)
+
+OPTIONS_HOTKEY_NONE
+None
+
+OPTIONS_HOTKEY_CHANGE
+Click, then press the new key together with any modifiers.
+
+OPTIONS_HOTKEY_CLEAR
+Remove this shortcut
+
+# %1% key, %2% what it did before
+OPTIONS_HOTKEY_MOVED
+%1% was taken from "%2%", which now has no key.
+
 # Before ending a turn: the dialog and each kind of warning.
 READINESS_TITLE
 Before ending the turn

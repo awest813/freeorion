@@ -4,18 +4,18 @@ extends RefCounted
 ## all systems, systems with own planets, own fleets, and own fleets that
 ## aren't moving. Each kind keeps its own place in the cycle.
 
-## Kinds of target, and the key presses that step through them:
-## [kind, keycode, ctrl, shift, alt, direction].
-const KEYS := [
-	["system", KEY_COMMA, true, false, false, -1],
-	["system", KEY_PERIOD, true, false, false, 1],
-	["owned", KEY_COMMA, true, true, false, -1],
-	["owned", KEY_PERIOD, true, true, false, 1],
-	["fleet", KEY_F, true, false, false, -1],
-	["fleet", KEY_G, true, false, false, 1],
-	["idle", KEY_F, false, false, true, -1],
-	["idle", KEY_G, false, false, true, 1],
-]
+## Kinds of target: [kind, direction] for each FOHotkeys hotkey stepping
+## through them (Ctrl+, / Ctrl+. for systems, ... by default).
+const HOTKEYS := {
+	"system_prev": ["system", -1],
+	"system_next": ["system", 1],
+	"owned_prev": ["owned", -1],
+	"owned_next": ["owned", 1],
+	"fleet_prev": ["fleet", -1],
+	"fleet_next": ["fleet", 1],
+	"idle_prev": ["idle", -1],
+	"idle_next": ["idle", 1],
+}
 
 ## kind -> Array of targets {system_id, fleet_id (-1 for systems),
 ## position}; the game by default, a fake in tests.
@@ -35,17 +35,10 @@ func step(kind: String, direction: int) -> Dictionary:
 	return targets[index]
 
 
-## [kind, direction] for key \a event, or [] if it isn't a navigation key.
-static func match_key(event: InputEventKey) -> Array:
-	for entry in KEYS:
-		if (
-			event.keycode == entry[1]
-			and event.ctrl_pressed == entry[2]
-			and event.shift_pressed == entry[3]
-			and event.alt_pressed == entry[4]
-		):
-			return [entry[0], entry[5]]
-	return []
+## [kind, direction] for FOHotkeys hotkey \a hotkey, or [] if it isn't a
+## navigation hotkey.
+static func match_hotkey(hotkey: String) -> Array:
+	return HOTKEYS.get(hotkey, [])
 
 
 ## Targets of \a kind in the running game, in a stable order.

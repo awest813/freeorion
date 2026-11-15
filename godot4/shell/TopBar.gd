@@ -13,19 +13,18 @@ signal menu_requested
 ## anyway.
 signal readiness_issues(issues: Array)
 
-## Ctrl+Enter ends the turn, as a keyboard path to the primary action.
-const END_TURN_KEY := KEY_ENTER
-## Screen buttons: name, label key, shortcut.
-## Save (F5) and Options (F10) are in the in-game menu.
+## Screen buttons: name, label key. Each has the FOHotkeys shortcut
+## "screen_" + name (F2, F3, ... by default); End turn has "end_turn".
+## Save and Options are in the in-game menu.
 const SCREENS := [
-	["production", "MAP_BTN_PRODUCTION", KEY_F2],
-	["research", "MAP_BTN_RESEARCH", KEY_F3],
-	["government", "GOVERNMENT_TAB", KEY_F4],
-	["design", "DESIGNER_TAB", KEY_F6],
-	["objects", "MAP_BTN_OBJECTS", KEY_F8],
-	["combat", "COMBAT_TAB", KEY_F7],
-	["empires", "EMPIRES_TAB", KEY_F9],
-	["pedia", "MAP_BTN_PEDIA", KEY_F1],
+	["production", "MAP_BTN_PRODUCTION"],
+	["research", "MAP_BTN_RESEARCH"],
+	["government", "GOVERNMENT_TAB"],
+	["design", "DESIGNER_TAB"],
+	["objects", "MAP_BTN_OBJECTS"],
+	["combat", "COMBAT_TAB"],
+	["empires", "EMPIRES_TAB"],
+	["pedia", "MAP_BTN_PEDIA"],
 ]
 
 ## Resource chips: key in get_empire_resources(), icon, screen to open,
@@ -68,6 +67,8 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	FOHotkeys.changed.connect(_update_shortcut_tips)
+	_update_shortcut_tips()
 	if not follow_game or not is_instance_valid(GlobalFreeOrionNode):
 		return
 	GlobalFreeOrionNode.start_game.connect(_on_start_game)
@@ -123,9 +124,21 @@ func _update_turn_controls() -> void:
 		_end_turn.theme_type_variation = "GhostButton"
 	else:
 		_end_turn.text = tr("TOPBAR_END_TURN")
-		_end_turn.tooltip_text = tr("MAP_BTN_TURN_TOOLTIP_DESC_SP")
+		_end_turn.tooltip_text = with_key(tr("MAP_BTN_TURN_TOOLTIP_DESC_SP"), "end_turn")
 		_end_turn.disabled = _turn_number < 1
 		_end_turn.theme_type_variation = "PrimaryButton"
+
+
+## \a text with hotkey \a hotkey's key after it: "Production (F2)".
+static func with_key(text: String, hotkey: String) -> String:
+	var key: String = FOHotkeys.binding(hotkey)
+	return text if key.is_empty() else "%s (%s)" % [text, key]
+
+
+func _update_shortcut_tips() -> void:
+	for screen in SCREENS:
+		_screen_buttons[screen[0]].tooltip_text = with_key(tr(screen[1]), "screen_" + screen[0])
+	_update_turn_controls()
 
 
 ## Show the empire's resources (FOUniverse.get_empire_resources()).
@@ -238,11 +251,8 @@ func _build() -> void:
 		button.set_meta("label", button.text)
 		button.toggle_mode = true
 		button.theme_type_variation = "GhostButton"
-		button.tooltip_text = "%s (%s)" % [tr(screen[1]), OS.get_keycode_string(screen[2])]
-		var key := InputEventKey.new()
-		key.keycode = screen[2]
-		button.shortcut = Shortcut.new()
-		button.shortcut.events = [key]
+		button.shortcut = FOHotkeys.shortcut("screen_" + screen[0])
+		button.shortcut_in_tooltip = false
 		button.toggled.connect(_on_screen_toggled.bind(screen[0]))
 		row.add_child(button)
 		_screen_buttons[screen[0]] = button
@@ -255,11 +265,8 @@ func _build() -> void:
 	_end_turn = Button.new()
 	_end_turn.theme_type_variation = "PrimaryButton"
 	_end_turn.tooltip_text = tr("MAP_BTN_TURN_TOOLTIP_DESC_SP")
-	var shortcut_key := InputEventKey.new()
-	shortcut_key.keycode = END_TURN_KEY
-	shortcut_key.ctrl_pressed = true
-	_end_turn.shortcut = Shortcut.new()
-	_end_turn.shortcut.events = [shortcut_key]
+	_end_turn.shortcut = FOHotkeys.shortcut("end_turn")
+	_end_turn.shortcut_in_tooltip = false
 	_end_turn.set_meta("sound", "turn")
 	_end_turn.pressed.connect(_on_end_turn_pressed)
 	row.add_child(_end_turn)

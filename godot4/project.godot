@@ -21,6 +21,7 @@ config/icon="uid://cj7u2a5f57ueg"
 GlobalFreeOrionNode="*res://FreeOrionNode.tscn"
 FOUi="*res://ui/FOUi.gd"
 FOAudio="*res://ui/FOAudio.gd"
+FOHotkeys="*res://ui/FOHotkeys.gd"
 
 [display]
 

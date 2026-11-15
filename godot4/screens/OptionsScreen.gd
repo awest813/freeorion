@@ -24,6 +24,7 @@ const HIDDEN_PREFIXES := [
 	"audio.music.volume",
 	"audio.effects.enabled",
 	"audio.effects.volume",
+	"ui.hotkey.godot.",
 ]
 ## Sound controls: on/off option, volume option, label key.
 const AUDIO := [
@@ -41,6 +42,12 @@ var _motion: CheckButton
 var _audio: Array = []
 var _search: LineEdit
 var _list: VBoxContainer
+var _right_tabs: TabBar
+var _all_options: Control
+var _hotkeys: Control
+var _hotkey_list: VBoxContainer
+## The hotkey waiting for a key press, or "".
+var _capturing := ""
 
 
 func _init() -> void:
@@ -48,6 +55,37 @@ func _init() -> void:
 	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	theme_type_variation = "BackgroundPanel"
 	_build()
+
+
+# While a shortcut waits for its key, the next key press is it (Esc
+# cancels), before any shortcut can act on it.
+func _input(event: InputEvent) -> void:
+	if _capturing.is_empty() or not event is InputEventKey or not event.pressed:
+		return
+	get_viewport().set_input_as_handled()
+	if event.keycode == KEY_ESCAPE:
+		_capturing = ""
+		_refresh_hotkeys()
+		return
+	var text := FOHotkeys.describe(event)
+	if text.is_empty():
+		return  # a modifier on its own; wait for the key
+	set_hotkey(_capturing, text)
+
+
+## Bind \a hotkey to \a text; other hotkeys on the same key lose it.
+func set_hotkey(hotkey: String, text: String) -> void:
+	var taken: Array = FOHotkeys.conflicts(hotkey, text)
+	for other: String in taken:
+		FOHotkeys.bind_key(other, "")
+	FOHotkeys.bind_key(hotkey, text)
+	_capturing = ""
+	_status.text = (
+		tr("OPTIONS_HOTKEY_MOVED").replace("%1%", text).replace("%2%", _hotkey_label(taken[0]))
+		if not taken.is_empty()
+		else ""
+	)
+	_refresh_hotkeys()
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -67,7 +105,9 @@ func refresh() -> void:
 			_audio[i][1].set_value_no_signal(float(source.get_value(AUDIO[i][1])))
 			_audio[i][1].editable = _audio[i][0].button_pressed
 	_status.text = ""
+	_capturing = ""
 	_refresh_list()
+	_refresh_hotkeys()
 
 
 func _build() -> void:
@@ -142,10 +182,28 @@ func _build() -> void:
 	save.pressed.connect(_on_save_pressed)
 	interface.add_child(save)
 
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	columns.add_child(right)
+	_right_tabs = TabBar.new()
+	_right_tabs.add_tab(tr("OPTIONS_ALL"))
+	_right_tabs.add_tab(tr("OPTIONS_PAGE_HOTKEYS"))
+	right.add_child(_right_tabs)
 	var all := VBoxContainer.new()
-	all.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	columns.add_child(all)
-	all.add_child(ScreenKit.label(tr("OPTIONS_ALL"), "TitleLabel"))
+	all.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(all)
+	_all_options = all
+	_hotkey_list = ScreenKit.list()
+	_hotkeys = ScreenKit.scrolling(_hotkey_list)
+	_hotkeys.visible = false
+	right.add_child(_hotkeys)
+	_right_tabs.tab_changed.connect(
+		func(tab: int):
+			_all_options.visible = tab == 0
+			_hotkeys.visible = tab == 1
+			_capturing = ""
+			_refresh_hotkeys()
+	)
 	_search = LineEdit.new()
 	_search.placeholder_text = tr("OPTIONS_SEARCH")
 	_search.clear_button_enabled = true
@@ -153,6 +211,50 @@ func _build() -> void:
 	all.add_child(_search)
 	_list = ScreenKit.list()
 	all.add_child(ScreenKit.scrolling(_list))
+
+
+# One row per shortcut: what it does, its key (click to change), reset to
+# the default, clear.
+func _refresh_hotkeys() -> void:
+	ScreenKit.clear(_hotkey_list)
+	for entry in FOHotkeys.HOTKEYS:
+		var hotkey: String = entry[0]
+		var row := HBoxContainer.new()
+		var label := ScreenKit.label(tr(entry[1]))
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(label)
+		var key := Button.new()
+		key.custom_minimum_size.x = 180
+		key.set_meta("hotkey", hotkey)
+		var binding: String = FOHotkeys.binding(hotkey)
+		if hotkey == _capturing:
+			key.text = tr("OPTIONS_HOTKEY_PRESS")
+			key.theme_type_variation = "PrimaryButton"
+		else:
+			key.text = binding if not binding.is_empty() else tr("OPTIONS_HOTKEY_NONE")
+		key.tooltip_text = tr("OPTIONS_HOTKEY_CHANGE")
+		key.pressed.connect(
+			func():
+				_capturing = hotkey
+				_refresh_hotkeys()
+		)
+		row.add_child(key)
+		var reset := ScreenKit.small_button(
+			"↺", "OPTIONS_RESET", binding != FOHotkeys.default_binding(hotkey)
+		)
+		reset.pressed.connect(func(): set_hotkey(hotkey, FOHotkeys.default_binding(hotkey)))
+		row.add_child(reset)
+		var clear := ScreenKit.small_button("✕", "OPTIONS_HOTKEY_CLEAR", not binding.is_empty())
+		clear.pressed.connect(func(): set_hotkey(hotkey, ""))
+		row.add_child(clear)
+		_hotkey_list.add_child(row)
+
+
+func _hotkey_label(hotkey: String) -> String:
+	for entry in FOHotkeys.HOTKEYS:
+		if entry[0] == hotkey:
+			return tr(entry[1])
+	return hotkey
 
 
 func _refresh_list() -> void:

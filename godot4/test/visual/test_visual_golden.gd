@@ -106,6 +106,20 @@ func test_options_screen():
 	await _check_scene(screen, "options_screen", func(s): s.refresh())
 
 
+func test_options_hotkeys():
+	var screen := OptionsScreen.new()
+	screen.source = FAKE_OPTIONS.new()
+	await _check_scene(
+		screen,
+		"options_hotkeys",
+		func(s):
+			s.refresh()
+			s._right_tabs.current_tab = 1
+			s._capturing = "home"
+			s._refresh_hotkeys()
+	)
+
+
 func test_government_screen():
 	var screen := GovernmentScreen.new()
 	screen.source = preload("res://test/unit/fake_government_source.gd").new()

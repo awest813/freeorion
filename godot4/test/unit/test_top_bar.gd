@@ -69,9 +69,11 @@ func test_phases_are_ignored_outside_waiting():
 
 
 func test_ctrl_enter_is_the_shortcut():
-	var event: InputEventKey = bar._end_turn.shortcut.events[0]
-	assert_eq(event.keycode, KEY_ENTER)
-	assert_true(event.ctrl_pressed)
+	var key := FOHotkeys.parse("Ctrl+Enter")
+	key.pressed = true
+	assert_true(bar._end_turn.shortcut.matches_event(key))
+	key.ctrl_pressed = false
+	assert_false(bar._end_turn.shortcut.matches_event(key), "Enter alone doesn't end the turn")
 
 
 func test_shell_disables_inherited_auto_translation():

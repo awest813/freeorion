@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 3 | Tech tree graph; Pedia extras; hotkey rebinding |
+| P2 | 2 | Tech tree graph; Pedia extras |
 | P3 | 18 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -98,12 +98,12 @@ Closed:
 - **Where can I build this:** ⌖ on each item in the production list lists every planet that can build it now, ticked where you are; one Add queues it at all the ticked ones. Highlighting those planets on the map is still open (P3).
 - **Drag ships between fleets:** drag a ship from the fleet panel onto another of your fleets in the system panel to move it there, or onto Split for a new fleet. Dragging a ticked ship takes all the ticked ships along.
 - **Graphs:** the Empires screen (F9) has a Statistics tab charting every empire statistic the server records (output, stockpiles, ships, planets, military strength, ...) turn by turn: one line per empire in its colour, yours thicker. Hovering shows every empire's value at that turn; the legend hides lines.
+- **Hotkey rebinding:** every shortcut of the fork (screens, save, options, end turn, home, detection, map navigation) is an input action bound from an option (`ui.hotkey.godot.*`). Options has a Keyboard shortcuts tab: click a shortcut and press the new key with its modifiers, Esc to cancel; reset and clear per shortcut. A key already in use moves to the new shortcut, and Options says which one lost it. Tooltips show the current keys.
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Tech tree graph | `TechTreeWnd`, `TechTreeLayout`, `TechTreeArcs` | L | The fork has the list view only. |
 | Pedia extras | `EncyclopediaDetailPanel` | M | The planet suitability table, "show on map". (Graphs are in the Empires screen.) |
-| Hotkey rebinding | `OptionsWnd` hotkeys page | M | Fork shortcuts are fixed in code. |
 
 ## P3: polish and cut-over
 

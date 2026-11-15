@@ -10,7 +10,8 @@ signal leave_requested(action: String, path: String)
 
 const GALAXY_MAP_VIEW := preload("res://map/GalaxyMapView.tscn")
 ## Keys for screens opened from the in-game menu rather than the top bar.
-const MENU_KEYS := {KEY_F5: "save", KEY_F10: "options"}
+## Hotkeys for screens without a top-bar button.
+const MENU_HOTKEYS := {"screen_save": "save", "screen_options": "options"}
 
 ## Set false before adding to the tree to feed map and panel directly (tests).
 var follow_game := true
@@ -218,12 +219,13 @@ func _ready() -> void:
 # the menu handle their own Esc before it gets here.
 func _unhandled_key_input(event: InputEvent) -> void:
 	# Screens without a top-bar button keep their keys.
-	if event is InputEventKey and event.pressed and event.keycode in MENU_KEYS:
-		show_screen(MENU_KEYS[event.keycode])
+	var hotkey: String = FOHotkeys.match_event(event)
+	if MENU_HOTKEYS.has(hotkey):
+		show_screen(MENU_HOTKEYS[hotkey])
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and active_screen.is_empty():
-		if _handle_map_key(event):
+	if not hotkey.is_empty() and active_screen.is_empty():
+		if _handle_map_key(hotkey):
 			get_viewport().set_input_as_handled()
 			return
 	if not event.is_action_pressed("ui_cancel") or not active_screen.is_empty():
@@ -235,15 +237,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
-# Map keys: Ctrl+H home, the navigator's steps, Ctrl+D detection ranges.
-func _handle_map_key(event: InputEventKey) -> bool:
-	if event.keycode == KEY_H and event.ctrl_pressed:
+# Map hotkeys: home, detection ranges, and the navigator's steps.
+func _handle_map_key(hotkey: String) -> bool:
+	if hotkey == "home":
 		go_home()
 		return true
-	if event.keycode == KEY_D and event.ctrl_pressed:
+	if hotkey == "detection":
 		set_detection_shown(not map_view.map.show_detection)
 		return true
-	var nav := MapNavigator.match_key(event)
+	var nav := MapNavigator.match_hotkey(hotkey)
 	if nav.is_empty() or not follow_game:
 		return not nav.is_empty()
 	go_to(_navigator.step(nav[0], nav[1]))
