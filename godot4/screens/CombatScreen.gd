@@ -159,7 +159,7 @@ func _combat_card(combat: Dictionary) -> Button:
 # A thin bar split by side, in the sides' colours and sized by unit count.
 func _side_strip(sides: Array) -> Control:
 	var strip := HBoxContainer.new()
-	strip.add_theme_constant_override("separation", 2)
+	strip.add_theme_constant_override("separation", FOUi.tokens.space_1 >> 1)
 	strip.custom_minimum_size.y = FOUi.tokens.space_1
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side: Dictionary in sides:

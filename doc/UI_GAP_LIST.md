@@ -115,6 +115,7 @@ Closed:
 - **Minimap, scale legend and circle:** at the bottom of the map, a scale bar of a round distance follows the zoom and a minimap shows the galaxy with the visible part framed (click or drag to move there). Alt+C draws a circle of the scale's length around the selected system. Ctrl+L, Alt+C and Ctrl+M toggle them (rebindable), remembered in the GG client's `ui.map.scale.*.shown` options and `ui.map.minimap.shown`. Placing production, box selection and these aids now live in `MapModes`, out of GameShell.
 - **Objects list:** filter presets per kind (populated or outpost planets, moving or idle fleets, damaged ships); grouping by location, owner, species, fleet, design or building type with totals per group; a column chooser on right-clicking a title, with optional columns (planet type, size, shield; colony ships), remembered in `ui.objects.columns`; and a row menu to show the object on the map, open its species or building in the Pedia, or build at an own planet.
 - **Designs kept between games, renaming:** your designs' ⋯ menu can keep a design for later games (written to `<user data>/shipdesigns` in the GG client's format, so both clients share them), rename it (designs your empire made) or put it aside. The Saved list adds a kept design to the empire or deletes it, and new games start with the kept designs, following `resource.shipdesign.saved.enabled`. New designs now get a UUID, as in the GG designer. The design lists use a picker instead of tabs and the part filter no longer widens its column, so the designer fits at 1280 px.
+- **Theme-literal lint rule:** `godot4/tools/check_theme_literals.py`, run by the GDScript lint workflow, rejects theme overrides in scenes outside `ui/theme/` (upstream's root scenes exempt), numeric size and colour-literal overrides in UI scripts, and hex colours outside the style files; `# lint-ok: theme-literal` waives a line. The one offender (a 2 px gap in combat reports) now uses a token.
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
@@ -124,8 +125,8 @@ Closed:
 | Onboarding hints | Plan, phase 5 | M | |
 | Translations of the fork's new strings | `default/stringtables/*.txt` | S | New keys exist in English only; other languages fall back to English. |
 | Screenshot tests at 150% and 200% scale and in de/ru | Plan §7.1 | M | Goldens run at 100% in English only. |
-| TSan job, theme-literal lint rule | Plan §7.1, §7.3 | S | |
+| TSan job | Plan §7.1 | S | Build the bridge with `-fsanitize=thread` and run the integration test with libtsan preloaded into Godot. |
 | Packaging | `CMakeLists.txt`, `packaging/` | M | The Godot client runs from the source tree only; installers and the desktop entry still ship the GG client. |
 | Windows, macOS and Docker CI | `.github/workflows` | S | Changed but never run. |
-| Remove upstream's unused Godot scenes | `godot4/*.tscn`, `UpstreamAdapters.gd` | S | Root scenes from the upstream port, unused by the Shell flow. |
+| Remove upstream's unused Godot scenes | `godot4/*.tscn`, `UpstreamAdapters.gd` | S | Root scenes from the upstream port, unused by the Shell flow. Waits for the cut-over: until then the fork keeps them unedited (`godot4/README.md`) so upstream changes to them merge cleanly, and `UpstreamAdapters` keeps them working if opened directly. |
 | Art pipeline | Plan, phase 6 | L | Compressed imports, downscaled hull and field art, unreferenced icons, attribution files. |
