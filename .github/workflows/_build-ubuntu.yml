@@ -170,3 +170,22 @@ jobs:
             echo "::error::Godot completed with code 0, but execution errors occurred!"
             exit 1
           fi
+      - name: Run Godot visual tests
+        # Goldens in godot4/test/visual/golden were rendered with Mesa llvmpipe on Ubuntu 24.04.
+        # Regenerate them with UPDATE_GOLDENS=1 when a change is intended.
+        if: matrix.client-godot == '4' && matrix.build-parsers == 'ON' && matrix.os == 'ubuntu-24.04' && matrix.compiler == 'gcc' && !matrix.asan
+        run: |
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+          xvfb-run -a -s "-screen 0 1280x800x24" ./build/godot4 --rendering-driver opengl3 --resolution 1280x800 -s --path godot4 addons/gut/gut_cmdln.gd -gdir=res://test/visual -gexit 2>&1 | tee godot4_visual_output.log
+          if grep -E "SCRIPT ERROR|Parse Error|\[Failed\]" godot4_visual_output.log; then
+            echo "::error::Godot visual tests failed"
+            exit 1
+          fi
+      - name: Upload Godot visual test failures
+        if: failure() && matrix.os == 'ubuntu-24.04' && matrix.compiler == 'gcc' && !matrix.asan
+        uses: actions/upload-artifact@v7
+        with:
+          name: godot4-visual-failures-${{ github.run_number }}
+          path: ~/.local/share/godot/app_userdata/FreeOrion Godot 4 Client/visual/
+          if-no-files-found: ignore
+          retention-days: 7

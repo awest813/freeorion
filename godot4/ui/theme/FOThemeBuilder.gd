@@ -180,12 +180,15 @@ static func _ranges(theme: Theme, t: FOTokens) -> void:
 	theme.set_stylebox("background", "ProgressBar", track)
 	theme.set_stylebox("fill", "ProgressBar", fill)
 	theme.set_color("font_color", "ProgressBar", t.text_primary)
+	# Slider tracks get their thickness from the vertical content margins.
+	var thickness := t.space_1 / 2
+	var slider_track := box(t, t.surface_overlay, t.border, 0, thickness)
+	var slider_fill := box(t, t.accent, t.accent, 0, thickness)
+	var slider_fill_hover := box(t, t.accent_hover, t.accent_hover, 0, thickness)
 	for type in ["HSlider", "VSlider"]:
-		theme.set_stylebox("slider", type, track)
-		theme.set_stylebox("grabber_area", type, fill)
-		theme.set_stylebox(
-			"grabber_area_highlight", type, box(t, t.accent_hover, t.accent_hover, 0, 0)
-		)
+		theme.set_stylebox("slider", type, slider_track)
+		theme.set_stylebox("grabber_area", type, slider_fill)
+		theme.set_stylebox("grabber_area_highlight", type, slider_fill_hover)
 
 
 static func _separators(theme: Theme, t: FOTokens) -> void:
