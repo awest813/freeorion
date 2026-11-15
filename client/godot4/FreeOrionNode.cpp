@@ -54,6 +54,9 @@ void FreeOrionNode::_bind_methods() {
     ADD_SIGNAL(godot::MethodInfo("parsing_completed"));
     ADD_SIGNAL(godot::MethodInfo("start_game", godot::PropertyInfo(godot::Variant::BOOL, "is_new_game")));
     ADD_SIGNAL(godot::MethodInfo("turn_update"));
+    ADD_SIGNAL(godot::MethodInfo("save_completed",
+                                 godot::PropertyInfo(godot::Variant::STRING, "filename"),
+                                 godot::PropertyInfo(godot::Variant::INT, "bytes_written")));
 }
 
 FreeOrionNode::FreeOrionNode()
@@ -350,6 +353,15 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                 m_app->StartTurn(ui_data);
                 m_app->DecAutoTurns();
             }
+            break;
+        }
+        case Message::MessageType::SAVE_GAME_COMPLETE: {
+            std::string save_filename;
+            int bytes_written = 0;
+            ExtractServerSaveGameCompleteMessageData(msg, save_filename, bytes_written);
+            m_app->SaveGameCompleted();
+            call_deferred("emit_signal", "save_completed",
+                          godot::String::utf8(save_filename.c_str()), bytes_written);
             break;
         }
         default:

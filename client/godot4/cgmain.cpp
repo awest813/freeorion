@@ -16,6 +16,7 @@
 #include "pedia/FOPedia.h"
 #include "production/FOProduction.h"
 #include "research/FOResearch.h"
+#include "saves/FOSaves.h"
 #include "views/FOViews.h"
 
 namespace {
@@ -41,6 +42,7 @@ void initialize_freeorion_module(godot::ModuleInitializationLevel p_level) {
     GDREGISTER_ABSTRACT_CLASS(FOPedia);
     GDREGISTER_ABSTRACT_CLASS(FOProduction);
     GDREGISTER_ABSTRACT_CLASS(FOResearch);
+    GDREGISTER_ABSTRACT_CLASS(FOSaves);
     GDREGISTER_ABSTRACT_CLASS(FOOptions);
 
     s_fo_options = memnew(FOOptions);

@@ -29,6 +29,16 @@ public:
 
     void NewSinglePlayerGame();
 
+    /** Starts a local server and loads the single-player save \p filename. */
+    bool LoadSinglePlayerGame(const std::string& filename);
+
+    /** Asks the server to save the game to \p filename; saves queue up if
+      * one is in progress. Returns false when no game can be saved. */
+    bool SaveGame(const std::string& filename);
+
+    /** The server finished the oldest pending save; sends the next one. */
+    void SaveGameCompleted();
+
     int  AutoTurnsLeft() const;     ///< returns number of turns left to execute automatically
     void InitAutoTurns(int auto_turns); ///< Initialize auto turn counter
     void DecAutoTurns(int n = 1);       ///< Decrease auto turn counter

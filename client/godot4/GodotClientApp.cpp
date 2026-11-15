@@ -304,6 +304,48 @@ void GodotClientApp::NewSinglePlayerGame() {
 int  GodotClientApp::AutoTurnsLeft() const
 { return m_auto_turns; }
 
+bool GodotClientApp::LoadSinglePlayerGame(const std::string& filename) {
+    DebugLogger() << "GodotClientApp::LoadSinglePlayerGame " << filename;
+    ClearPreviousPendingSaves(m_game_saves_in_progress);
+
+    m_single_player_game = true;
+    try {
+        StartServer();
+    } catch (const std::runtime_error& err) {
+        ErrorLogger() << "GodotClientApp::LoadSinglePlayerGame : Couldn't start server: " << err.what();
+        return false;
+    }
+
+    if (!m_networking->ConnectToLocalHostServer()) {
+        ErrorLogger() << "GodotClientApp::LoadSinglePlayerGame : couldn't connect to the local server";
+        return false;
+    }
+
+    SinglePlayerSetupData setup_data;
+    setup_data.new_game = false;
+    setup_data.filename = filename;
+    // players are not specified when loading: the server takes them from the save
+    m_networking->SendMessage(HostSPGameMessage(setup_data, DependencyVersions()));
+    return true;
+}
+
+bool GodotClientApp::SaveGame(const std::string& filename) {
+    if (!m_networking->IsConnected() || CurrentTurn() == INVALID_GAME_TURN)
+        return false;
+    m_game_saves_in_progress.push(filename);
+    // Only one save at a time; the next goes out when this one completes.
+    if (m_game_saves_in_progress.size() == 1)
+        m_networking->SendMessage(HostSaveGameInitiateMessage(filename));
+    return true;
+}
+
+void GodotClientApp::SaveGameCompleted() {
+    if (!m_game_saves_in_progress.empty())
+        m_game_saves_in_progress.pop();
+    if (!m_game_saves_in_progress.empty())
+        m_networking->SendMessage(HostSaveGameInitiateMessage(m_game_saves_in_progress.front()));
+}
+
 void GodotClientApp::InitAutoTurns(int auto_turns) {
     m_auto_turns = auto_turns;
     if (!m_game_started || m_auto_turns < 0)
