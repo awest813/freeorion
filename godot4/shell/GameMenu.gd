@@ -10,6 +10,8 @@ signal resume_requested
 signal screen_requested(screen_name: String)
 ## Leave the game: "title" or "exit".
 signal leave_requested(action: String)
+## Give up the multiplayer game (confirmed).
+signal concede_requested
 
 ## Screen entries: label key, screen.
 const SCREEN_ENTRIES := [
@@ -27,6 +29,9 @@ var _confirm: VBoxContainer
 var _confirm_button: Button
 var _resume: Button
 var _save: Button
+var _load: Button
+var _concede: Button
+var _warning: Label
 
 
 func _init() -> void:
@@ -56,11 +61,18 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 ## Show the menu; \a subtitle names the game (empire, turn). \a can_save is
-## false while a turn is being processed.
-func open(subtitle: String, can_save := true) -> void:
+## false while a turn is being processed. In a multiplayer game (\a is_multiplayer), Concede takes
+## Load's place (disabled unless \a can_concede: the rules allow it).
+func open(
+	subtitle: String, can_save := true, is_multiplayer := false, can_concede := false
+) -> void:
 	_subtitle.text = subtitle
 	_subtitle.visible = not subtitle.is_empty()
 	_save.disabled = not can_save
+	_load.visible = not is_multiplayer
+	_concede.visible = is_multiplayer
+	_concede.disabled = not can_concede
+	_concede.tooltip_text = "" if can_concede else tr("ERROR_CONCEDE_DISABLED")
 	cancel_leave()
 	visible = true
 	FOUi.fade_in(self)
@@ -72,12 +84,20 @@ func close() -> void:
 	pending_leave = ""
 
 
-## Ask to confirm leaving with \a action ("title" or "exit").
+## Ask to confirm leaving with \a action ("title" or "exit"), or conceding
+## ("concede").
 func request_leave(action: String) -> void:
 	pending_leave = action
 	_entries.visible = false
 	_confirm.visible = true
-	_confirm_button.text = tr("MENU_QUIT_TO_TITLE" if action == "title" else "TITLE_EXIT")
+	_warning.text = tr("GAME_MENU_REALLY_CONCEDE" if action == "concede" else "MENU_CONFIRM_LEAVE")
+	match action:
+		"title":
+			_confirm_button.text = tr("MENU_QUIT_TO_TITLE")
+		"concede":
+			_confirm_button.text = tr("GAME_MENU_CONCEDE")
+		_:
+			_confirm_button.text = tr("TITLE_EXIT")
 	_confirm_button.call_deferred("grab_focus")
 
 
@@ -121,6 +141,12 @@ func _build() -> void:
 		button.pressed.connect(screen_requested.emit.bind(entry[1]))
 		if entry[1] == "save":
 			_save = button
+		elif entry[1] == "load":
+			_load = button
+	_concede = _button(_entries, "GAME_MENU_CONCEDE")
+	_concede.visible = false
+	_concede.pressed.connect(request_leave.bind("concede"))
+	_entries.move_child(_concede, _load.get_index() + 1)
 	_entries.add_child(HSeparator.new())
 	_button(_entries, "MENU_QUIT_TO_TITLE", "GhostButton").pressed.connect(
 		request_leave.bind("title")
@@ -131,11 +157,11 @@ func _build() -> void:
 	_confirm.add_theme_constant_override("separation", FOUi.tokens.space_3)
 	_confirm.visible = false
 	box.add_child(_confirm)
-	var warning := ScreenKit.label(tr("MENU_CONFIRM_LEAVE"))
-	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	warning.custom_minimum_size.x = 280
-	_confirm.add_child(warning)
+	_warning = ScreenKit.label(tr("MENU_CONFIRM_LEAVE"))
+	_warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_warning.custom_minimum_size.x = 280
+	_confirm.add_child(_warning)
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	_confirm.add_child(buttons)
@@ -160,5 +186,9 @@ func _button(parent: Control, key: String, variation := "") -> Button:
 func _on_confirm_pressed() -> void:
 	var action := pending_leave
 	if action.is_empty():
+		return
+	if action == "concede":
+		cancel_leave()
+		concede_requested.emit()
 		return
 	leave_requested.emit(action)

@@ -32,6 +32,9 @@ namespace {
         db.Add("setup.initial.species",          UserStringNop("OPTIONS_DB_GAMESETUP_STARTING_SPECIES_NAME"),    std::string("SP_HUMAN"),    Validator<std::string>());
         db.Add("setup.multiplayer.player.name",  UserStringNop("OPTIONS_DB_MP_PLAYER_NAME"),     std::string(""),            Validator<std::string>());
         db.Add("setup.multiplayer.host.address", UserStringNop("OPTIONS_DB_MP_HOST_ADDRESS"),    std::string("localhost"),   Validator<std::string>());
+        // Hosting a multiplayer game, as the GG intro screen registers them.
+        db.AddFlag("network.server.external.force", UserStringNop("OPTIONS_DB_FORCE_EXTERNAL_SERVER"), OptionsDB::Storable::UNSTORABLE);
+        db.Add<std::string>("network.server.uri", UserStringNop("OPTIONS_DB_EXTERNAL_SERVER_ADDRESS"), "localhost");
         db.Add<int>("auto-advance-n-turns",      UserStringNop("OPTIONS_DB_AUTO_N_TURNS"),           0,
                     RangedValidator<int>(0, 400),       OptionsDB::Storable::UNSTORABLE);
         // Autosave, as in the GG client (save.auto.exit.enabled is in MultiplayerCommon).
@@ -476,14 +479,22 @@ void GodotClientApp::StartQuitting() {
     if (m_quitting)
         return;
     DebugLogger() << "GodotClientApp::StartQuitting";
+    // A player who doesn't host a multiplayer game just leaves it; the
+    // host (or single player) shuts the server down.
+    const bool hosting = m_single_player_game || m_networking->PlayerIsHost(m_networking->PlayerID());
     // The server saves before it handles the shutdown sent after this.
     if (m_game_started)
         Autosave(AutosaveMoment::EXIT);
+    // Leaving a multiplayer game keeps the orders given so far, as GG's Resign.
+    if (m_game_started && !hosting && m_networking->IsTxConnected())
+        SendPartialOrders();
     m_quitting = true;
     m_game_started = false;
     m_auto_turns = 0;
     m_quit_start = std::chrono::steady_clock::now();
-    if (m_networking->IsTxConnected())
+    if (!hosting)
+        m_networking->DisconnectFromServer();
+    else if (m_networking->IsTxConnected())
         m_networking->SendMessage(ShutdownServerMessage());
 }
 

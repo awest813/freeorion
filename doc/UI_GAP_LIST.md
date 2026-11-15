@@ -2,7 +2,8 @@
 
 What the fork's Godot 4 client still lacks compared with the GG client, and
 what the plan (`UI_OVERHAUL_PLAN.md`) still owes. Audited on 2026-11-15 by
-reading both clients; update it as gaps close.
+reading both clients; update it as gaps close. A finer, feature-by-feature
+checklist against the GG client is in `UI_PARITY_AUDIT.md`.
 
 **Priority**
 - **P0:** blocks a normal single-player game.
@@ -21,7 +22,7 @@ single-player game any more. The planet actions (colonise, invade, annex,
 focus, scrap) were the last P0 gap. The resources, autosave and the game's end states (victory,
 defeat, server errors) are in as well. So are supply ranges and fields on
 the map. Planet detail is in; so are diplomacy and game rules;
-so are meter breakdowns. Multiplayer is the last P1 item. All P2
+so are meter breakdowns, and multiplayer: all P1 items are closed. All P2
 (parity) items are closed: sounds, turn readiness, ship detail, build
 locations, drag-and-drop between fleets, statistics charts, rebindable
 shortcuts, Pedia extras and the tech tree.
@@ -29,9 +30,9 @@ shortcuts, Pedia extras and the tech tree.
 | Priority | Open items | Main ones |
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
-| P1 | 1 | Multiplayer |
+| P1 | 0 | (multiplayer closed on 2026-11-15) |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 7 | Moderator tools (after multiplayer), translations, TSan, packaging, CI, cut-over cleanup, art pipeline |
+| P3 | 7 | Moderator tools, translations, TSan, packaging, CI, cut-over cleanup, art pipeline |
 
 ## P0: blocks a normal game
 
@@ -46,7 +47,7 @@ Each is an action button, or a focus picker, on the planet rows of the system pa
 
 ## P1: a regular player misses it
 
-Closed on 2026-11-15:
+None open. Closed on 2026-11-15:
 - **Resources in the top bar:** PP and RP with unspent points flagged, IP with next turn's change, PP stockpile, population, ships and detection. Each opens its screen.
 - **Autosave:** at the start and end of turns, on the first turn and on exit, following the `save.auto.*` options. Autosaves are listed (and marked) in the load screen.
 - **Server errors:** shown in a dialog. Fatal ones and the server ending the game return to the title, saying why.
@@ -60,17 +61,7 @@ Closed on 2026-11-15:
 - **Game rules in galaxy setup:** a second tab lists all 78 rules by category, generated from their metadata (type, range, choices), with a reset per changed rule. Changes are validated and reach the game.
 - **Meter breakdowns:** hovering a meter in the planet panel lists every effect behind its value (techs, buildings, species, policies, ...) as the GG meter tooltips do. This needed the client to compute effect accounting and meter estimates each turn, as `MapWnd::InitTurn` does; that also re-applies orders loaded with a saved game. Ship meters have them too (see Ship detail under P2).
 - **Fields (ion storms, nebulae, ...):** drawn with their art at their real radius. Their names and effects on hover are still missing (P2).
-
-### Map and panels
-
-| Gap | Legacy | Size | Notes |
-|---|---|---|---|
-
-### Game flow
-
-| Gap | Legacy | Size | Notes |
-|---|---|---|---|
-| Multiplayer | `ServerConnectWnd`, `MultiplayerLobbyWnd`, `PasswordEnterWnd`, `ChatWnd` | L | Connect, host, lobby (players, AIs, colours, ready), passwords, chat, and the lobby, auth, chat, status and timeout messages. |
+- **Multiplayer:** "Multi Player" on the title opens a connect screen: player name, server address (or one found on the local network), host a game on a server started here, or join as player, observer or moderator. The lobby has a new or loaded game, the galaxy settings (for whoever may set up the galaxy), the players with empire name, colour and species (or the saved empire they take over), adding and dropping AIs, ready marks, the server's start conditions and chat. Password prompts, the server's notices and losing the server are handled. In game: a messages window (Alt+T, the top bar's envelope with an unread count) for chat and whispers, the AIs' messages included; the other players' turn status in the Empires screen; the turn timeout counting down in the top bar; Concede in the menu where the rules allow it; and leaving keeps the orders given so far. Tested with two clients on a local server.
 
 ## P2: parity
 
@@ -123,7 +114,7 @@ Closed:
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
-| Moderator tools | `ModeratorActionsWnd` | M | Needs multiplayer first (P1): a moderator joins a hosted game as a moderator player. |
+| Moderator tools | `ModeratorActionsWnd` | M | A moderator can join a hosted game now; the tools themselves are missing. |
 | Translations of the fork's new strings | `default/stringtables/*.txt` | S | New keys exist in English only; other languages fall back to English. |
 | TSan job | Plan §7.1 | S | Build the bridge with `-fsanitize=thread` and run the integration test with libtsan preloaded into Godot. |
 | Packaging | `CMakeLists.txt`, `packaging/` | M | The Godot client runs from the source tree only; installers and the desktop entry still ship the GG client. |

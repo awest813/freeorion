@@ -1,6 +1,7 @@
 #ifndef _FreeOrionNode_h_
 #define _FreeOrionNode_h_
 
+#include <atomic>
 #include <memory>
 #include <optional>
 
@@ -94,6 +95,7 @@ private:
     void AbortGame(const std::string& message);
 
     std::unique_ptr<GodotClientApp> m_app;
+    std::atomic<bool> m_parsing_done = false; ///< content parsed, so checksums can be compared
     SaveGameUIData m_ui_data;              ///< sent with each turn's orders
     std::optional<SaveGameUIData> m_loaded_ui_data; ///< from the loaded save, if any
     godot::Ref<godot::Thread> m_parsing_thread;

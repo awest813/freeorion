@@ -14,7 +14,11 @@ var setup: GalaxySetupScreen
 var options: OptionsScreen
 var saves: SaveLoadScreen
 var credits: CreditsScreen
+var connect_screen: ConnectScreen
+var lobby: LobbyScreen
 var game: GameShell
+## The multiplayer session (hosting, joining, the lobby); tests replace it.
+var lobby_source: Variant = LobbySource.new()
 
 var _content_ready := false
 ## While leaving a game: [action, save path] to do once the server is gone.
@@ -40,6 +44,11 @@ func _ready() -> void:
 	GlobalFreeOrionNode.game_aborted.connect(_on_game_aborted)
 	GlobalFreeOrionNode.server_error.connect(_on_server_error)
 	GlobalFreeOrionNode.turn_progress.connect(_on_turn_progress)
+	GlobalFreeOrionNode.mp_joined.connect(_on_mp_joined)
+	GlobalFreeOrionNode.lobby_changed.connect(_on_lobby_changed)
+	GlobalFreeOrionNode.chat_received.connect(_on_chat_received)
+	GlobalFreeOrionNode.auth_requested.connect(_on_auth_requested)
+	GlobalFreeOrionNode.mp_disconnected.connect(_on_mp_disconnected)
 	GlobalFreeOrionNode.start_network_thread()
 	GlobalFreeOrionNode.start_parsing_thread()
 
@@ -99,6 +108,21 @@ func _build_menus() -> void:
 	add_child(credits)
 	credits.close_requested.connect(_show_title)
 	title.credits_requested.connect(_show_credits)
+	connect_screen = ConnectScreen.new()
+	connect_screen.lobby_source = lobby_source
+	connect_screen.visible = false
+	connect_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(connect_screen)
+	lobby = LobbyScreen.new()
+	lobby.source = lobby_source
+	lobby.visible = false
+	lobby.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(lobby)
+	title.multiplayer_requested.connect(_show_connect)
+	connect_screen.back_requested.connect(_show_title)
+	connect_screen.host_requested.connect(host_game)
+	connect_screen.join_requested.connect(join_game)
+	lobby.leave_requested.connect(leave_lobby)
 
 	title.new_game_requested.connect(_show_setup)
 	title.quick_start_requested.connect(_start_game)
@@ -117,6 +141,8 @@ func _show_title() -> void:
 	options.visible = false
 	saves.visible = false
 	credits.visible = false
+	connect_screen.visible = false
+	lobby.visible = false
 	title.visible = true
 
 
@@ -178,7 +204,7 @@ func _on_start_game(is_new_game: bool) -> void:
 	if is_new_game and option_db.exists(OPTION_SAVED_DESIGNS):
 		if option_db.get_value(OPTION_SAVED_DESIGNS):
 			FODesigner.add_all_saved()
-	for child in [title, setup, options, saves, credits]:
+	for child in [title, setup, options, saves, credits, connect_screen, lobby]:
 		child.queue_free()
 	game = GameShell.new()
 	game.leave_requested.connect(leave_game)
@@ -227,6 +253,12 @@ func _on_game_aborted(message: String) -> void:
 func _on_server_error(message: String, fatal: bool) -> void:
 	if game:
 		return
+	if connect_screen.visible or lobby.visible:
+		_show_connect()
+		connect_screen.set_status(message)
+		if fatal:
+			lobby_source.leave()
+		return
 	if fatal:
 		_notice = message
 		title.set_busy(tr("MENU_LEAVING"))
@@ -234,3 +266,87 @@ func _on_server_error(message: String, fatal: bool) -> void:
 	else:
 		title.set_busy("")
 		title.show_notice(message)
+
+
+# Multiplayer -----------------------------------------------------------
+
+
+func _show_connect() -> void:
+	if not _content_ready:
+		return
+	connect_screen.refresh()
+	title.visible = false
+	lobby.visible = false
+	connect_screen.visible = true
+	FOUi.fade_in(connect_screen)
+
+
+## Host a multiplayer game on a server started here; the lobby opens once
+## the server answers (mp_joined).
+func host_game(player_name: String) -> void:
+	var error: String = lobby_source.host_game(player_name)
+	if not error.is_empty():
+		connect_screen.set_status(tr(error))
+
+
+## Join the multiplayer game at \a address.
+func join_game(address: String, player_name: String, client_type: String) -> void:
+	var error: String = lobby_source.join_game(address, player_name, client_type)
+	if not error.is_empty():
+		connect_screen.set_status(tr(error))
+
+
+## Leave the lobby (and the server), back to the connect screen.
+func leave_lobby() -> void:
+	lobby_source.leave()
+	_show_connect()
+
+
+func _on_mp_joined(_player_id: int) -> void:
+	if game:
+		return
+	connect_screen.visible = false
+	title.visible = false
+	lobby.visible = true
+	lobby.refresh()
+	lobby.refresh_chat()
+	FOUi.fade_in(lobby)
+
+
+func _on_lobby_changed() -> void:
+	if not game and lobby.visible:
+		lobby.refresh()
+
+
+func _on_chat_received() -> void:
+	if game:
+		game.chat_window.refresh()
+	elif lobby.visible:
+		lobby.refresh_chat()
+
+
+# The server wants a password for the player's name.
+func _on_auth_requested(player_name: String) -> void:
+	var password := LineEdit.new()
+	password.secret = true
+	password.placeholder_text = tr("PASSWORD_LABEL")
+	var dialog := FODialog.open_on(
+		self,
+		tr("AUTHENTICATION_WINDOW_TITLE"),
+		"%s\n\n%s" % [player_name, tr("AUTHENTICATION_DESC")],
+		[
+			[tr("OK"), "PrimaryButton", func(): lobby_source.send_password(password.text)],
+			[tr("CANCEL"), "GhostButton", leave_lobby],
+		]
+	)
+	dialog.add_content(password)
+	password.text_submitted.connect(func(_t): dialog.choose(0))
+	password.call_deferred("grab_focus")
+
+
+# The server went away before the game started.
+func _on_mp_disconnected(message: String) -> void:
+	if game or not (lobby.visible or connect_screen.visible):
+		return
+	_show_connect()
+	connect_screen.set_status(message)

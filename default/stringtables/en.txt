@@ -4017,6 +4017,82 @@ Accept
 NOT_READY_BN
 Decline
 
+MP_GAME_ENDED_PLAYER_LEFT
+A player lost their connection to the server, so the server ended the game.
+
+MP_SERVER_ADDRESS
+Server address
+
+MP_SEARCHING_LAN
+Looking for servers on the local network…
+
+MP_NO_LAN_SERVERS
+No servers answered on the local network.
+
+MP_HOST_TIP
+Start a server on this computer and host a game on it
+
+MP_STARTING_SERVER
+Starting the server…
+
+# %1% server address
+MP_CONNECTING
+Connecting to %1%…
+
+ERR_ALREADY_CONNECTED
+Already connected to a server.
+
+MP_LOBBY_PLAYERS
+Players
+
+MP_LOBBY_CHAT
+Chat
+
+MP_LEAVE
+Leave
+
+MP_PLAYER_READY
+Ready
+
+MP_PLAYER_NOT_READY
+Not ready
+
+# %1% name of the player who played a saved empire
+MP_ORIGINAL_PLAYER
+Played by %1%
+
+MP_SETTINGS_LOCKED
+Only the host can change the game settings.
+
+MP_SAVE_NONE
+No saved game picked yet.
+
+MP_SAVE_PICK
+Pick a saved game…
+
+# %1% save file, %2% turn
+MP_SAVE_ENTRY
+%1% (turn %2%)
+
+MP_TURN_DONE
+Turn ended
+
+MP_TURN_PLAYING
+Playing
+
+MP_CHAT_TO
+To
+
+MP_CHAT_EVERYONE
+Everyone
+
+CHAT_PLACEHOLDER
+Type a message and press Enter
+
+# %1% time left, as 1:05
+TOPBAR_TURN_TIMEOUT
+%1% left
+
 # %1% is a turn progress phase
 PLAYING_GAME
 Playing game: %1%

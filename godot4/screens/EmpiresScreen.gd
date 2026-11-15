@@ -170,6 +170,9 @@ static func status_text(empire: Dictionary) -> String:
 	var outgoing: String = empire.get("outgoing", "")
 	if not outgoing.is_empty():
 		parts.push_back(_tr("DIPLOMACY_OUTGOING_" + outgoing.to_upper()))
+	# Other human players: whether they have ended the turn.
+	if empire.get("client_type", "") == "player":
+		parts.push_back(_tr("MP_TURN_DONE" if empire.get("ready", false) else "MP_TURN_PLAYING"))
 	return " · ".join(parts)
 
 
@@ -229,6 +232,8 @@ func _empire_card(empire: Dictionary) -> Control:
 	var player: String = empire.get("player", "")
 	if not player.is_empty():
 		title.text += "  ·  " + player
+	if empire.get("client_type", "") == "ai":
+		title.text += "  (%s)" % tr("AI_PLAYER")
 	text.add_child(title)
 	var status := ScreenKit.label(status_text(empire), "SecondaryLabel")
 	match empire.get("status", ""):

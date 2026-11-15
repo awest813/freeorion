@@ -26,6 +26,8 @@ var map_mode_picker: OptionButton
 var minimap: MiniMap
 var map_modes: MapModes
 var hints: HintCoach
+## Messages with the other players (and what AIs say).
+var chat_window: ChatWindow
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
@@ -223,6 +225,15 @@ func _ready() -> void:
 	system_panel.planet_selected.connect(_on_planet_selected)
 	system_panel.ships_dropped.connect(_on_fleet_merge)
 
+	# Messages over the top left of the map, clear of the feed below.
+	chat_window = ChatWindow.new()
+	chat_window.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	chat_window.offset_left = _gap()
+	chat_window.offset_top = _gap()
+	chat_window.unread_changed.connect(top_bar.set_unread_messages)
+	screens.add_child(chat_window)
+	top_bar.messages_requested.connect(chat_window.toggle)
+
 	# The menu covers everything, the top bar included.
 	# First-time hints, over the map and screens but under the menu; only in
 	# a real game.
@@ -235,6 +246,11 @@ func _ready() -> void:
 	game_menu.resume_requested.connect(game_menu.close)
 	game_menu.screen_requested.connect(_on_menu_screen_requested)
 	game_menu.leave_requested.connect(func(action: String): leave_requested.emit(action, ""))
+	game_menu.concede_requested.connect(
+		func():
+			game_menu.close()
+			FOMultiplayer.concede()
+	)
 	add_child(game_menu)
 
 	# Panels pass the mouse wheel on to the scroll area around them.
@@ -271,6 +287,8 @@ func _ready() -> void:
 			map_modes.set_map_mode(options.get_value(MapModes.OPTION_MAP_MODE))
 		# A loaded game that was already won or lost isn't announced again.
 		check_game_over(FOUniverse.get_empire_resources(), true)
+		chat_window.refresh()
+		chat_window.mark_read()
 		hints.offer("map")
 		hints.offer("end_turn", top_bar.get_end_turn_button())
 
@@ -396,7 +414,17 @@ func open_menu() -> void:
 				),
 			]
 		)
-	game_menu.open(subtitle, not top_bar.is_waiting())
+	var is_multiplayer: bool = (
+		follow_game
+		and is_instance_valid(GlobalFreeOrionNode)
+		and not GlobalFreeOrionNode.get_single_player_game()
+	)
+	game_menu.open(
+		subtitle,
+		not top_bar.is_waiting(),
+		is_multiplayer,
+		is_multiplayer and FOMultiplayer.can_concede()
+	)
 
 
 func _on_menu_screen_requested(screen_name: String) -> void:

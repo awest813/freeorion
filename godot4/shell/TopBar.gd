@@ -9,6 +9,8 @@ extends PanelContainer
 signal screen_requested(screen_name: String)
 ## The Menu button was pressed (Esc on the map does the same, in GameShell).
 signal menu_requested
+## The messages button was pressed (opens the chat window).
+signal messages_requested
 ## End turn was pressed but TurnReadiness found \a issues; end_turn() ends it
 ## anyway.
 signal readiness_issues(issues: Array)
@@ -57,6 +59,10 @@ var _waiting := false
 var _turn_number := 0
 var _phase := ""
 var _phase_text := ""
+var _messages: Button
+## When the server ends the turn regardless (multiplayer), in msec ticks; 0 for none.
+var _turn_deadline := 0
+var _timeout_timer: Timer
 
 
 func _init() -> void:
@@ -74,6 +80,7 @@ func _ready() -> void:
 	GlobalFreeOrionNode.start_game.connect(_on_start_game)
 	GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 	GlobalFreeOrionNode.turn_progress.connect(set_phase)
+	GlobalFreeOrionNode.turn_timeout.connect(set_turn_timeout)
 	_refresh_from_game()
 
 
@@ -112,6 +119,9 @@ func _update_turn_controls() -> void:
 	)
 	if _waiting and not _phase_text.is_empty():
 		turn_text += "  ·  " + _phase_text
+	var left := turn_seconds_left()
+	if left >= 0:
+		turn_text += "  ·  " + tr("TOPBAR_TURN_TIMEOUT").replace("%1%", timeout_text(left))
 	_turn.text = turn_text
 	if _waiting:
 		_end_turn.text = (
@@ -129,6 +139,45 @@ func _update_turn_controls() -> void:
 		_end_turn.theme_type_variation = "PrimaryButton"
 
 
+## Messages that came in while the chat was closed, as a count on its button.
+func set_unread_messages(count: int) -> void:
+	_messages.text = str(count) if count > 0 else ""
+	if count > 0:
+		_messages.add_theme_color_override("font_color", FOUi.tokens.accent)
+	else:
+		_messages.remove_theme_color_override("font_color")
+
+
+## The server ends the turn in \a seconds whether everyone is ready or not
+## (multiplayer turn timeout); 0 or less for no limit.
+func set_turn_timeout(seconds: int) -> void:
+	_turn_deadline = Time.get_ticks_msec() + seconds * 1000 if seconds > 0 else 0
+	if seconds > 0:
+		_timeout_timer.start()
+	else:
+		_timeout_timer.stop()
+	_update_turn_controls()
+
+
+## Seconds until the turn times out, or -1 without a limit.
+func turn_seconds_left() -> int:
+	if _turn_deadline == 0:
+		return -1
+	var left := ceili((_turn_deadline - Time.get_ticks_msec()) / 1000.0)
+	if left <= 0:
+		_turn_deadline = 0
+		_timeout_timer.stop()
+		return -1
+	return left
+
+
+## "1:05" for 65 seconds; hours as "1:01:05".
+static func timeout_text(seconds: int) -> String:
+	if seconds >= 3600:
+		return "%d:%02d:%02d" % [seconds / 3600, (seconds / 60) % 60, seconds % 60]
+	return "%d:%02d" % [seconds / 60, seconds % 60]
+
+
 ## \a text with hotkey \a hotkey's key after it: "Production (F2)".
 static func with_key(text: String, hotkey: String) -> String:
 	var key: String = FOHotkeys.binding(hotkey)
@@ -138,6 +187,7 @@ static func with_key(text: String, hotkey: String) -> String:
 func _update_shortcut_tips() -> void:
 	for screen in SCREENS:
 		_screen_buttons[screen[0]].tooltip_text = with_key(tr(screen[1]), "screen_" + screen[0])
+	_messages.tooltip_text = with_key(tr("MESSAGES_PANEL_TITLE"), "messages")
 	_update_turn_controls()
 
 
@@ -240,6 +290,21 @@ func _build() -> void:
 			chip.pressed.connect(screen_requested.emit.bind(entry[2]))
 		resources.add_child(chip)
 		_resource_chips[entry[0]] = chip
+	# Messages at the right end of the resources row: the top row is full.
+	var resource_gap := Control.new()
+	resource_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	resources.add_child(resource_gap)
+	_messages = Button.new()
+	_messages.icon = FOArt.icon("icons/buttons/messages.png")
+	_messages.expand_icon = false
+	_messages.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_small)
+	_messages.add_theme_font_size_override("font_size", FOUi.tokens.font_size_small)
+	_messages.theme_type_variation = "GhostButton"
+	_messages.tooltip_text = with_key(tr("MESSAGES_PANEL_TITLE"), "messages")
+	_messages.shortcut = FOHotkeys.shortcut("messages")
+	_messages.shortcut_in_tooltip = false
+	_messages.pressed.connect(messages_requested.emit)
+	resources.add_child(_messages)
 	_swatch = ColorRect.new()
 	_swatch.custom_minimum_size = Vector2(FOUi.tokens.space_3, FOUi.tokens.space_3)
 	_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -275,6 +340,10 @@ func _build() -> void:
 	_end_turn.set_meta("sound", "turn")
 	_end_turn.pressed.connect(_on_end_turn_pressed)
 	row.add_child(_end_turn)
+	_timeout_timer = Timer.new()
+	_timeout_timer.wait_time = 1.0
+	_timeout_timer.timeout.connect(_update_turn_controls)
+	add_child(_timeout_timer)
 	var menu := Button.new()
 	menu.text = tr("GAME_MENU_WINDOW_TITLE")
 	menu.theme_type_variation = "GhostButton"

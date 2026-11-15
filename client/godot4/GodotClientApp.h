@@ -75,7 +75,7 @@ public:
     void StartGame(bool is_new_game);
 
     static GodotClientApp* GetApp();
-private:
+
     /** Starts a server process on localhost.
 
         Throws a runtime_error if the server process can't be started.
@@ -89,6 +89,7 @@ private:
       * processes, such as AIs. */
     void FreeServer();
 
+private:
     /** Clears the game: universe, empires, orders, players, turn. */
     void ResetClientData();
 #ifndef FREEORION_ANDROID

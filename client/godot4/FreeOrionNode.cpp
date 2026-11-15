@@ -10,6 +10,10 @@
 #include "GodotClientApp.h"
 #include "GodotI18n.h"
 #include "designer/FODesigner.h"
+#include "multiplayer/FOMultiplayer.h"
+
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/algorithm/string/replace.hpp>
 
 #include "../ClientNetworking.h"
 #include "../../Empire/Empire.h"
@@ -72,6 +76,14 @@ void FreeOrionNode::_bind_methods() {
                                  godot::PropertyInfo(godot::Variant::STRING, "message"),
                                  godot::PropertyInfo(godot::Variant::BOOL, "fatal")));
     ADD_SIGNAL(godot::MethodInfo("game_aborted", godot::PropertyInfo(godot::Variant::STRING, "message")));
+    // Multiplayer (FOMultiplayer holds what they are about).
+    ADD_SIGNAL(godot::MethodInfo("mp_joined", godot::PropertyInfo(godot::Variant::INT, "player_id")));
+    ADD_SIGNAL(godot::MethodInfo("lobby_changed"));
+    ADD_SIGNAL(godot::MethodInfo("mp_disconnected", godot::PropertyInfo(godot::Variant::STRING, "message")));
+    ADD_SIGNAL(godot::MethodInfo("chat_received"));
+    ADD_SIGNAL(godot::MethodInfo("auth_requested", godot::PropertyInfo(godot::Variant::STRING, "player_name")));
+    ADD_SIGNAL(godot::MethodInfo("players_changed"));
+    ADD_SIGNAL(godot::MethodInfo("turn_timeout", godot::PropertyInfo(godot::Variant::INT, "seconds")));
     ADD_SIGNAL(godot::MethodInfo("save_completed",
                                  godot::PropertyInfo(godot::Variant::STRING, "filename"),
                                  godot::PropertyInfo(godot::Variant::INT, "bytes_written")));
@@ -181,8 +193,10 @@ void FreeOrionNode::_process(double) {
     if (m_app->Quitting()) {
         // Leaving the game: drop what the server still sends until it's gone.
         while (m_app->Networking().GetMessage()) {}
-        if (m_app->UpdateQuitting())
+        if (m_app->UpdateQuitting()) {
+            FOMultiplayer::ClearSession();
             emit_signal("game_ended");
+        }
         return;
     }
 
@@ -197,6 +211,13 @@ void FreeOrionNode::_process(double) {
     // The server went away mid-game (crashed or was killed).
     if (m_app && m_app->GameStarted() && !m_app->Quitting() && !m_app->Networking().IsConnected())
         AbortGame(UserString("SERVER_LOST"));
+    // ... or while in a multiplayer lobby.
+    else if (m_app && !m_app->GameStarted() && FOMultiplayer::InSession() &&
+             !m_app->Networking().IsConnected())
+    {
+        FOMultiplayer::ClearSession();
+        emit_signal("mp_disconnected", godot::String::utf8(UserString("SERVER_LOST").c_str()));
+    }
 }
 
 void FreeOrionNode::AbortGame(const std::string& message) {
@@ -240,6 +261,7 @@ bool FreeOrionNode::get_single_player_game() const
 void FreeOrionNode::parsing_thread() {
     DebugLogger() << "FreeOrionNode::parsing_thread(): Freeorion parsing started";
     m_app->StartParsingContent();
+    m_parsing_done = true;
     call_deferred("emit_signal", "parsing_completed");
     DebugLogger() << "FreeOrionNode::parsing_thread(): Freeorion parsing stopped";
 }
@@ -529,7 +551,9 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                 text = UserString("SERVER_LOST");
                 break;
             case Message::EndGameReason::PLAYER_DISCONNECT:
-                text = boost::io::str(FlexibleFormat(UserString("PLAYER_DISCONNECTED")) % player_name);
+                // The server doesn't always say who left.
+                text = player_name.empty() ? UserString("MP_GAME_ENDED_PLAYER_LEFT") :
+                    boost::io::str(FlexibleFormat(UserString("PLAYER_DISCONNECTED")) % player_name);
                 break;
             default:
                 text = UserString("UNKNOWN");
@@ -551,12 +575,116 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             call_deferred("emit_signal", "diplomacy_changed");
             break;
         }
-        case Message::MessageType::PLAYER_CHAT:
-        case Message::MessageType::PLAYER_STATUS:
-        case Message::MessageType::TURN_TIMEOUT:
-            // Not shown by this client yet.
-            DebugLogger() << "FreeOrionNode::HandleMessage : ignoring message of type " << msg.Type();
+        // Multiplayer: joining, the lobby, chat, passwords, players.
+        case Message::MessageType::HOST_MP_GAME: {
+            const int host_id = boost::lexical_cast<int>(msg.Text());
+            m_app->Networking().SetPlayerID(host_id);
+            m_app->Networking().SetHostPlayerID(host_id);
+            call_deferred("emit_signal", "mp_joined", host_id);
             break;
+        }
+        case Message::MessageType::JOIN_GAME: {
+            int player_id = Networking::INVALID_PLAYER_ID;
+            boost::uuids::uuid cookie = boost::uuids::nil_uuid();
+            ExtractJoinAckMessageData(msg, player_id, cookie);
+            if (!cookie.is_nil()) {
+                // Remember the server's cookie, as the GG client does, so
+                // rejoining gets the player their seat back.
+                std::string option = boost::replace_all_copy(m_app->Networking().Destination(), ".", "_");
+                boost::replace_all(option, ":", "_");
+                option = "network.known-servers._" + option + ".cookie";
+                if (!GetOptionsDB().OptionExists(option))
+                    GetOptionsDB().Add<std::string>(option, "OPTIONS_DB_SERVER_COOKIE", "");
+                GetOptionsDB().Set(option, boost::uuids::to_string(cookie));
+                GetOptionsDB().Commit();
+            }
+            m_app->Networking().SetPlayerID(player_id);
+            call_deferred("emit_signal", "mp_joined", player_id);
+            break;
+        }
+        case Message::MessageType::HOST_ID: {
+            m_app->Networking().SetHostPlayerID(boost::lexical_cast<int>(msg.Text()));
+            call_deferred("emit_signal", "lobby_changed");
+            break;
+        }
+        case Message::MessageType::LOBBY_UPDATE: {
+            MultiplayerLobbyData lobby;
+            ExtractLobbyUpdateMessageData(msg, lobby);
+            FOMultiplayer::SetLobby(std::move(lobby));
+            call_deferred("emit_signal", "lobby_changed");
+            break;
+        }
+        case Message::MessageType::PLAYER_CHAT: {
+            int sender = Networking::INVALID_PLAYER_ID;
+            boost::posix_time::ptime timestamp;
+            std::string text;
+            bool pm = false;
+            ExtractServerPlayerChatMessageData(msg, sender, timestamp, text, pm);
+            ChatHistoryEntity entry;
+            entry.text = std::move(text);
+            entry.timestamp = timestamp;
+            // The sender's name: from the game's players, else the lobby's.
+            if (const auto it = m_app->Players().find(sender); it != m_app->Players().end()) {
+                entry.player_name = it->second.name;
+                if (const auto* empire = m_app->GetEmpire(it->second.empire_id))
+                    entry.text_color = empire->Color();
+            } else {
+                const godot::Dictionary lobby = FOMultiplayer::get_lobby();
+                const godot::Array players = lobby["players"];
+                for (int64_t i = 0; i < players.size(); ++i) {
+                    const godot::Dictionary player = players[i];
+                    if (int(player["player_id"]) == sender)
+                        entry.player_name = godot::String(player["player_name"]).utf8().get_data();
+                }
+            }
+            if (pm)
+                entry.text = "(" + UserString("MESSAGES_WHISPER") + ") " + entry.text;
+            FOMultiplayer::AddChat(std::move(entry));
+            call_deferred("emit_signal", "chat_received");
+            break;
+        }
+        case Message::MessageType::CHAT_HISTORY: {
+            std::vector<ChatHistoryEntity> history;
+            ExtractChatHistoryMessage(msg, history);
+            for (auto& entry : history)
+                FOMultiplayer::AddChat(std::move(entry));
+            call_deferred("emit_signal", "chat_received");
+            break;
+        }
+        case Message::MessageType::AUTH_REQUEST: {
+            std::string player_name, auth;
+            ExtractAuthRequestMessageData(msg, player_name, auth);
+            FOMultiplayer::SetAuthPlayerName(player_name);
+            call_deferred("emit_signal", "auth_requested", godot::String::utf8(player_name.c_str()));
+            break;
+        }
+        case Message::MessageType::CHECKSUM: {
+            // Content must match the server's (only checkable once parsed).
+            if (m_parsing_done && !m_app->VerifyCheckSum(msg))
+                emit_signal("server_error", godot::String::utf8(UserString("ERROR_CHECKSUM_MISMATCH").c_str()), false);
+            break;
+        }
+        case Message::MessageType::PLAYER_INFO: {
+            ExtractPlayerInfoMessageData(msg, m_app->Players());
+            call_deferred("emit_signal", "players_changed");
+            break;
+        }
+        case Message::MessageType::PLAYER_STATUS: {
+            Message::PlayerStatus status = Message::PlayerStatus::WAITING;
+            int empire_id = ALL_EMPIRES;
+            ExtractPlayerStatusMessageData(msg, status, empire_id);
+            m_app->SetEmpireStatus(empire_id, status);
+            call_deferred("emit_signal", "players_changed");
+            break;
+        }
+        case Message::MessageType::TURN_TIMEOUT: {
+            int seconds = 0;
+            try {
+                seconds = boost::lexical_cast<int>(msg.Text());
+            } catch (const boost::bad_lexical_cast&) {}
+            call_deferred("emit_signal", "turn_timeout", seconds);
+            break;
+        }
         default:
             ErrorLogger() << "FreeOrionNode::HandleMessage : Not implemented reacting to message of type\""
                           << msg.Type() << "\".";

@@ -5,6 +5,7 @@ extends Control
 
 signal new_game_requested
 signal quick_start_requested
+signal multiplayer_requested
 signal load_requested
 signal options_requested
 signal exit_requested
@@ -99,6 +100,7 @@ func _build() -> void:
 	var new_game := _menu_button("TITLE_NEW_GAME", new_game_requested, "PrimaryButton")
 	_content_buttons.push_back(new_game)
 	_content_buttons.push_back(_menu_button("TITLE_QUICK_START", quick_start_requested))
+	_content_buttons.push_back(_menu_button("INTRO_BTN_MULTI_PLAYER", multiplayer_requested))
 	_content_buttons.push_back(_menu_button("GAME_MENU_LOAD", load_requested))
 	_menu_button("OPTIONS_TITLE", options_requested)
 	_menu_button("TITLE_ABOUT", credits_requested, "GhostButton")

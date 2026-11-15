@@ -21,6 +21,7 @@ const HOTKEYS := [
 	["screen_save", "HOTKEY_GODOT_SAVE", "F5"],
 	["screen_options", "HOTKEY_GODOT_OPTIONS", "F10"],
 	["end_turn", "HOTKEY_MAP_END_TURN", "Ctrl+Enter"],
+	["messages", "HOTKEY_MAP_MESSAGES", "Alt+T"],
 	["home", "HOTKEY_MAP_ZOOM_HOME_SYSTEM", "Ctrl+H"],
 	["detection", "HOTKEY_GODOT_DETECTION", "Ctrl+D"],
 	["scale_legend", "HOTKEY_MAP_TOGGLE_SCALE_LINE", "Ctrl+L"],

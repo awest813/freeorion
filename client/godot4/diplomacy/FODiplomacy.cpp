@@ -94,6 +94,19 @@ godot::Array FODiplomacy::get_empires() {
         entry["color"] = godot::Color::from_rgba8(c[0], c[1], c[2], c[3]);
         entry["own"] = id == self;
         entry["eliminated"] = empire->Eliminated();
+        // Orders sent this turn, and who plays it (multiplayer).
+        entry["ready"] = empire->Ready();
+        godot::String client_type;
+        for (const auto& [player_id, info] : app->Players()) {
+            if (info.empire_id != id)
+                continue;
+            switch (info.client_type) {
+            case Networking::ClientType::CLIENT_TYPE_AI_PLAYER:    client_type = "ai"; break;
+            case Networking::ClientType::CLIENT_TYPE_HUMAN_PLAYER: client_type = "player"; break;
+            default: break;
+            }
+        }
+        entry["client_type"] = client_type;
         const bool other = id != self && self != ALL_EMPIRES;
         entry["status"] = other ? ToGodot(StatusName(empires.GetDiplomaticStatus(self, id))) : godot::String();
         entry["incoming"] = other ? ToGodot(ProposalName(PendingType(empires, id, self))) : godot::String();
