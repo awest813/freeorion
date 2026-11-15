@@ -11,6 +11,8 @@ extends Node2D
 
 signal system_selected(system_id: int)
 signal system_hovered(system_id: int)
+## New map data was set (each turn).
+signal snapshot_changed
 ## A system was left-clicked (also when it was selected already).
 signal system_clicked(system_id: int)
 ## A box was dragged from empty space: \a fleet_ids are the fleets inside.
@@ -30,6 +32,13 @@ const BOX_SLOP_PX := 6.0
 
 var bounds := Rect2()
 ## Show the player's detection ranges (option ui.map.detection.shown).
+## Draw a circle as wide as the scale legend around the selected system, to
+## judge distances (GG's scale circle).
+var show_scale_circle := false:
+	set(value):
+		show_scale_circle = value
+		if is_node_ready():
+			_overlay.queue_redraw()
 ## Only this empire's fleets are box-selected (-2: any).
 var own_empire_id := -2
 var show_detection := false:
@@ -202,6 +211,7 @@ func set_snapshot(
 		camera.fit_rect(bounds)
 	_on_zoom_changed(camera.zoom_level())
 	_on_view_changed()
+	snapshot_changed.emit()
 
 
 func system_count() -> int:
@@ -211,6 +221,16 @@ func system_count() -> int:
 func system_position(system_id: int) -> Vector2:
 	var index: int = _index_by_id.get(system_id, NO_SYSTEM)
 	return _positions[index] if index != NO_SYSTEM else Vector2.ZERO
+
+
+## What the minimap draws: {positions, lanes (index pairs), colors}.
+func overview() -> Dictionary:
+	return {"positions": _positions, "lanes": _lanes, "colors": _star_colors}
+
+
+## Radius of the scale circle: the scale legend's length at this zoom.
+func scale_circle_radius() -> float:
+	return MapScale.nice_length(MapScale.MAX_BAR_PX / camera.zoom_level())
 
 
 ## Ring \a system_ids for the player to pick from; empty clears the rings.
@@ -545,6 +565,17 @@ func _draw_overlay(layer: CanvasItem) -> void:
 		layer.draw_arc(_positions[_hovered], ring, 0, TAU, 32, Color(accent, 0.5), 1.5 * px, true)
 	if _selected != NO_SYSTEM:
 		layer.draw_arc(_positions[_selected], ring, 0, TAU, 40, accent, 2.0 * px, true)
+		if show_scale_circle:
+			layer.draw_arc(
+				_positions[_selected],
+				scale_circle_radius(),
+				0,
+				TAU,
+				96,
+				Color(accent, 0.6),
+				1.5 * px,
+				true
+			)
 
 
 func _draw_highlights(layer: CanvasItem, px: float, view: Rect2) -> void:

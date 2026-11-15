@@ -21,10 +21,9 @@ var system_panel: SystemPanel
 var fleet_panel: FleetPanel
 var planet_panel: PlanetPanel
 var ship_panel: ShipPanel
-## Shown while production is being placed on the map.
-var placement_banner: PanelContainer
-## Own fleets selected together by dragging a box on the map.
-var selected_fleets := PackedInt32Array()
+var map_scale: MapScale
+var minimap: MiniMap
+var map_modes: MapModes
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
@@ -42,10 +41,6 @@ var empires_screen: EmpiresScreen
 var active_screen := ""
 
 var _side_scroll: ScrollContainer
-## While placing production on the map: {item, locations, added}.
-var _placement := {}
-var _placement_label: Label
-var _banner_buttons: HBoxContainer
 var _navigator := MapNavigator.new()
 
 ## Newest combat the player has seen in the combat screen.
@@ -88,24 +83,10 @@ func _ready() -> void:
 	body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screens.add_child(body)
-	# A banner over the top of the map while placing production; it floats,
-	# so it never squeezes the panels.
-	var banner_center := CenterContainer.new()
-	banner_center.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	banner_center.offset_top = _gap()
-	banner_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screens.add_child(banner_center)
-	placement_banner = PanelContainer.new()
-	placement_banner.theme_type_variation = "OverlayPanel"
-	placement_banner.visible = false
-	banner_center.add_child(placement_banner)
-	var banner_row := HBoxContainer.new()
-	banner_row.add_theme_constant_override("separation", FOUi.tokens.space_3)
-	placement_banner.add_child(banner_row)
-	_placement_label = ScreenKit.label("")
-	banner_row.add_child(_placement_label)
-	_banner_buttons = HBoxContainer.new()
-	banner_row.add_child(_banner_buttons)
+	# Placing production, fleets selected together and the map aids, with a
+	# banner floating over the top of the map.
+	map_modes = MapModes.new(self)
+	screens.add_child(map_modes)
 	production_screen = ProductionScreen.new()
 	research_screen = ResearchScreen.new()
 	pedia_screen = PediaScreen.new()
@@ -126,7 +107,7 @@ func _ready() -> void:
 	pedia_screen.link_activated.connect(_on_link_activated)
 	research_screen.pedia_requested.connect(open_pedia)
 	production_screen.pedia_requested.connect(open_pedia)
-	production_screen.build_on_map_requested.connect(start_placement)
+	production_screen.build_on_map_requested.connect(map_modes.start_placement)
 	for screen in [
 		production_screen,
 		research_screen,
@@ -164,10 +145,28 @@ func _ready() -> void:
 	feed.link_activated.connect(_on_link_activated)
 	feed_column.add_child(feed)
 
+	# The middle: open map, with the scale legend and minimap at the bottom.
+	var middle := VBoxContainer.new()
+	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	middle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(middle)
 	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.add_child(spacer)
+	middle.add_child(spacer)
+	var map_aids := HBoxContainer.new()
+	map_aids.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	map_aids.alignment = BoxContainer.ALIGNMENT_END
+	middle.add_child(map_aids)
+	map_scale = MapScale.new()
+	map_scale.size_flags_vertical = Control.SIZE_SHRINK_END
+	map_aids.add_child(map_scale)
+	minimap = MiniMap.new()
+	map_aids.add_child(minimap)
+	var aids_gap := Control.new()
+	aids_gap.custom_minimum_size.y = _gap()
+	aids_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	middle.add_child(aids_gap)
 	var panel_margin := MarginContainer.new()
 	panel_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -223,8 +222,11 @@ func _ready() -> void:
 	map_view.map.camera.view_changed.connect(_report_view)
 
 	map_view.system_selected.connect(_on_system_selected)
-	map_view.map.system_clicked.connect(_on_system_clicked)
-	map_view.map.fleets_boxed.connect(select_fleets)
+	map_view.map.system_clicked.connect(map_modes.on_system_clicked)
+	map_view.map.fleets_boxed.connect(map_modes.select_fleets)
+	minimap.map = map_view.map
+	map_view.map.camera.zoom_changed.connect(map_scale.set_zoom)
+	map_scale.set_zoom(map_view.map.camera.zoom_level())
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
 		map_view.map.own_empire_id = FOUniverse.get_empire_id()
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
@@ -242,6 +244,7 @@ func _ready() -> void:
 		var options := Engine.get_singleton("FOOptions")
 		if options.exists("ui.map.detection.shown"):
 			map_view.map.show_detection = options.get_value("ui.map.detection.shown")
+		map_modes.load_map_aids(options)
 		# A loaded game that was already won or lost isn't announced again.
 		check_game_over(FOUniverse.get_empire_resources(), true)
 
@@ -261,10 +264,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			return
 	if not event.is_action_pressed("ui_cancel") or not active_screen.is_empty():
 		return
-	if is_placing():
-		end_placement()
-	elif not selected_fleets.is_empty():
-		clear_fleet_selection()
+	if map_modes.is_placing():
+		map_modes.end_placement()
+	elif map_modes.has_fleet_selection():
+		map_modes.clear_fleet_selection()
 	elif map_view.map.selected_system_id() != GalaxyMap.NO_SYSTEM:
 		map_view.map.select_system(GalaxyMap.NO_SYSTEM)
 	else:
@@ -279,6 +282,9 @@ func _handle_map_key(hotkey: String) -> bool:
 		return true
 	if hotkey == "detection":
 		set_detection_shown(not map_view.map.show_detection)
+		return true
+	if MapModes.MAP_AIDS.has(hotkey):
+		map_modes.toggle_map_aid(hotkey)
 		return true
 	var nav := MapNavigator.match_hotkey(hotkey)
 	if nav.is_empty() or not follow_game:
@@ -373,10 +379,8 @@ func _on_menu_screen_requested(screen_name: String) -> void:
 ## map, or return to the map with "".
 func show_screen(screen_name: String) -> void:
 	# Opening a screen ends placing production on the map.
-	if not screen_name.is_empty() and is_placing():
-		_placement = {}
-		map_view.map.set_highlighted(PackedInt32Array())
-		hide_banner()
+	if not screen_name.is_empty() and map_modes.is_placing():
+		map_modes.cancel_placement()
 	active_screen = screen_name
 	top_bar.set_active_screen(screen_name)
 	var screens := _screens()
@@ -457,166 +461,6 @@ func _update_frame_margins() -> void:
 		camera.fit_rect(map_view.map.bounds)
 
 
-## Back to the map with the systems where \a item can be built ringed;
-## clicking one queues it at the first of its \a locations there.
-func start_placement(item: Dictionary, locations: Array) -> void:
-	_placement = {"item": item, "locations": locations, "added": 0}
-	var systems := PackedInt32Array()
-	for location: Dictionary in locations:
-		if location.get("system_id", -1) >= 0 and not location["system_id"] in systems:
-			systems.push_back(location["system_id"])
-	map_view.map.set_highlighted(systems)
-	show_screen("")
-	clear_fleet_selection()
-	_update_placement_banner()
-
-
-## Leave placing: rings off, banner gone, back to the production screen if
-## anything was queued.
-func end_placement() -> void:
-	if _placement.is_empty():
-		return
-	var added: int = _placement.get("added", 0)
-	_placement = {}
-	map_view.map.set_highlighted(PackedInt32Array())
-	hide_banner()
-	if added > 0:
-		show_screen("production")
-
-
-func is_placing() -> bool:
-	return not _placement.is_empty()
-
-
-func _update_placement_banner() -> void:
-	var text := tr("PRODUCTION_PLACE_HINT").replace(
-		"%1%", production_screen.display_name(_placement["item"])
-	)
-	if _placement["added"] > 0:
-		text += "  " + tr("PRODUCTION_PLACE_ADDED").replace("%1%", str(_placement["added"]))
-	show_banner(text, [[tr("PRODUCTION_PLACE_DONE"), "PrimaryButton", end_placement]])
-
-
-## A message over the top of the map with buttons: [label, variation,
-## action] each.
-func show_banner(text: String, actions: Array) -> void:
-	_placement_label.text = text
-	ScreenKit.clear(_banner_buttons)
-	for action: Array in actions:
-		var button := Button.new()
-		button.text = action[0]
-		button.theme_type_variation = action[1]
-		button.pressed.connect(action[2])
-		_banner_buttons.add_child(button)
-	if not placement_banner.visible:
-		placement_banner.visible = true
-		FOUi.fade_in(placement_banner)
-
-
-func hide_banner() -> void:
-	placement_banner.visible = false
-
-
-## Select own fleets \a fleet_ids together (box selection): one is selected
-## as usual; several are ringed on the map and move together on right-click.
-func select_fleets(fleet_ids: PackedInt32Array) -> void:
-	if is_placing():
-		return
-	if fleet_ids.size() == 1:
-		clear_fleet_selection()
-		_go_to_fleet(fleet_ids[0])
-		return
-	selected_fleets = fleet_ids
-	map_view.map.set_marked_fleets(fleet_ids)
-	if fleet_ids.is_empty():
-		hide_banner()
-		return
-	system_panel.select_fleet(-1)
-	_update_fleet_banner("")
-
-
-func clear_fleet_selection() -> void:
-	if selected_fleets.is_empty():
-		return
-	selected_fleets = PackedInt32Array()
-	map_view.map.set_marked_fleets(selected_fleets)
-	if not is_placing():
-		hide_banner()
-
-
-func _update_fleet_banner(note: String) -> void:
-	var text := tr("FLEETS_SELECTED").replace("%1%", str(selected_fleets.size()))
-	if not note.is_empty():
-		text += "  " + note
-	var actions := []
-	if follow_game and _same_system(selected_fleets):
-		actions.push_back([tr("FLEETS_MERGE_ALL"), "", merge_selected_fleets])
-	actions.push_back([tr("FLEETS_CLEAR"), "GhostButton", clear_fleet_selection])
-	show_banner(text, actions)
-
-
-func _same_system(fleet_ids: PackedInt32Array) -> bool:
-	var system_id := -1
-	for fleet_id in fleet_ids:
-		var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
-		if not fleet or fleet.get_system_id() < 0:
-			return false
-		if system_id >= 0 and fleet.get_system_id() != system_id:
-			return false
-		system_id = fleet.get_system_id()
-	return system_id >= 0
-
-
-## Move the ships of every selected fleet into the first one.
-func merge_selected_fleets() -> void:
-	if selected_fleets.size() < 2:
-		return
-	var target := selected_fleets[0]
-	for fleet_id in selected_fleets.slice(1):
-		var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
-		if fleet:
-			FOOrders.merge_ships(target, fleet.get_ship_ids())
-	clear_fleet_selection()
-	_refresh_fleet_views(target)
-
-
-# Order every selected fleet to \a system_id; say how many could go.
-func _move_selected_fleets(system_id: int) -> void:
-	var append := Input.is_key_pressed(KEY_SHIFT)
-	var moved := 0
-	for fleet_id in selected_fleets:
-		if FOOrders.issue_fleet_move(fleet_id, system_id, append) >= 0:
-			moved += 1
-	_update_fleet_banner(
-		tr("FLEETS_ORDERED").replace("%1%", str(moved)).replace("%2%", str(selected_fleets.size()))
-	)
-	system_panel.refresh()
-
-
-func _go_to_fleet(fleet_id: int) -> void:
-	var fleet: FOFleet = FOUniverse.get_fleet(fleet_id) if follow_game else null
-	if fleet:
-		go_to(
-			{
-				"system_id": fleet.get_system_id(),
-				"fleet_id": fleet_id,
-				"position": fleet.get_position(),
-			}
-		)
-
-
-func _on_system_clicked(system_id: int) -> void:
-	if _placement.is_empty() or not map_view.map.is_highlighted(system_id):
-		return
-	for location: Dictionary in _placement["locations"]:
-		if location.get("system_id", -1) == system_id:
-			if production_screen.source.enqueue(_placement["item"], location["id"]):
-				_placement["added"] += 1
-				top_bar.refresh_resources()
-			break
-	_update_placement_banner()
-
-
 func _on_system_selected(system_id: int) -> void:
 	system_panel.select_fleet(-1)
 	planet_panel.show_data({})
@@ -627,8 +471,8 @@ func _on_system_selected(system_id: int) -> void:
 
 # Right-click on a system while an own fleet is selected: order it there.
 func _on_system_context_requested(system_id: int) -> void:
-	if not selected_fleets.is_empty() and follow_game:
-		_move_selected_fleets(system_id)
+	if map_modes.has_fleet_selection() and follow_game:
+		map_modes.move_selected_fleets(system_id)
 		return
 	var fleet_id := system_panel.selected_fleet_id()
 	if fleet_id < 0 or not follow_game:
@@ -660,7 +504,7 @@ func _on_building_scrap(building_id: int) -> void:
 func _on_fleet_selected(fleet_id: int) -> void:
 	if fleet_id >= 0:
 		planet_panel.show_data({})
-		clear_fleet_selection()
+		map_modes.clear_fleet_selection()
 	if fleet_id < 0 or ship_panel.visible and not _fleet_has_ship(fleet_id, ship_panel.ship_id):
 		ship_panel.show_data({})
 	_show_route(fleet_id)

@@ -61,16 +61,16 @@ func test_fleets_in_rect_and_ownership():
 
 func test_box_selects_own_fleets_and_esc_clears():
 	_drag(Vector2(-200, -150), Vector2(400, 150))
-	assert_eq(shell.selected_fleets, PackedInt32Array([10, 11]), "Not the other empire's")
+	assert_eq(shell.map_modes.selected_fleets, PackedInt32Array([10, 11]), "Not the other empire's")
 	assert_true(shell.map_view.map._marked_fleets.has(10))
-	assert_true(shell.placement_banner.visible)
-	assert_string_contains(shell._placement_label.text, "2")
+	assert_true(shell.map_modes.banner.visible)
+	assert_string_contains(shell.map_modes.banner_text(), "2")
 	var escape := InputEventAction.new()
 	escape.action = "ui_cancel"
 	escape.pressed = true
 	shell._unhandled_key_input(escape)
-	assert_eq(shell.selected_fleets.size(), 0)
-	assert_false(shell.placement_banner.visible)
+	assert_eq(shell.map_modes.selected_fleets.size(), 0)
+	assert_false(shell.map_modes.banner.visible)
 
 
 func test_a_short_press_is_no_box():

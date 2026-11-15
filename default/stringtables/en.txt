@@ -2020,6 +2020,16 @@ Open options
 HOTKEY_GODOT_DETECTION
 Show or hide detection ranges
 
+HOTKEY_GODOT_MINIMAP
+Show or hide the minimap
+
+OPTIONS_DB_UI_MAP_MINIMAP_SHOWN
+Show the minimap of the whole galaxy at the bottom of the map (Ctrl+M)
+
+# %1% distance in universe units, under the map's scale legend
+MAP_SCALE_UU
+%1% uu
+
 OPTIONS_HOTKEY_PRESS
 Press a key… (Esc cancels)
 
