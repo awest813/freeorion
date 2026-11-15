@@ -51,3 +51,11 @@ func playable_species() -> Array:
 
 func empire_colors() -> PackedColorArray:
 	return FOUniverse.get_empire_colors()
+
+
+func game_rules() -> Array:
+	return FOGameRules.list_rules()
+
+
+func set_game_rules(values: Dictionary) -> bool:
+	return FOGameRules.set_rules(values)

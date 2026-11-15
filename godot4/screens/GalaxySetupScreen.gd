@@ -1,7 +1,8 @@
 class_name GalaxySetupScreen
 extends PanelContainer
 ## New single-player game: player, empire (name, species, colour), galaxy
-## (seed, size, shape with a preview, age, frequencies) and AI opponents. Values are the setup.*
+## (seed, size, shape with a preview, age, frequencies) and AI opponents;
+## and on a second tab the game rules, generated from their metadata. Values are the setup.*
 ## options that the bridge's new_single_player_game() reads, so the form
 ## reads them on show and writes them back on Start.
 
@@ -104,6 +105,12 @@ var _editors := {}
 var _species: OptionButton
 var _colors: HFlowContainer
 var _color_index := 0
+var _pages: Array[Control] = []
+var _rule_tabs: TabBar
+var _rule_list: VBoxContainer
+var _rules: Array = []
+## Rule values as edited: {name: value}.
+var _rule_values := {}
 var _preview: TextureRect
 var _status: Label
 
@@ -121,10 +128,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-## Fill the form from the current setup options.
+## Fill the form from the current setup options and game rules.
 func refresh() -> void:
 	_fill_species()
 	_fill_colors()
+	_load_rules()
 	for option in _editors:
 		var editor: Control = _editors[option]
 		var value: Variant = source.get_value(option) if source.exists(option) else null
@@ -160,7 +168,20 @@ func apply() -> bool:
 			return false
 	if source.exists("setup.empire.color.index"):
 		source.set_value("setup.empire.color.index", _color_index)
+	if not source.set_game_rules(changed_rules()):
+		_status.text = tr("OPTIONS_INVALID").replace("%1%", tr("GSETUP_TAB_RULES"))
+		return false
 	return true
+
+
+## Rules set to something other than their default: {name: value}.
+func changed_rules() -> Dictionary:
+	var changed := {}
+	for rule: Dictionary in _rules:
+		var rule_name: String = rule["name"]
+		if _rule_values.has(rule_name) and _rule_values[rule_name] != rule["default"]:
+			changed[rule_name] = _rule_values[rule_name]
+	return changed
 
 
 func _build() -> void:
@@ -174,10 +195,27 @@ func _build() -> void:
 	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(form)
 	_status = ScreenKit.header(form, "GSETUP_WINDOW_TITLE", back_requested.emit)
+	var page_tabs := TabBar.new()
+	page_tabs.add_tab(tr("GSETUP_TAB_GALAXY"))
+	page_tabs.add_tab(tr("GSETUP_TAB_RULES"))
+	page_tabs.tab_changed.connect(_show_page)
+	form.add_child(page_tabs)
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", FOUi.tokens.space_6)
 	form.add_child(grid)
+	_pages.push_back(grid)
+	var rules_page := VBoxContainer.new()
+	rules_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	rules_page.visible = false
+	form.add_child(rules_page)
+	_pages.push_back(rules_page)
+	_rule_tabs = TabBar.new()
+	_rule_tabs.clip_tabs = false
+	_rule_tabs.tab_changed.connect(func(_t): _fill_rule_list())
+	rules_page.add_child(_rule_tabs)
+	_rule_list = ScreenKit.list()
+	rules_page.add_child(ScreenKit.scrolling(_rule_list))
 
 	for field in TEXTS:
 		var edit := LineEdit.new()
@@ -240,6 +278,128 @@ func _add_row(grid: GridContainer, label_key: String, editor: Control, option: S
 	grid.add_child(editor)
 	if not option.is_empty():
 		_editors[option] = editor
+
+
+func _show_page(index: int) -> void:
+	for i in _pages.size():
+		_pages[i].visible = i == index
+
+
+# Rules and their categories ("" is General), keeping edits already made.
+func _load_rules() -> void:
+	_rules = source.game_rules()
+	for rule: Dictionary in _rules:
+		if not _rule_values.has(rule["name"]):
+			_rule_values[rule["name"]] = rule["value"]
+	var categories: Array = []
+	for rule: Dictionary in _rules:
+		if not categories.has(rule["category"]):
+			categories.push_back(rule["category"])
+	var current := _rule_tabs.current_tab
+	while _rule_tabs.tab_count > 0:
+		_rule_tabs.remove_tab(0)
+	for category: String in categories:
+		_rule_tabs.add_tab(tr(category if not category.is_empty() else "GENERAL"))
+		_rule_tabs.set_tab_metadata(_rule_tabs.tab_count - 1, category)
+	if _rule_tabs.tab_count > 0:
+		_rule_tabs.current_tab = clampi(current, 0, _rule_tabs.tab_count - 1)
+	_fill_rule_list()
+
+
+func _fill_rule_list() -> void:
+	ScreenKit.clear(_rule_list)
+	if _rule_tabs.tab_count == 0:
+		return
+	# Adding the first tab switches to it before its category is set.
+	var category: Variant = _rule_tabs.get_tab_metadata(_rule_tabs.current_tab)
+	if category == null:
+		return
+	for rule: Dictionary in _rules:
+		if rule["category"] == category:
+			_rule_list.add_child(_rule_row(rule))
+
+
+# A rule: its name (description in the tooltip), an editor for its type,
+# and a reset button while it differs from the default.
+func _rule_row(rule: Dictionary) -> Control:
+	var row := HBoxContainer.new()
+	var rule_name: String = rule["name"]
+	var label := ScreenKit.label(tr(rule_name))
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	if not str(rule.get("description", "")).is_empty():
+		label.tooltip_text = tr(rule["description"])
+	row.add_child(label)
+	var value: Variant = _rule_values.get(rule_name, rule["value"])
+	var editor: Control
+	match rule["type"]:
+		"toggle":
+			var check := CheckBox.new()
+			check.button_pressed = value
+			check.toggled.connect(_set_rule.bind(rule_name))
+			editor = check
+		"int", "double":
+			var spin := SpinBox.new()
+			var is_int: bool = rule["type"] == "int"
+			spin.step = rule.get("step", 1 if is_int else 0.01)
+			spin.min_value = rule.get("min", -1000000)
+			spin.max_value = rule.get("max", 1000000)
+			spin.value = value
+			spin.custom_minimum_size.x = 140
+			spin.value_changed.connect(
+				func(v: float): _set_rule(int(v) if is_int else v, rule_name)
+			)
+			editor = spin
+		_:
+			if rule.has("choices"):
+				var choice := OptionButton.new()
+				for option: String in rule["choices"]:
+					choice.add_item(tr(option))
+					choice.set_item_metadata(choice.item_count - 1, option)
+					if option == value:
+						choice.select(choice.item_count - 1)
+				choice.item_selected.connect(
+					func(i: int): _set_rule(choice.get_item_metadata(i), rule_name)
+				)
+				editor = choice
+			else:
+				var edit := LineEdit.new()
+				edit.text = str(value)
+				edit.custom_minimum_size.x = 180
+				edit.text_changed.connect(_set_rule.bind(rule_name))
+				editor = edit
+	editor.tooltip_text = label.tooltip_text
+	row.add_child(editor)
+	var reset := ScreenKit.small_button("↺", "GSETUP_RULE_RESET")
+	reset.pressed.connect(_reset_rule.bind(rule_name))
+	row.add_child(reset)
+	_show_reset(reset, value != rule["default"])
+	return row
+
+
+# The reset button keeps its place when hidden, so editors stay aligned.
+static func _show_reset(reset: Button, shown: bool) -> void:
+	reset.disabled = not shown
+	reset.modulate.a = 1.0 if shown else 0.0
+	reset.mouse_filter = Control.MOUSE_FILTER_STOP if shown else Control.MOUSE_FILTER_IGNORE
+
+
+func _set_rule(value: Variant, rule_name: String) -> void:
+	_rule_values[rule_name] = value
+	# Show or hide the reset button of that rule's row.
+	for rule: Dictionary in _rules:
+		if rule["name"] == rule_name:
+			for row in _rule_list.get_children():
+				if row.get_child(0).text == tr(rule_name):
+					_show_reset(row.get_child(2), value != rule["default"])
+
+
+func _reset_rule(rule_name: String) -> void:
+	for rule: Dictionary in _rules:
+		if rule["name"] == rule_name:
+			_rule_values[rule_name] = rule["default"]
+	_fill_rule_list()
 
 
 # Species to start with, and "Random". Content may still be parsing on the

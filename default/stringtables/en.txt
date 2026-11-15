@@ -1992,6 +1992,15 @@ Back
 TITLE_START_GAME
 Start game
 
+GSETUP_TAB_GALAXY
+Galaxy
+
+GSETUP_TAB_RULES
+Game rules
+
+GSETUP_RULE_RESET
+Back to the default
+
 TITLE_LOADING_GAME
 Loading the game…
 

@@ -68,6 +68,50 @@ func test_species_and_colour():
 	assert_eq(setup.source.get_value("setup.initial.species"), "SP_HUMAN")
 
 
+func test_game_rules_page():
+	var setup := GalaxySetupScreen.new()
+	setup.source = _setup_options()
+	add_child_autofree(setup)
+	setup.refresh()
+	assert_eq(setup._rule_tabs.tab_count, 3, "General, Balance, Test")
+	assert_eq(setup._rule_tabs.get_tab_title(0), tr("GENERAL"))
+	await wait_process_frames(1)
+	var rows := setup._rule_list.get_children()
+	assert_eq(rows.size(), 2, "General has two rules")
+	var rounds: SpinBox = rows[0].get_child(1)
+	assert_eq(rounds.max_value, 20.0)
+	assert_true(rows[0].get_child(2).disabled, "No reset while at the default")
+	rounds.value = 6
+	assert_false(rows[0].get_child(2).disabled)
+	(rows[1].get_child(1) as CheckBox).button_pressed = true
+	setup._rule_tabs.current_tab = 2
+	await wait_process_frames(1)
+	var choice: OptionButton = setup._rule_list.get_child(0).get_child(1)
+	choice.select(1)
+	choice.item_selected.emit(1)
+	assert_eq(
+		setup.changed_rules(),
+		{
+			"RULE_NUM_COMBAT_ROUNDS": 6,
+			"RULE_AGGRESSIVE_SHIPS_COMBAT_VISIBLE": true,
+			"RULE_TEST_STRING": "OBSERVER",
+		}
+	)
+	assert_true(setup.apply())
+	assert_eq(setup.source.rules_set, setup.changed_rules(), "Only changed rules are sent")
+
+
+func test_refused_rules_keep_the_screen():
+	var setup := GalaxySetupScreen.new()
+	var fake := _setup_options()
+	fake.refuse_rules = true
+	setup.source = fake
+	add_child_autofree(setup)
+	setup.refresh()
+	assert_false(setup.apply())
+	assert_string_contains(setup._status.text, tr("GSETUP_TAB_RULES"))
+
+
 func test_star_count_field_clamps_to_range():
 	var setup := GalaxySetupScreen.new()
 	setup.source = _setup_options()

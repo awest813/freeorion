@@ -19,6 +19,47 @@ var options := {
 	{"value": false, "default": true, "description": "OPTIONS_DB_BINARY_SERIALIZATION"},
 }
 var committed := false
+var rules: Array = [
+	{
+		"name": "RULE_NUM_COMBAT_ROUNDS",
+		"category": "",
+		"type": "int",
+		"value": 4,
+		"default": 4,
+		"description": "RULE_NUM_COMBAT_ROUNDS_DESC",
+		"min": 2,
+		"max": 20,
+	},
+	{
+		"name": "RULE_AGGRESSIVE_SHIPS_COMBAT_VISIBLE",
+		"category": "",
+		"type": "toggle",
+		"value": false,
+		"default": false,
+		"description": "",
+	},
+	{
+		"name": "RULE_SHIP_SPEED_FACTOR",
+		"category": "BALANCE",
+		"type": "double",
+		"value": 1.0,
+		"default": 1.0,
+		"description": "",
+		"min": 0.1,
+		"max": 10.0,
+	},
+	{
+		"name": "RULE_TEST_STRING",
+		"category": "TEST",
+		"type": "string",
+		"value": "PLAYER",
+		"default": "PLAYER",
+		"description": "",
+		"choices": ["MODERATOR", "OBSERVER", "PLAYER", "AI_PLAYER"],
+	},
+]
+var rules_set := {}
+var refuse_rules := false
 
 
 func exists(option: String) -> bool:
@@ -74,3 +115,14 @@ func playable_species() -> Array:
 
 func empire_colors() -> PackedColorArray:
 	return PackedColorArray([Color("#ff0000"), Color("#00ff00"), Color("#3d9bff")])
+
+
+func game_rules() -> Array:
+	return rules
+
+
+func set_game_rules(values: Dictionary) -> bool:
+	if refuse_rules:
+		return false
+	rules_set = values
+	return true
