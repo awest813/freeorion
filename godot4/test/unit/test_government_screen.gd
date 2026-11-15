@@ -61,6 +61,9 @@ func test_pedia_button():
 
 func test_availability_filters():
 	assert_does_not_have(_catalog_names(), tr("PLC_RACIAL_PURITY"), "Locked hidden by default")
+	# As a click does it: the chip's own toggled signal.
+	screen._availability["locked"].button_pressed = true
+	assert_true(screen.shown["locked"], "The chip turns the filter on")
 	screen.set_shown("locked", true)
 	await wait_process_frames(1)
 	assert_has(_catalog_names(), tr("PLC_RACIAL_PURITY"))

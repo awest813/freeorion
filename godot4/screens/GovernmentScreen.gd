@@ -181,7 +181,8 @@ func _build() -> void:
 		toggle.toggle_mode = true
 		toggle.button_pressed = shown[entry[0]]
 		toggle.theme_type_variation = "SegmentButton"
-		toggle.toggled.connect(set_shown.bind(entry[0]))
+		# (bind() would pass the key after the pressed state.)
+		toggle.toggled.connect(func(on: bool): set_shown(entry[0], on))
 		availability_row.add_child(toggle)
 		_availability[entry[0]] = toggle
 	catalog_column.add_child(availability_row)
