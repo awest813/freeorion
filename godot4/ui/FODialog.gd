@@ -26,6 +26,9 @@ static func open_on(parent: Node, title: String, message: String, choices: Array
 	dialog.set_content(title, message, choices)
 	parent.add_child(dialog)
 	FOUi.fade_in(dialog)
+	var audio := dialog.get_node_or_null("/root/FOAudio")
+	if audio:
+		audio.play("alert")
 	return dialog
 
 

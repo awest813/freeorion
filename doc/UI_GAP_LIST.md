@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 10 | Tech tree graph; where to build; ship detail; graphs; sound; turn readiness; hotkey rebinding |
+| P2 | 9 | Tech tree graph; where to build; ship detail; graphs; turn readiness; hotkey rebinding |
 | P3 | 17 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -92,6 +92,7 @@ Closed:
   - Premade designs can be added to your empire.
   - Stats show the change from the design you started from, green when better.
   - Still open: saving designs to disk between games, and renaming in the UI (the bridge can rename).
+- **Sound and music:** the game's music plays in a loop; buttons click and sound on hover; new turns, ending a turn and dialogs have their sounds. Options has a Sound section to turn music and effects on or off and set their volumes (the GG client's `audio.*` options).
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
@@ -103,7 +104,6 @@ Closed:
 | Pedia extras | `EncyclopediaDetailPanel` | M | Graphs, the planet suitability table, "show on map". |
 | Turn readiness check | Plan, phase 4 item 7 | M | Idle fleets, empty queues, unspent points before ending the turn. |
 | Hotkey rebinding | `OptionsWnd` hotkeys page | M | Fork shortcuts are fixed in code. |
-| Sound and music | `UI/Sound.cpp`, `PlaySound` calls | M | Fork screens are silent; no music. Volume options belong in Options. |
 
 ## P3: polish and cut-over
 

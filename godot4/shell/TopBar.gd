@@ -255,6 +255,7 @@ func _build() -> void:
 	shortcut_key.ctrl_pressed = true
 	_end_turn.shortcut = Shortcut.new()
 	_end_turn.shortcut.events = [shortcut_key]
+	_end_turn.set_meta("sound", "turn")
 	_end_turn.pressed.connect(_on_end_turn_pressed)
 	row.add_child(_end_turn)
 	var menu := Button.new()

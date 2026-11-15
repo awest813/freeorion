@@ -35,16 +35,16 @@ func test_interface_controls_apply():
 
 func test_list_and_search():
 	assert_eq(_row_names().size(), 3, "Interface options are not repeated")
-	screen._search.text = "music"
-	screen._search.text_changed.emit("music")
+	screen._search.text = "detection"
+	screen._search.text_changed.emit("detection")
 	await wait_process_frames(1)
-	assert_eq(_row_names(), ["audio.music.enabled"])
+	assert_eq(_row_names(), ["ui.map.detection.shown"])
 
 
 func test_bool_editor():
-	var row := _row("audio.music.enabled")
-	row.find_children("*", "CheckBox", true, false)[0].button_pressed = false
-	assert_eq(fake.get_value("audio.music.enabled"), false)
+	var row := _row("ui.map.detection.shown")
+	row.find_children("*", "CheckBox", true, false)[0].button_pressed = true
+	assert_eq(fake.get_value("ui.map.detection.shown"), true)
 
 
 func test_invalid_number_is_reverted():
@@ -60,7 +60,7 @@ func test_invalid_number_is_reverted():
 func test_reset_only_when_changed():
 	var reset := _button(_row("save.format.binary"), "↺")
 	assert_false(reset.disabled)
-	assert_true(_button(_row("audio.music.enabled"), "↺").disabled)
+	assert_true(_button(_row("ui.map.detection.shown"), "↺").disabled)
 	reset.pressed.emit()
 	assert_true(fake.is_default("save.format.binary"))
 

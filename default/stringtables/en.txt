@@ -1935,6 +1935,12 @@ High contrast
 OPTIONS_REDUCE_MOTION
 Reduce motion
 
+OPTIONS_AUDIO
+Sound
+
+OPTIONS_VOLUME
+Volume
+
 OPTIONS_SAVE_DESC
 Changes apply at once; Save keeps them for the next start.
 

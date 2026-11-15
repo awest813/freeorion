@@ -20,6 +20,15 @@ const HIDDEN_PREFIXES := [
 	"ui.scale",
 	"ui.theme",
 	"ui.reduce-motion",
+	"audio.music.enabled",
+	"audio.music.volume",
+	"audio.effects.enabled",
+	"audio.effects.volume",
+]
+## Sound controls: on/off option, volume option, label key.
+const AUDIO := [
+	["audio.music.enabled", "audio.music.volume", "OPTIONS_MUSIC"],
+	["audio.effects.enabled", "audio.effects.volume", "OPTIONS_SOUNDS"],
 ]
 
 var source: Variant = OptionsSource.new()
@@ -28,6 +37,8 @@ var _status: Label
 var _scale: OptionButton
 var _theme: OptionButton
 var _motion: CheckButton
+## Per AUDIO row: [switch, volume slider].
+var _audio: Array = []
 var _search: LineEdit
 var _list: VBoxContainer
 
@@ -50,6 +61,11 @@ func refresh() -> void:
 	_scale.select(_scale_index(scale_setting))
 	_theme.select(maxi(0, THEMES.find(str(source.get_value(FOUi.OPTION_THEME)))))
 	_motion.set_pressed_no_signal(bool(source.get_value(FOUi.OPTION_REDUCE_MOTION)))
+	for i in AUDIO.size():
+		if source.exists(AUDIO[i][0]):
+			_audio[i][0].set_pressed_no_signal(bool(source.get_value(AUDIO[i][0])))
+			_audio[i][1].set_value_no_signal(float(source.get_value(AUDIO[i][1])))
+			_audio[i][1].editable = _audio[i][0].button_pressed
 	_status.text = ""
 	_refresh_list()
 
@@ -90,6 +106,31 @@ func _build() -> void:
 	_motion.tooltip_text = tr("OPTIONS_DB_UI_REDUCE_MOTION")
 	_motion.toggled.connect(func(on): _apply(FOUi.OPTION_REDUCE_MOTION, on))
 	grid.add_child(_motion)
+
+	# Music and sounds: a switch and a volume slider each.
+	interface.add_child(ScreenKit.label(tr("OPTIONS_AUDIO"), "TitleLabel"))
+	var audio_grid := GridContainer.new()
+	audio_grid.columns = 3
+	interface.add_child(audio_grid)
+	for entry in AUDIO:
+		audio_grid.add_child(ScreenKit.label(tr(entry[2]), "SecondaryLabel"))
+		var on := CheckButton.new()
+		audio_grid.add_child(on)
+		var volume := HSlider.new()
+		volume.min_value = 0
+		volume.max_value = 255
+		volume.step = 1
+		volume.custom_minimum_size.x = 140
+		volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		volume.tooltip_text = tr("OPTIONS_VOLUME")
+		audio_grid.add_child(volume)
+		on.toggled.connect(
+			func(pressed: bool):
+				volume.editable = pressed
+				_apply(entry[0], pressed)
+		)
+		volume.drag_ended.connect(func(_changed): _apply(entry[1], int(volume.value)))
+		_audio.push_back([on, volume])
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL

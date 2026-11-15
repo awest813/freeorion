@@ -14,7 +14,14 @@ var options := {
 		"min": 10,
 		"max": 5000,
 	},
+	"ui.map.detection.shown":
+	{"value": false, "default": false, "description": "OPTIONS_DB_UI_MAP_DETECTION_SHOWN"},
 	"audio.music.enabled": {"value": true, "default": true, "description": "OPTIONS_DB_MUSIC_ON"},
+	"audio.music.volume": {"value": 127, "default": 127, "description": "OPTIONS_DB_MUSIC_VOLUME"},
+	"audio.effects.enabled":
+	{"value": false, "default": true, "description": "OPTIONS_DB_SOUND_ON"},
+	"audio.effects.volume":
+	{"value": 200, "default": 255, "description": "OPTIONS_DB_UI_SOUND_VOLUME"},
 	"save.format.binary":
 	{"value": false, "default": true, "description": "OPTIONS_DB_BINARY_SERIALIZATION"},
 }
