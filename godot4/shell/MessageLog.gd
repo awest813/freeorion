@@ -2,7 +2,9 @@ class_name MessageLog
 extends Node
 ## Feeds the messages window what the GG client logs there: each turn
 ## begun, games saved, and wars, peace treaties and alliances between the
-## player's empire and others; and opens the Pedia for "/pedia".
+## player's empire and others; and opens the Pedia for "/pedia". Also, as
+## the GG client: a server error stops ending turns automatically, and
+## players' status changes refresh the empires' ready marks.
 
 var _shell: GameShell
 ## Diplomatic status with each other empire, as last seen: id -> status.
@@ -23,7 +25,15 @@ func _ready() -> void:
 	node.turn_update.connect(func(): turn_begun(node.get_current_turn()), CONNECT_DEFERRED)
 	node.save_completed.connect(saved)
 	node.diplomacy_changed.connect(func(): diplomacy(FODiplomacy.get_empires()))
+	node.server_error.connect(func(_message, _fatal): _shell.top_bar.set_auto_end_turn(false))
+	node.players_changed.connect(players_changed)
 	diplomacy(FODiplomacy.get_empires())
+
+
+## Players' status changed (ready, playing): the empires list shows it.
+func players_changed() -> void:
+	if _shell.empires_screen.visible:
+		_shell.empires_screen.refresh()
 
 
 func turn_begun(turn: int) -> void:

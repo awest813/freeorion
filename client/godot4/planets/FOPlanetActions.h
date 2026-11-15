@@ -2,6 +2,7 @@
 #define _FOPlanetActions_h_
 
 #include <godot_cpp/classes/object.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/string.hpp>
 
@@ -9,10 +10,12 @@
   * planet (colonise, invade, annex, change focus) and the orders for it,
   * as the GG client's SidePanel::PlanetPanel offers them.
   *
-  * Colonise and invade pick the ships themselves: the colony ship in the
-  * planet's system giving the largest colony, and "just enough" troop
-  * ships. Each order call toggles: it issues the order, or cancels the one
-  * issued earlier this turn. Must be called on the main thread. */
+  * Colonise and invade use the ships the player selected (in the fleet
+  * panel) when they can, as GG's side panel does; otherwise they pick the
+  * ships themselves: the colony ship in the planet's system giving the
+  * largest colony, and "just enough" troop ships. Each order call toggles:
+  * it issues the order, or cancels the one issued earlier this turn. Must
+  * be called on the main thread. */
 class FOPlanetActions : public godot::Object {
     GDCLASS(FOPlanetActions, Object)
 public:
@@ -27,11 +30,13 @@ public:
       * - focus: current, options (focus names), icons */
     static godot::Dictionary get_actions(int planet_id);
 
-    /** Order (or cancel) colonising \a planet_id. */
-    static bool colonize(int planet_id);
+    /** Order (or cancel) colonising \a planet_id, with the first of
+      * \a ship_ids that can, else the best colony ship there. */
+    static bool colonize(int planet_id, const godot::PackedInt32Array& ship_ids);
 
-    /** Order (or cancel) invading \a planet_id. */
-    static bool invade(int planet_id);
+    /** Order (or cancel) invading \a planet_id, with those of \a ship_ids
+      * that can, else enough troop ships there. */
+    static bool invade(int planet_id, const godot::PackedInt32Array& ship_ids);
 
     /** Order (or cancel) annexing \a planet_id. */
     static bool annex(int planet_id);

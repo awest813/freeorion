@@ -28,7 +28,14 @@ public:
 
     void SetSinglePlayerGame(bool sp = true);
 
-    void NewSinglePlayerGame();
+    /** Start a server and a new game; "" or why not (a stringtable key). */
+    std::string NewSinglePlayerGame();
+    /** Whether the game can be saved now, as GG's CanSaveNow: in
+      * multiplayer only by the host, and not while AIs play their turns. */
+    bool CanSaveNow() const;
+    /** Asked a server for a game that hasn't started yet. */
+    bool AwaitingGame() const noexcept { return m_awaiting_game; }
+    void SetAwaitingGame(bool awaiting) noexcept { m_awaiting_game = awaiting; }
 
     /** Starts a local server and loads the single-player save \p filename. */
     bool LoadSinglePlayerGame(const std::string& filename);
@@ -96,7 +103,8 @@ private:
     Process m_server_process;   ///< the server process (when hosting a game or playing single player); will be empty when playing multiplayer as a non-host player
 #endif
     bool m_single_player_game = true;   ///< true when this game is a single-player game
-    bool m_game_started = false;        ///< true when a game is currently in progress
+    bool m_game_started = false;
+    bool m_awaiting_game = false;       ///< a game was asked for and hasn't started        ///< true when a game is currently in progress
     int  m_auto_turns = 0;              ///< auto turn counter
     bool m_quitting = false;            ///< leaving the game: waiting for the server to disconnect
     std::chrono::steady_clock::time_point m_quit_start;

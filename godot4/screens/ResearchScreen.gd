@@ -245,6 +245,15 @@ func _refresh_queue() -> void:
 	_points.text = (tr("RESEARCH_POINTS").replace("%1%", "%.1f" % points.get("spent", 0.0)).replace(
 		"%2%", "%.1f" % points.get("available", 0.0)
 	))
+	# Research points no tech takes this turn are lost (GG shows them).
+	var wasted: float = points.get("available", 0.0) - points.get("spent", 0.0)
+	_points.tooltip_text = (
+		tr("RESEARCH_WASTED").replace("%1%", "%.1f" % wasted) if wasted > 0.05 else ""
+	)
+	if wasted > 0.05:
+		_points.add_theme_color_override("font_color", FOUi.tokens.warning)
+	else:
+		_points.remove_theme_color_override("font_color")
 	ScreenKit.clear(_queue_list)
 	var queue: Array = source.get_queue()
 	if queue.is_empty():

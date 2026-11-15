@@ -496,7 +496,7 @@ func open_menu() -> void:
 	)
 	game_menu.open(
 		subtitle,
-		not top_bar.is_waiting(),
+		not top_bar.is_waiting() and (not follow_game or FOSaves.can_save()),
 		is_multiplayer,
 		is_multiplayer and FOMultiplayer.can_concede()
 	)
@@ -771,9 +771,9 @@ func _on_planet_action(planet_id: int, action: String) -> void:
 	var done := false
 	match action:
 		"colonize":
-			done = FOPlanetActions.colonize(planet_id)
+			done = FOPlanetActions.colonize(planet_id, fleet_panel.selected_ship_ids())
 		"invade":
-			done = FOPlanetActions.invade(planet_id)
+			done = FOPlanetActions.invade(planet_id, fleet_panel.selected_ship_ids())
 		"annex":
 			done = FOPlanetActions.annex(planet_id)
 		"bombard":

@@ -28,6 +28,9 @@ public:
       * if no game can be saved now. */
     static godot::String save_game(const godot::String& name);
     static bool load_game(const godot::String& path);
+    /** Whether the game can be saved now (only the host in multiplayer,
+      * not while AIs play their turns). */
+    static bool can_save();
 
     /** Delete the save at \a path; only files in the save directory (or its
       * autosave directory) with the save extension. */

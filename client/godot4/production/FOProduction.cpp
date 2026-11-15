@@ -117,6 +117,34 @@ void FOProduction::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("restore", "index"), &FOProduction::restore);
 }
 
+namespace {
+    // Whether a queued item can still be produced where it is, as GG's queue
+    // tooltip tells (an item whose location became invalid stalls).
+    bool LocationOk(const ProductionQueue::Element& element, const ScriptingContext& context) {
+        try {
+            switch (element.item.build_type) {
+            case BuildType::BT_BUILDING:
+                if (const auto* type = GetBuildingType(element.item.name))
+                    return type->ProductionLocation(element.empire_id, element.location, context);
+                return false;
+            case BuildType::BT_SHIP:
+                if (const auto* design = context.ContextUniverse().GetShipDesign(element.item.design_id))
+                    return design->ProductionLocation(element.empire_id, element.location, context);
+                return false;
+            case BuildType::BT_STOCKPILE: {
+                const auto* loc = context.ContextObjects().getRaw(element.location);
+                return loc && loc->OwnedBy(element.empire_id) &&
+                    loc->ObjectType() == UniverseObjectType::OBJ_PLANET;
+            }
+            default:
+                return true;
+            }
+        } catch (const std::exception&) {
+            return true;
+        }
+    }
+}
+
 godot::Array FOProduction::get_queue() {
     godot::Array result;
     const auto* app = ClientApp::GetApp();
@@ -142,6 +170,8 @@ godot::Array FOProduction::get_queue() {
         entry["progress"] = element.progress;
         entry["allocated_pp"] = element.allocated_pp;
         entry["turns_left"] = element.turns_left_to_completion;
+        entry["turns_to_next"] = element.turns_left_to_next_item;
+        entry["location_ok"] = LocationOk(element, app->GetContext());
         entry["paused"] = element.paused;
         entry["stockpile_allowed"] = element.allowed_imperial_stockpile_use;
         entry["rally_point_id"] = element.rally_point_id;

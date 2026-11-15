@@ -42,6 +42,8 @@ var rally_target: Callable = func() -> Array: return [-1, ""]
 var _points: Label
 var _stockpile: Label
 var _group_points: Label
+## The listed queue items' indices in the empire's queue.
+var _queue_indices: Array = []
 var _queue_list: VBoxContainer
 var _removed_list: VBoxContainer
 var _location: OptionButton
@@ -168,13 +170,34 @@ func _refresh_queue() -> void:
 		. replace("%2%", "%.1f" % points.get("stockpile_capacity", 0.0))
 		. replace("%3%", "%.1f" % points.get("stockpile_expected", 0.0))
 	)
+	_stockpile.text += points_note(points)
 	ScreenKit.clear(_queue_list)
 	var queue: Array = source.get_queue()
+	# Items removed this turn keep their place in the empire's queue but
+	# aren't listed: moves go to the listed neighbours' places.
+	_queue_indices = queue.map(func(e): return e.get("index", 0))
 	if queue.is_empty():
 		_queue_list.add_child(ScreenKit.label(tr("PRODUCTION_EMPTY_QUEUE"), "SecondaryLabel"))
 	for i in queue.size():
 		_queue_list.add_child(_queue_row(queue[i], i, queue.size()))
 	_refresh_removed()
+
+
+## This turn's stockpile draw and the PP going unspent, as GG's info panel:
+## " · 1.2 PP drawn · 3.0 PP wasted" (only what isn't zero).
+static func points_note(points: Dictionary) -> String:
+	var note := ""
+	var drawn: float = points.get("stockpile_used", 0.0)
+	if drawn > 0.05:
+		note += (
+			" · " + TranslationServer.translate("PRODUCTION_DRAWN").replace("%1%", "%.1f" % drawn)
+		)
+	var wasted: float = points.get("available", 0.0) - points.get("spent", 0.0)
+	if wasted > 0.05:
+		note += (
+			" · " + TranslationServer.translate("PRODUCTION_WASTED").replace("%1%", "%.1f" % wasted)
+		)
+	return note
 
 
 # Items removed this turn can be put back until the turn ends.
@@ -266,9 +289,7 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	item_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	item_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_line.add_child(item_name)
-	name_line.add_child(
-		ScreenKit.label(ScreenKit.turns_text(entry.get("turns_left", -1)), "SecondaryLabel")
-	)
+	name_line.add_child(ScreenKit.label(turns_label(entry), "SecondaryLabel"))
 	var progress := ProgressBar.new()
 	progress.max_value = 1.0
 	progress.value = entry.get("progress", 0.0)
@@ -287,7 +308,12 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	if paused:
 		detail += " · " + tr("PRODUCTION_PAUSED")
 		card.modulate = Color(1, 1, 1, 0.6)
-	text.add_child(ScreenKit.label(detail, "SmallLabel"))
+	var detail_label := ScreenKit.label(detail, "SmallLabel")
+	# Can't be produced where it is any more: it stalls (GG's tooltip says so).
+	if not entry.get("location_ok", true):
+		detail_label.text += " · " + tr("PRODUCTION_LOCATION_INVALID")
+		detail_label.add_theme_color_override("font_color", FOUi.tokens.negative)
+	text.add_child(detail_label)
 
 	# Pause or resume; allow or forbid drawing on the imperial stockpile.
 	var toggles := VBoxContainer.new()
@@ -331,10 +357,10 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	buttons.add_theme_constant_override("separation", 0)
 	row.add_child(buttons)
 	var up := ScreenKit.small_button("▲", "PRODUCTION_MOVE_UP", position > 0)
-	up.pressed.connect(func(): _order(source.move(index, index - 1)))
+	up.pressed.connect(func(): _order(source.move(index, _queue_index(position - 1))))
 	buttons.add_child(up)
 	var down := ScreenKit.small_button("▼", "PRODUCTION_MOVE_DOWN", position < count - 1)
-	down.pressed.connect(func(): _order(source.move(index, index + 1)))
+	down.pressed.connect(func(): _order(source.move(index, _queue_index(position + 1))))
 	buttons.add_child(down)
 	var menu := MenuButton.new()
 	menu.text = "⋯"
@@ -354,10 +380,10 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 ## Item menu entries (ITEM_MENU ids) for queue \a entry of \a count.
 func item_actions(entry: Dictionary, count: int) -> Array:
 	var actions := []
-	var index: int = entry.get("index", 0)
-	if index > 0:
+	var position := _queue_position(entry)
+	if position > 0:
 		actions.push_back(0)
-	if index < count - 1:
+	if position < count - 1:
 		actions.push_back(1)
 	actions.push_back(2)
 	var ship: bool = entry.get("build_type") == "ship"
@@ -379,9 +405,9 @@ func run_item_action(id: int, entry: Dictionary, count: int) -> void:
 	var index: int = entry.get("index", 0)
 	match id:
 		0:
-			_order(source.move(index, 0))
+			_order(source.move(index, _queue_index(0)))
 		1:
-			_order(source.move(index, count - 1))
+			_order(source.move(index, _queue_index(count - 1)))
 		2:
 			_order(source.duplicate_item(index))
 		3:
@@ -394,6 +420,20 @@ func run_item_action(id: int, entry: Dictionary, count: int) -> void:
 			location_requested.emit(entry.get("location_id", -1))
 		7:
 			pedia_requested.emit.callv(pedia_target(entry))
+
+
+# The empire-queue index of the listed item at \a position (as listed).
+func _queue_index(position: int) -> int:
+	if position >= 0 and position < _queue_indices.size():
+		return _queue_indices[position]
+	return position
+
+
+# Where \a entry is listed (its queue index when the list isn't known).
+func _queue_position(entry: Dictionary) -> int:
+	var index: int = entry.get("index", 0)
+	var position := _queue_indices.find(index)
+	return position if position >= 0 else index
 
 
 ## The Pedia article of a queue or catalogue item: [kind, name]; ships
@@ -478,7 +518,23 @@ func queue_tooltip(entry: Dictionary) -> String:
 	lines.push_back(
 		tr("PRODUCTION_TIP_ALLOCATED").replace("%1%", "%.1f" % entry.get("allocated_pp", 0.0))
 	)
+	if entry.has("location_ok"):
+		lines.push_back(
+			tr("PRODUCTION_LOCATION_OK" if entry["location_ok"] else "PRODUCTION_LOCATION_INVALID")
+		)
 	return "\n".join(lines)
+
+
+## A queue item's time: until it's done, and for a batch of several, until
+## the next one is (GG shows that).
+func turns_label(entry: Dictionary) -> String:
+	var done := ScreenKit.turns_text(entry.get("turns_left", -1))
+	var next: int = entry.get("turns_to_next", -1)
+	if entry.get("remaining", 1) > 1 and next >= 0 and next != entry.get("turns_left", -1):
+		return tr("PRODUCTION_NEXT_AND_DONE").replace("%1%", ScreenKit.turns_text(next)).replace(
+			"%2%", done
+		)
+	return done
 
 
 ## Tooltip of catalogue \a item: cost per turn and time here, description,

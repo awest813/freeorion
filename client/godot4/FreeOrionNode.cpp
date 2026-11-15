@@ -216,6 +216,11 @@ void FreeOrionNode::_process(double) {
     // The server went away mid-game (crashed or was killed).
     if (m_app && m_app->GameStarted() && !m_app->Quitting() && !m_app->Networking().IsConnected())
         AbortGame(UserString("SERVER_LOST"));
+    // ... or before the game it was asked for began.
+    else if (m_app && m_app->AwaitingGame() && !m_app->Quitting() && !m_app->Networking().IsConnected()) {
+        m_app->SetAwaitingGame(false);
+        emit_signal("game_aborted", godot::String::utf8(UserString("SERVER_LOST").c_str()));
+    }
     // ... or while in a multiplayer lobby.
     else if (m_app && !m_app->GameStarted() && FOMultiplayer::InSession() &&
              !m_app->Networking().IsConnected())
@@ -288,8 +293,10 @@ void FreeOrionNode::start_network_thread() {
 void FreeOrionNode::start_parsing_thread()
 { m_parsing_thread->start(godot::Callable(this, "parsing_thread")); }
 
-void FreeOrionNode::new_single_player_game()
-{ m_app->NewSinglePlayerGame(); }
+godot::String FreeOrionNode::new_single_player_game() {
+    const auto error = m_app->NewSinglePlayerGame();
+    return error.empty() ? godot::String() : godot::String::utf8(UserString(error).c_str());
+}
 
 void FreeOrionNode::start_turn() {
     m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_END);

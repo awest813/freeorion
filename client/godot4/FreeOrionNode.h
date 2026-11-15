@@ -50,7 +50,7 @@ private:
 
     void start_parsing_thread(); ///< Starts separate parsing thread, should be called after initialization
 
-    void new_single_player_game(); ///< Starts new single player game
+    godot::String new_single_player_game(); ///< Starts new single player game
 
     void emit_start_game(bool is_new_game);
     void start_turn(); ///< Starts new turn, sending the view set by set_view() along

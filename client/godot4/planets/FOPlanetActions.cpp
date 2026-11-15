@@ -364,8 +364,10 @@ void FOPlanetActions::_bind_methods() {
     using godot::ClassDB, godot::D_METHOD;
     const auto cls = get_class_static();
     ClassDB::bind_static_method(cls, D_METHOD("get_actions", "planet_id"), &FOPlanetActions::get_actions);
-    ClassDB::bind_static_method(cls, D_METHOD("colonize", "planet_id"), &FOPlanetActions::colonize);
-    ClassDB::bind_static_method(cls, D_METHOD("invade", "planet_id"), &FOPlanetActions::invade);
+    ClassDB::bind_static_method(cls, D_METHOD("colonize", "planet_id", "ship_ids"), &FOPlanetActions::colonize,
+                                DEFVAL(godot::PackedInt32Array()));
+    ClassDB::bind_static_method(cls, D_METHOD("invade", "planet_id", "ship_ids"), &FOPlanetActions::invade,
+                                DEFVAL(godot::PackedInt32Array()));
     ClassDB::bind_static_method(cls, D_METHOD("annex", "planet_id"), &FOPlanetActions::annex);
     ClassDB::bind_static_method(cls, D_METHOD("bombard", "planet_id"), &FOPlanetActions::bombard);
     ClassDB::bind_static_method(cls, D_METHOD("set_focus", "planet_id", "focus"), &FOPlanetActions::set_focus);
@@ -394,7 +396,7 @@ godot::Dictionary FOPlanetActions::get_actions(int planet_id) {
     return result;
 }
 
-bool FOPlanetActions::colonize(int planet_id) {
+bool FOPlanetActions::colonize(int planet_id, const godot::PackedInt32Array& ship_ids) {
     auto* app = ClientApp::GetApp();
     if (!app || app->EmpireID() == ALL_EMPIRES)
         return false;
@@ -410,6 +412,18 @@ bool FOPlanetActions::colonize(int planet_id) {
         auto* planet = context.ContextObjects().getRaw<Planet>(planet_id);
         if (!planet)
             return false;
+        // A selected ship that can colonise it first, as GG's side panel.
+        for (int64_t i = 0; i < ship_ids.size(); ++i) {
+            const int ship_id = ship_ids[i];
+            const auto* ship = context.ContextObjects().getRaw<Ship>(ship_id);
+            if (ship && AvailableToColonize(*ship, planet->SystemID(), empire_id, context) &&
+                CanColonizePlanetType(*ship, planet->Type(), context) &&
+                ColonizeOrder::Check(empire_id, ship_id, planet_id, context))
+            {
+                app->Orders().IssueOrder<ColonizeOrder>(context, empire_id, ship_id, planet_id);
+                return true;
+            }
+        }
         const auto choice = ChooseColonyShip(*planet, empire_id, context);
         if (!choice.ship || !ColonizeOrder::Check(empire_id, choice.ship->ID(), planet_id, context))
             return false;
@@ -421,7 +435,7 @@ bool FOPlanetActions::colonize(int planet_id) {
     return false;
 }
 
-bool FOPlanetActions::invade(int planet_id) {
+bool FOPlanetActions::invade(int planet_id, const godot::PackedInt32Array& ship_ids) {
     auto* app = ClientApp::GetApp();
     if (!app || app->EmpireID() == ALL_EMPIRES)
         return false;
@@ -437,8 +451,17 @@ bool FOPlanetActions::invade(int planet_id) {
         const auto* planet = context.ContextObjects().getRaw<Planet>(planet_id);
         if (!planet)
             return false;
+        // The selected troop ships that can land, else enough of those there.
+        std::vector<const Ship*> ships;
+        for (int64_t i = 0; i < ship_ids.size(); ++i) {
+            const auto* ship = context.ContextObjects().getRaw<Ship>(static_cast<int>(ship_ids[i]));
+            if (ship && AvailableToInvade(*ship, planet->SystemID(), empire_id, context))
+                ships.push_back(ship);
+        }
+        if (ships.empty())
+            ships = ChooseInvasionShips(*planet, empire_id, context);
         bool issued = false;
-        for (const auto* ship : ChooseInvasionShips(*planet, empire_id, context)) {
+        for (const auto* ship : ships) {
             if (!InvadeOrder::Check(empire_id, ship->ID(), planet_id, context))
                 continue;
             app->Orders().IssueOrder<InvadeOrder>(context, empire_id, ship->ID(), planet_id);

@@ -42,6 +42,7 @@ void FOSaves::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("list_saves"), &FOSaves::list_saves);
     ClassDB::bind_static_method(cls, D_METHOD("save_game", "name"), &FOSaves::save_game);
     ClassDB::bind_static_method(cls, D_METHOD("load_game", "path"), &FOSaves::load_game);
+    ClassDB::bind_static_method(cls, D_METHOD("can_save"), &FOSaves::can_save);
     ClassDB::bind_static_method(cls, D_METHOD("delete_save", "path"), &FOSaves::delete_save);
 }
 
@@ -155,4 +156,9 @@ godot::Dictionary FOSaves::PreviewEntry(const FullPreview& full, const godot::St
     save["natives"] = ToGodot(TextForGalaxySetupSetting(g.native_freq));
     save["ai_aggression"] = ToGodot(TextForAIAggression(g.ai_aggr));
     return save;
+}
+
+bool FOSaves::can_save() {
+    const auto* app = GodotClientApp::GetApp();
+    return app && app->CanSaveNow();
 }

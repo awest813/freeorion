@@ -3282,6 +3282,18 @@ Won the game
 EMPIRES_ELIMINATED
 Eliminated
 
+PRODUCTION_NEXT_AND_DONE
+next %1%, all %2%
+
+PRODUCTION_DRAWN
+%1% PP drawn this turn
+
+PRODUCTION_WASTED
+%1% PP wasted
+
+RESEARCH_WASTED
+%1% RP go unused this turn: queue more research
+
 OPTIONS_LANGUAGE_NAME
 Language
 

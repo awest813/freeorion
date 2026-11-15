@@ -222,7 +222,10 @@ func _start_game() -> void:
 		return
 	_show_title()
 	title.set_busy(tr("TITLE_STARTING"))
-	GlobalFreeOrionNode.new_single_player_game()
+	# The server didn't start or answer: say so, as the GG client does.
+	var error: String = GlobalFreeOrionNode.new_single_player_game()
+	if not error.is_empty():
+		title.show_notice(error)
 
 
 func _on_parsing_completed() -> void:
@@ -308,6 +311,10 @@ func _on_game_aborted(message: String) -> void:
 	_notice = message
 	if game:
 		leave_game("title")
+	else:
+		# Lost before the game began (the server died while starting).
+		_show_title()
+		title.show_notice(message)
 
 
 # Errors from the server. In game, GameShell shows them; before the game

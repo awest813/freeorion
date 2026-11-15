@@ -222,7 +222,7 @@ void GodotClientApp::FreeServer() {
     SetEmpireID(ALL_EMPIRES);
 }
 
-void GodotClientApp::NewSinglePlayerGame() {
+std::string GodotClientApp::NewSinglePlayerGame() {
     DebugLogger() << "GodotClientApp::NewSinglePlayerGame start";
     ClearPreviousPendingSaves(m_game_saves_in_progress);
 
@@ -230,19 +230,17 @@ void GodotClientApp::NewSinglePlayerGame() {
     try {
         StartServer();
     } catch (const LocalServerAlreadyRunningException& err) {
-        return;
+        return "LOCAL_SERVER_ALREADY_RUNNING_ERROR";
     } catch (const std::runtime_error& err) {
         ErrorLogger() << "GodotClientApp::NewSinglePlayerGame : Couldn't start server.  Got error message: " << err.what();
-        return;
+        return "SERVER_WONT_START";
     }
 
     auto game_rules = GetGameRules().GetRulesAsStrings();
 
     if (!m_networking->ConnectToLocalHostServer()) {
         DebugLogger() << "Not connected; returning to intro screen and showing timed out error";
-        //ResetToIntro(true);
-        //ClientUI::MessageBox(UserString("ERR_CONNECT_TIMED_OUT"), true);
-        return;
+        return "ERR_CONNECT_TIMED_OUT";
     }
 
     SinglePlayerSetupData setup_data;
@@ -322,7 +320,9 @@ void GodotClientApp::NewSinglePlayerGame() {
 
     DebugLogger() << "Sending host SP setup message";
     m_networking->SendMessage(HostSPGameMessage(setup_data, DependencyVersions()));
+    m_awaiting_game = true;
     DebugLogger() << "GodotClientApp::NewSinglePlayerGame done";
+    return "";
 }
 
 int  GodotClientApp::AutoTurnsLeft() const
@@ -350,12 +350,16 @@ bool GodotClientApp::LoadSinglePlayerGame(const std::string& filename) {
     setup_data.filename = filename;
     // players are not specified when loading: the server takes them from the save
     m_networking->SendMessage(HostSPGameMessage(setup_data, DependencyVersions()));
+    m_awaiting_game = true;
     return true;
 }
 
 bool GodotClientApp::SaveGame(const std::string& filename) {
     if (!m_networking->IsConnected() || CurrentTurn() == INVALID_GAME_TURN)
         return false;
+    // The save keeps the orders given so far this turn, as GG's save.
+    if (m_game_started)
+        SendPartialOrders();
     m_game_saves_in_progress.push(filename);
     // Only one save at a time; the next goes out when this one completes.
     if (m_game_saves_in_progress.size() == 1)
@@ -467,6 +471,7 @@ void GodotClientApp::RequestCombatLogs() {
 }
 
 void GodotClientApp::ResetClientData() {
+    m_awaiting_game = false;
     m_networking->SetPlayerID(Networking::INVALID_PLAYER_ID);
     m_networking->SetHostPlayerID(Networking::INVALID_PLAYER_ID);
     SetEmpireID(ALL_EMPIRES);
@@ -492,12 +497,13 @@ void GodotClientApp::StartQuitting() {
     // A player who doesn't host a multiplayer game just leaves it; the
     // host (or single player) shuts the server down.
     const bool hosting = m_single_player_game || m_networking->PlayerIsHost(m_networking->PlayerID());
-    // The server saves before it handles the shutdown sent after this.
+    // Leaving keeps the orders given so far, as GG's Resign, and the exit
+    // save has them; the server saves before it handles the shutdown sent
+    // after this.
+    if (m_game_started && m_networking->IsTxConnected())
+        SendPartialOrders();
     if (m_game_started)
         Autosave(AutosaveMoment::EXIT);
-    // Leaving a multiplayer game keeps the orders given so far, as GG's Resign.
-    if (m_game_started && !hosting && m_networking->IsTxConnected())
-        SendPartialOrders();
     m_quitting = true;
     m_game_started = false;
     m_auto_turns = 0;
@@ -544,6 +550,17 @@ bool GodotClientApp::SinglePlayerGame() const
 void GodotClientApp::SetSinglePlayerGame(bool sp)
 { m_single_player_game = sp; }
 
-void GodotClientApp::StartGame(bool is_new_game)
-{ m_game_started = true; }
+void GodotClientApp::StartGame(bool is_new_game) {
+    m_game_started = true;
+    m_awaiting_game = false;
+}
+
+bool GodotClientApp::CanSaveNow() const {
+    if (!m_single_player_game && !m_networking->PlayerIsHost(m_networking->PlayerID()))
+        return false;
+    for (const auto& [id, empire] : m_empires)
+        if (Networking::is_ai(GetEmpireClientType(id)) && !empire->Ready())
+            return false;
+    return true;
+}
 
