@@ -83,6 +83,12 @@ func refresh() -> void:
 
 
 ## Show the chat as received so far.
+## The server's saves arrived: list them anew.
+func saves_changed() -> void:
+	_saves = []
+	refresh()
+
+
 func refresh_chat() -> void:
 	chat.set_lines(source.chat())
 

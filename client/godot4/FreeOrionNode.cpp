@@ -1,4 +1,5 @@
 #include "FreeOrionNode.h"
+#include "../../util/SaveGamePreviewUtils.h"
 #include "pedia/FOPedia.h"
 
 #include <godot_cpp/classes/engine.hpp>
@@ -55,6 +56,7 @@ void FreeOrionNode::_bind_methods() {
     godot::ClassDB::bind_method(godot::D_METHOD("revise_turn"), &FreeOrionNode::revise_turn);
     godot::ClassDB::bind_method(godot::D_METHOD("is_quitting"), &FreeOrionNode::is_quitting);
     godot::ClassDB::bind_method(godot::D_METHOD("options_get_bool"), &FreeOrionNode::options_get_bool);
+    godot::ClassDB::bind_method(godot::D_METHOD("emit_start_game", "is_new_game"), &FreeOrionNode::emit_start_game);
     godot::ClassDB::bind_method(godot::D_METHOD("options_get_string"), &FreeOrionNode::options_get_string);
     godot::ClassDB::bind_method(godot::D_METHOD("options_find_options", "prefix", "allow_unrecognized"), &FreeOrionNode::options_find_options, DEFVAL(false));
     godot::ClassDB::bind_method(godot::D_METHOD("options_exists"), &FreeOrionNode::options_exists);
@@ -81,6 +83,7 @@ void FreeOrionNode::_bind_methods() {
     // Multiplayer (FOMultiplayer holds what they are about).
     ADD_SIGNAL(godot::MethodInfo("mp_joined", godot::PropertyInfo(godot::Variant::INT, "player_id")));
     ADD_SIGNAL(godot::MethodInfo("lobby_changed"));
+    ADD_SIGNAL(godot::MethodInfo("server_saves"));
     ADD_SIGNAL(godot::MethodInfo("mp_disconnected", godot::PropertyInfo(godot::Variant::STRING, "message")));
     ADD_SIGNAL(godot::MethodInfo("chat_received"));
     ADD_SIGNAL(godot::MethodInfo("auth_requested", godot::PropertyInfo(godot::Variant::STRING, "player_name")));
@@ -220,6 +223,14 @@ void FreeOrionNode::_process(double) {
         FOMultiplayer::ClearSession();
         emit_signal("mp_disconnected", godot::String::utf8(UserString("SERVER_LOST").c_str()));
     }
+}
+
+// The game began (deferred from GAME_START): unless the server went away
+// in between and the client was reset, which would build the game's screens
+// over nothing.
+void FreeOrionNode::emit_start_game(bool is_new_game) {
+    if (m_app && m_app->GameStarted() && !m_app->Quitting())
+        emit_signal("start_game", is_new_game);
 }
 
 void FreeOrionNode::AbortGame(const std::string& message) {
@@ -486,7 +497,7 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             FOExplore::dispatch();
             if (is_new_game)
                 m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
-            call_deferred("emit_signal", "start_game", is_new_game);
+            call_deferred("emit_start_game", is_new_game);
 
             if (m_app->AutoTurnsLeft() > 0) {
                 SaveGameUIData ui_data;
@@ -536,6 +547,13 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_app->SaveGameCompleted();
             call_deferred("emit_signal", "save_completed",
                           godot::String::utf8(save_filename.c_str()), bytes_written);
+            break;
+        }
+        case Message::MessageType::DISPATCH_SAVE_PREVIEWS: {
+            PreviewInformation previews;
+            ExtractDispatchSavePreviewsMessageData(msg, previews);
+            FOMultiplayer::SetServerSaves(std::move(previews));
+            call_deferred("emit_signal", "server_saves");
             break;
         }
         case Message::MessageType::DISPATCH_COMBAT_LOGS: {

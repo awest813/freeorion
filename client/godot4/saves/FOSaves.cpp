@@ -73,33 +73,9 @@ godot::Array FOSaves::list_saves() {
     std::sort(previews.begin(), previews.end(), [](const auto& a, const auto& b)
               { return a.second.preview.save_time > b.second.preview.save_time; });
     for (const auto& [dir, full] : previews) {
-        const auto& p = full.preview;
-        godot::Dictionary save;
         const auto path = dir / std::filesystem::path(full.filename);
-        save["path"] = ToGodot(PathToString(path));
-        save["file"] = ToGodot(full.filename);
+        godot::Dictionary save = PreviewEntry(full, ToGodot(PathToString(path)));
         save["auto"] = dir != GetSaveDir();
-        save["player"] = ToGodot(p.main_player_name);
-        save["empire"] = ToGodot(p.main_player_empire_name);
-        const auto& c = p.main_player_empire_colour;
-        save["color"] = godot::Color::from_rgba8(c[0], c[1], c[2], c[3]);
-        save["turn"] = p.current_turn;
-        save["time"] = ToGodot(p.save_time);
-        save["empires"] = p.number_of_empires;
-        save["humans"] = p.number_of_human_players;
-        save["version"] = ToGodot(p.freeorion_version);
-        // The galaxy, as the GG save list's columns show it.
-        const auto& g = full.galaxy;
-        save["seed"] = ToGodot(g.seed);
-        save["systems"] = g.size;
-        save["shape"] = ToGodot(TextForGalaxyShape(g.shape));
-        save["age"] = ToGodot(TextForGalaxySetupSetting(g.age));
-        save["starlanes"] = ToGodot(TextForGalaxySetupSetting(g.starlane_freq));
-        save["planets"] = ToGodot(TextForGalaxySetupSetting(g.planet_density));
-        save["specials"] = ToGodot(TextForGalaxySetupSetting(g.specials_freq));
-        save["monsters"] = ToGodot(TextForGalaxySetupSetting(g.monster_freq));
-        save["natives"] = ToGodot(TextForGalaxySetupSetting(g.native_freq));
-        save["ai_aggression"] = ToGodot(TextForAIAggression(g.ai_aggr));
         result.push_back(save);
     }
     return result;
@@ -110,8 +86,11 @@ godot::String FOSaves::save_game(const godot::String& name) {
     const std::string file = SafeFileName(name.strip_edges().utf8().get_data());
     if (!app || file.empty())
         return {};
-    const auto path = GetSaveDir() / std::filesystem::path(std::u8string(file.begin(), file.end()))
-                                       .concat(SP_SAVE_FILE_EXTENSION);
+    // A multiplayer game is saved by its host into the server's directory.
+    const bool single = app->SinglePlayerGame();
+    const auto path = (single ? GetSaveDir() : GetServerSaveDir()) /
+        std::filesystem::path(std::u8string(file.begin(), file.end()))
+            .concat(single ? SP_SAVE_FILE_EXTENSION : MP_SAVE_FILE_EXTENSION);
     const auto path_string = PathToString(path);
     if (!app->SaveGame(path_string))
         return {};
@@ -147,4 +126,33 @@ bool FOSaves::delete_save(const godot::String& path) {
         ErrorLogger() << "FOSaves::delete_save: " << e.what();
         return false;
     }
+}
+
+godot::Dictionary FOSaves::PreviewEntry(const FullPreview& full, const godot::String& path) {
+    const auto& p = full.preview;
+    godot::Dictionary save;
+    save["path"] = path;
+    save["file"] = ToGodot(full.filename);
+    save["player"] = ToGodot(p.main_player_name);
+    save["empire"] = ToGodot(p.main_player_empire_name);
+    const auto& c = p.main_player_empire_colour;
+    save["color"] = godot::Color::from_rgba8(c[0], c[1], c[2], c[3]);
+    save["turn"] = p.current_turn;
+    save["time"] = ToGodot(p.save_time);
+    save["empires"] = p.number_of_empires;
+    save["humans"] = p.number_of_human_players;
+    save["version"] = ToGodot(p.freeorion_version);
+    // The galaxy, as the GG save list's columns show it.
+    const auto& g = full.galaxy;
+    save["seed"] = ToGodot(g.seed);
+    save["systems"] = g.size;
+    save["shape"] = ToGodot(TextForGalaxyShape(g.shape));
+    save["age"] = ToGodot(TextForGalaxySetupSetting(g.age));
+    save["starlanes"] = ToGodot(TextForGalaxySetupSetting(g.starlane_freq));
+    save["planets"] = ToGodot(TextForGalaxySetupSetting(g.planet_density));
+    save["specials"] = ToGodot(TextForGalaxySetupSetting(g.specials_freq));
+    save["monsters"] = ToGodot(TextForGalaxySetupSetting(g.monster_freq));
+    save["natives"] = ToGodot(TextForGalaxySetupSetting(g.native_freq));
+    save["ai_aggression"] = ToGodot(TextForAIAggression(g.ai_aggr));
+    return save;
 }

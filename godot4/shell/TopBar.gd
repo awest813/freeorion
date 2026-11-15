@@ -53,6 +53,8 @@ const WASTE_EPSILON := 0.05
 var follow_game := true
 ## End each turn as soon as it starts (GG's automatic turn advance).
 var auto_end_turn := false
+## "player", or (multiplayer, no empire) "observer" or "moderator".
+var role := "player"
 ## Orders given this turn, for End turn's menu.
 var order_count_provider: Callable = func() -> int: return FOOrders.get_order_count()
 ## Returns TurnReadiness.check()'s warnings; the game's by default.
@@ -99,14 +101,29 @@ func _ready() -> void:
 
 ## Show \a empire_name / \a color at \a turn; \a waiting disables End Turn.
 func set_state(empire_name: String, color: Color, turn: int, waiting: bool) -> void:
-	_empire.text = empire_name
+	_empire.text = empire_name if role == "player" else tr(role.to_upper())
 	_swatch.color = color
-	_swatch.visible = not empire_name.is_empty()
+	_swatch.visible = not empire_name.is_empty() and role == "player"
 	_turn_number = turn
 	if not waiting:
 		_phase = ""
 		_phase_text = ""
 	_waiting = waiting
+	_update_turn_controls()
+
+
+## Play as \a new_role ("player", "observer", "moderator"), as the GG map
+## window: without an empire the empire's screens and auto end turn go, the
+## name shows the role, and an observer can't end turns.
+func set_role(new_role: String) -> void:
+	role = new_role
+	var spectating := role != "player"
+	for key in ["production", "research", "government", "design"]:
+		_screen_buttons[key].visible = not spectating
+	_auto_turn.visible = role != "observer"
+	if spectating:
+		_empire.text = tr(role.to_upper())
+		_swatch.visible = false
 	_update_turn_controls()
 
 
@@ -150,6 +167,12 @@ func _update_turn_controls() -> void:
 		_end_turn.tooltip_text = with_key(tr("MAP_BTN_TURN_TOOLTIP_DESC_SP"), "end_turn")
 		_end_turn.disabled = _turn_number < 1
 		_end_turn.theme_type_variation = "PrimaryButton"
+	match role:
+		"observer":
+			_end_turn.disabled = true
+			_end_turn.tooltip_text = tr("MAP_BTN_TURN_TOOLTIP_DESC_OBS")
+		"moderator":
+			_end_turn.tooltip_text = tr("MAP_BTN_TURN_TOOLTIP_DESC_MOD")
 
 
 ## Messages that came in while the chat was closed, as a count on its button.
@@ -533,3 +556,6 @@ func _refresh_from_game() -> void:
 		GlobalFreeOrionNode.get_current_turn(),
 		_waiting
 	)
+	var game_role := FOModerator.get_role()
+	if not game_role.is_empty() and game_role != role:
+		set_role(game_role)

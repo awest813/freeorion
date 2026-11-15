@@ -75,7 +75,7 @@ func test_loading_a_save_in_the_lobby():
 	assert_eq(screen.save_picker.item_count, 3)
 	screen.save_picker.select(2)
 	screen.save_picker.item_selected.emit(2)
-	assert_eq(source.sent[-1], {"save_game": "auto/autosave.sav"})
+	assert_eq(source.sent[-1], {"save_game": "auto/autosave.mps"})
 
 
 func test_lobby_chat_shows_and_sends():
@@ -201,3 +201,13 @@ func test_diplomacy_changes_are_logged():
 	assert_string_contains(messages[0], "Them")
 	assert_string_contains(messages[0], "<rgba 0 0 255 255>Us</rgba>")
 	assert_eq(MessageLog.diplomacy_changes(known, empires).size(), 0, "Only changes")
+
+
+func test_server_saves_are_listed_anew_when_they_arrive():
+	var lobby := LobbyScreen.new()
+	lobby.source = source
+	add_child_autofree(lobby)
+	lobby.refresh()
+	lobby._saves = [{"file": "stale.mps"}]
+	lobby.saves_changed()
+	assert_ne(lobby._saves, [{"file": "stale.mps"}], "The old list is dropped")

@@ -6,6 +6,10 @@ against the Godot 4 client, made on 2026-11-15 after every item of
 client can see or do that the Godot client couldn't then. Ticked items are
 done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 
+All 93 items are done (2026-11-15). Each was unit-tested, checked in a real
+game (two clients for observers and moderators), and the screens' goldens
+were updated.
+
 ## Multiplayer
 
 - [x] Connect dialog: player name, role (player, observer, moderator), host or join, server address (`ServerConnectWnd`) — M
@@ -14,8 +18,8 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] In-game chat, whispers (`ChatWnd`) — M
 - [x] Player list with ready status, turn timeout (`PlayerListWnd`, `MapWnd`) — S
 - [x] Concede, and "leave while not ready?" (`InGameMenu`) — S
-- [ ] Multiplayer autosave; server-side save list — S
-- [ ] Observer mode; moderator tools (`ModeratorActionsWnd`) — M
+- [x] Multiplayer autosave; server-side save list — S
+- [x] Observer mode; moderator tools (`ModeratorActionsWnd`) — M
 
 ## Map and system panel (`MapWnd`, `SidePanel`, `SystemIcon`, `FleetButton`, resource panels)
 

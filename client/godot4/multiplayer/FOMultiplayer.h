@@ -16,6 +16,8 @@
   * FreeOrionNode passes the server's lobby, chat, password and player
   * messages here and emits mp_joined, lobby_changed, chat_received,
   * auth_requested and players_changed. Must be called on the main thread. */
+struct PreviewInformation;
+
 class FOMultiplayer : public godot::Object {
     GDCLASS(FOMultiplayer, Object)
 public:
@@ -71,6 +73,19 @@ public:
     static bool can_concede();
     /** Give up: the server removes this player's empire from the game. */
     static bool concede();
+
+    /** Ask the server for the saves in its save directory (and, once that
+      * answers, its subdirectories such as "auto"), as the GG client's
+      * multiplayer load dialog does; FreeOrionNode emits server_saves when
+      * they arrive. */
+    static bool request_server_saves(const godot::String& folder = "");
+    /** The server's saves so far, as FOSaves.list_saves() entries whose
+      * "file" is relative to the server's save directory (what the lobby
+      * loads), newest first. */
+    static godot::Array get_server_saves();
+    /** A list of the server's saves arrived: keep it; true if it was the
+      * top folder (its subfolders are asked for next). */
+    static bool SetServerSaves(PreviewInformation previews);
 
     // For FreeOrionNode.
     static void SetLobby(MultiplayerLobbyData lobby);

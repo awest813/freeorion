@@ -41,6 +41,7 @@ namespace {
         db.Add<int>("auto-advance-n-turns",      UserStringNop("OPTIONS_DB_AUTO_N_TURNS"),           0,
                     RangedValidator<int>(0, 400),       OptionsDB::Storable::UNSTORABLE);
         // Autosave, as in the GG client (save.auto.exit.enabled is in MultiplayerCommon).
+        db.Add("save.auto.turn.multiplayer.start.enabled", UserStringNop("OPTIONS_DB_AUTOSAVE_MULTIPLAYER_TURN_START"), true, Validator<bool>());
         db.Add("save.auto.turn.start.enabled",   UserStringNop("OPTIONS_DB_AUTOSAVE_SINGLE_PLAYER_TURN_START"), true,  Validator<bool>());
         db.Add("save.auto.turn.end.enabled",     UserStringNop("OPTIONS_DB_AUTOSAVE_SINGLE_PLAYER_TURN_END"),   false, Validator<bool>());
         db.Add("save.auto.turn.interval",        UserStringNop("OPTIONS_DB_AUTOSAVE_TURNS"),                    1,     RangedValidator<int>(1, 50));
@@ -371,14 +372,14 @@ void GodotClientApp::SaveGameCompleted() {
 
 namespace {
     // Keep the newest \a limit - 1 saves in \a dir, making room for one more.
-    void RemoveOldestSaves(int limit, const std::filesystem::path& dir) {
+    void RemoveOldestSaves(int limit, const std::filesystem::path& dir, std::string_view extension) {
         try {
             if (!std::filesystem::is_directory(dir))
                 return;
             std::multimap<std::filesystem::file_time_type, std::filesystem::path> by_time;
             for (const auto& entry : std::filesystem::directory_iterator(dir)) {
                 std::error_code ec;
-                if (entry.is_regular_file(ec) && entry.path().extension() == SP_SAVE_FILE_EXTENSION)
+                if (entry.is_regular_file(ec) && entry.path().extension() == extension)
                     by_time.emplace(entry.last_write_time(), entry.path());
             }
             auto excess = static_cast<int>(by_time.size()) - limit + 1;
@@ -390,7 +391,7 @@ namespace {
     }
 
     // "FreeOrion_<player>_<empire>_<turn>_<time>.sav", as the GG client names them.
-    std::string AutosaveName(const Empire* empire, int turn) {
+    std::string AutosaveName(const Empire* empire, int turn, std::string_view extension) {
         const auto filtered = [](std::string text) {
             static constexpr std::string_view legal =
                 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-";
@@ -403,24 +404,28 @@ namespace {
         const auto player = filtered(empire ? empire->PlayerName() : std::string{});
         const auto empire_name = filtered(empire ? empire->Name() : UserString("OBSERVER"));
         return boost::io::str(boost::format("FreeOrion_%s_%s_%04d_%s%s") % player % empire_name % turn %
-                              FilenameTimestamp() % SP_SAVE_FILE_EXTENSION);
+                              FilenameTimestamp() % extension);
     }
 }
 
 void GodotClientApp::Autosave(AutosaveMoment moment) {
-    if (!m_single_player_game || !m_networking->IsConnected() || CurrentTurn() == INVALID_GAME_TURN)
-        return;
+    // In multiplayer only the host saves, into the server's save directory,
+    // as the GG client does.
+    if (!m_networking->IsConnected() || CurrentTurn() == INVALID_GAME_TURN ||
+        (!m_single_player_game && !m_networking->PlayerIsHost(m_networking->PlayerID())))
+    { return; }
     auto& db = GetOptionsDB();
     const int interval = db.Get<int>("save.auto.turn.interval");
     const bool every_turn = interval > 0 && CurrentTurn() % interval == 0;
     bool wanted = false;
     switch (moment) {
     case AutosaveMoment::TURN_START:
-        wanted = (every_turn && db.Get<bool>("save.auto.turn.start.enabled")) ||
+        wanted = (every_turn && db.Get<bool>(m_single_player_game ? "save.auto.turn.start.enabled"
+                                                                  : "save.auto.turn.multiplayer.start.enabled")) ||
             (CurrentTurn() == 1 && db.Get<bool>("save.auto.initial.enabled"));
         break;
     case AutosaveMoment::TURN_END:
-        wanted = every_turn && db.Get<bool>("save.auto.turn.end.enabled");
+        wanted = m_single_player_game && every_turn && db.Get<bool>("save.auto.turn.end.enabled");
         break;
     case AutosaveMoment::EXIT:
         wanted = db.Get<bool>("save.auto.exit.enabled");
@@ -429,7 +434,8 @@ void GodotClientApp::Autosave(AutosaveMoment moment) {
     if (!wanted)
         return;
 
-    const auto dir = GetSaveDir() / "auto";
+    const auto dir = (m_single_player_game ? GetSaveDir() : GetServerSaveDir()) / "auto";
+    const std::string_view extension = m_single_player_game ? SP_SAVE_FILE_EXTENSION : MP_SAVE_FILE_EXTENSION;
     try {
         std::filesystem::create_directories(dir);
     } catch (const std::exception& e) {
@@ -438,11 +444,12 @@ void GodotClientApp::Autosave(AutosaveMoment moment) {
     }
     // Room for the kept turns (two saves a turn when saving at start and end),
     // plus the first-turn and exit saves.
-    const bool twice_a_turn = db.Get<bool>("save.auto.turn.start.enabled") && db.Get<bool>("save.auto.turn.end.enabled");
+    const bool twice_a_turn = m_single_player_game && db.Get<bool>("save.auto.turn.start.enabled") &&
+        db.Get<bool>("save.auto.turn.end.enabled");
     const int limit = std::max(1, db.Get<int>("save.auto.file.limit")) * (twice_a_turn ? 2 : 1) +
         (db.Get<bool>("save.auto.initial.enabled") ? 1 : 0) + (db.Get<bool>("save.auto.exit.enabled") ? 1 : 0);
-    RemoveOldestSaves(limit, dir);
-    const auto path = PathToString(dir / AutosaveName(m_empires.GetEmpire(EmpireID()).get(), CurrentTurn()));
+    RemoveOldestSaves(limit, dir, extension);
+    const auto path = PathToString(dir / AutosaveName(m_empires.GetEmpire(EmpireID()).get(), CurrentTurn(), extension));
     DebugLogger() << "GodotClientApp::Autosave to " << path;
     SaveGame(path);
 }

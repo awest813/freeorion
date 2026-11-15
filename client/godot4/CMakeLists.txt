@@ -8,6 +8,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/designer/FODesigner.h
         ${CMAKE_CURRENT_LIST_DIR}/diplomacy/FODiplomacy.h
         ${CMAKE_CURRENT_LIST_DIR}/multiplayer/FOMultiplayer.h
+        ${CMAKE_CURRENT_LIST_DIR}/multiplayer/FOModerator.h
         ${CMAKE_CURRENT_LIST_DIR}/government/FOGovernment.h
         ${CMAKE_CURRENT_LIST_DIR}/objects/FOObjects.h
         ${CMAKE_CURRENT_LIST_DIR}/planets/FOPlanetActions.h
@@ -30,6 +31,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/designer/FODesigner.cpp
         ${CMAKE_CURRENT_LIST_DIR}/diplomacy/FODiplomacy.cpp
         ${CMAKE_CURRENT_LIST_DIR}/multiplayer/FOMultiplayer.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/multiplayer/FOModerator.cpp
         ${CMAKE_CURRENT_LIST_DIR}/government/FOGovernment.cpp
         ${CMAKE_CURRENT_LIST_DIR}/objects/FOObjects.cpp
         ${CMAKE_CURRENT_LIST_DIR}/planets/FOPlanetActions.cpp

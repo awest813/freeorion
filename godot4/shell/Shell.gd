@@ -48,6 +48,7 @@ func _ready() -> void:
 	GlobalFreeOrionNode.turn_progress.connect(_on_turn_progress)
 	GlobalFreeOrionNode.mp_joined.connect(_on_mp_joined)
 	GlobalFreeOrionNode.lobby_changed.connect(_on_lobby_changed)
+	GlobalFreeOrionNode.server_saves.connect(lobby.saves_changed)
 	GlobalFreeOrionNode.chat_received.connect(_on_chat_received)
 	GlobalFreeOrionNode.auth_requested.connect(_on_auth_requested)
 	GlobalFreeOrionNode.mp_disconnected.connect(_on_mp_disconnected)
@@ -370,6 +371,7 @@ func _on_mp_joined(_player_id: int) -> void:
 	connect_screen.visible = false
 	title.visible = false
 	lobby.visible = true
+	lobby_source.request_saves()
 	lobby.refresh()
 	lobby.refresh_chat()
 	FOUi.fade_in(lobby)

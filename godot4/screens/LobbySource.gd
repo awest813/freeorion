@@ -76,17 +76,17 @@ func empire_colors() -> PackedColorArray:
 	return FOUniverse.get_empire_colors()
 
 
-## Saves a hosted game can load (SavesSource.list_saves()), with "file"
-## relative to the save directory as the server wants it.
+## The saves a hosted game can load: those in the server's save directory
+## (multiplayer saves and autosaves), as it lists them, with "file" relative
+## to that directory as the server wants it. Empty until request_saves() is
+## answered (FreeOrionNode.server_saves).
 func list_saves() -> Array:
-	var dir := FOSaves.get_save_dir()
-	var saves := []
-	for save: Dictionary in FOSaves.list_saves():
-		var entry := save.duplicate()
-		var path: String = save.get("path", "")
-		entry["file"] = path.trim_prefix(dir).trim_prefix("/") if path.begins_with(dir) else path
-		saves.push_back(entry)
-	return saves
+	return FOMultiplayer.get_server_saves()
+
+
+## Ask the server for its saves.
+func request_saves() -> bool:
+	return FOMultiplayer.request_server_saves("")
 
 
 ## Servers answering on the local network (takes a couple of seconds).

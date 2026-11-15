@@ -288,6 +288,7 @@ func _ready() -> void:
 	screens.add_child(chat_window)
 	top_bar.messages_requested.connect(chat_window.toggle)
 	add_child(MessageLog.new(self))
+	screens.add_child(ModeratorTools.new(self), true)
 
 	# The menu covers everything, the top bar included.
 	# First-time hints, over the map and screens but under the menu; only in

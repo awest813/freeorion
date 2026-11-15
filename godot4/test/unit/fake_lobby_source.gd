@@ -162,7 +162,12 @@ func empire_colors() -> PackedColorArray:
 
 
 func list_saves() -> Array:
-	return [{"file": "game1.sav", "turn": 12}, {"file": "auto/autosave.sav", "turn": 30}]
+	return [{"file": "game1.mps", "turn": 12}, {"file": "auto/autosave.mps", "turn": 30}]
+
+
+func request_saves() -> bool:
+	sent.push_back({"request_saves": true})
+	return true
 
 
 func discover_lan_servers() -> PackedStringArray:

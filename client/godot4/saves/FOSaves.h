@@ -3,7 +3,10 @@
 
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/variant/array.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/string.hpp>
+
+struct FullPreview;
 
 /** Static save/load API for GDScript.
   *
@@ -29,6 +32,9 @@ public:
     /** Delete the save at \a path; only files in the save directory (or its
       * autosave directory) with the save extension. */
     static bool delete_save(const godot::String& path);
+
+    /** One save's entry, as list_saves() gives it, at \a path. */
+    static godot::Dictionary PreviewEntry(const FullPreview& full, const godot::String& path);
 
 protected:
     static void _bind_methods();

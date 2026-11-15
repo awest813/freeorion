@@ -7,6 +7,8 @@
 #include <godot_cpp/core/class_db.hpp>
 
 #include "../GodotClientApp.h"
+#include "../saves/FOSaves.h"
+#include "../../../util/SaveGamePreviewUtils.h"
 #include "../../ClientNetworking.h"
 #include "../../../Empire/Empire.h"
 #include "../../../util/GameRules.h"
@@ -55,6 +57,8 @@ namespace {
         std::string auth_player_name;
         bool hosting = false;
         bool active = false;  // between host/join and leave
+        // The server's saves by folder ("" for the top one).
+        std::map<std::string, std::vector<FullPreview>> server_saves;
     };
 
     Session& TheSession() {
@@ -130,6 +134,9 @@ void FOMultiplayer::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("discover_lan_servers"), &FOMultiplayer::discover_lan_servers);
     ClassDB::bind_static_method(cls, D_METHOD("can_concede"), &FOMultiplayer::can_concede);
     ClassDB::bind_static_method(cls, D_METHOD("concede"), &FOMultiplayer::concede);
+    ClassDB::bind_static_method(cls, D_METHOD("request_server_saves", "folder"), &FOMultiplayer::request_server_saves,
+                                DEFVAL(""));
+    ClassDB::bind_static_method(cls, D_METHOD("get_server_saves"), &FOMultiplayer::get_server_saves);
 }
 
 godot::String FOMultiplayer::host_game(const godot::String& player_name) {
@@ -417,6 +424,54 @@ bool FOMultiplayer::concede() {
     if (!can_concede())
         return false;
     return Send(EliminateSelfMessage());
+}
+
+bool FOMultiplayer::request_server_saves(const godot::String& folder) {
+    if (!is_connected_to_server())
+        return false;
+    return Send(RequestSavePreviewsMessage(folder.utf8().get_data()));
+}
+
+namespace {
+    std::string CleanFolder(std::string folder) {
+        while (!folder.empty() && (folder.front() == '/' || folder.front() == '.'))
+            folder.erase(folder.begin());
+        while (!folder.empty() && folder.back() == '/')
+            folder.pop_back();
+        return folder;
+    }
+}
+
+bool FOMultiplayer::SetServerSaves(PreviewInformation previews) {
+    const auto folder = CleanFolder(previews.folder);
+    TheSession().server_saves[folder] = std::move(previews.previews);
+    if (!folder.empty())
+        return false;
+    // The top folder's subfolders (the autosaves) next.
+    for (const auto& sub : previews.subdirectories)
+        if (!CleanFolder(sub).empty())
+            Send(RequestSavePreviewsMessage(CleanFolder(sub)));
+    return true;
+}
+
+godot::Array FOMultiplayer::get_server_saves() {
+    std::vector<godot::Dictionary> saves;
+    for (const auto& [folder, previews] : TheSession().server_saves) {
+        for (const auto& preview : previews) {
+            const std::string file = folder.empty() ? preview.filename : folder + "/" + preview.filename;
+            auto entry = FOSaves::PreviewEntry(preview, godot::String::utf8(file.c_str()));
+            entry["file"] = godot::String::utf8(file.c_str());
+            entry["auto"] = folder == "auto";
+            entry["server"] = true;
+            saves.push_back(entry);
+        }
+    }
+    std::sort(saves.begin(), saves.end(), [](const auto& a, const auto& b)
+              { return godot::String(a["time"]) > godot::String(b["time"]); });
+    godot::Array result;
+    for (const auto& save : saves)
+        result.push_back(save);
+    return result;
 }
 
 void FOMultiplayer::SetLobby(MultiplayerLobbyData lobby)

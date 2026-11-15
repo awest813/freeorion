@@ -52,6 +52,7 @@ private:
 
     void new_single_player_game(); ///< Starts new single player game
 
+    void emit_start_game(bool is_new_game);
     void start_turn(); ///< Starts new turn, sending the view set by set_view() along
 
     /** The map view to save with the game (world centre and zoom), sent with
