@@ -51,6 +51,10 @@ private:
       * over the next frames, then emits game_ended. */
     void quit_game();
 
+    /** Takes back an ended turn while the server still waits for players, so
+      * orders can be changed (the GG client's "Revise" button). */
+    void revise_turn();
+
     bool is_quitting() const; ///< True while quit_game() is in progress
 
     bool options_get_bool(godot::String option) const;

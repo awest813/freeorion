@@ -41,6 +41,7 @@ void FreeOrionNode::_bind_methods() {
     godot::ClassDB::bind_method(godot::D_METHOD("new_single_player_game"), &FreeOrionNode::new_single_player_game);
     godot::ClassDB::bind_method(godot::D_METHOD("start_turn"), &FreeOrionNode::start_turn);
     godot::ClassDB::bind_method(godot::D_METHOD("quit_game"), &FreeOrionNode::quit_game);
+    godot::ClassDB::bind_method(godot::D_METHOD("revise_turn"), &FreeOrionNode::revise_turn);
     godot::ClassDB::bind_method(godot::D_METHOD("is_quitting"), &FreeOrionNode::is_quitting);
     godot::ClassDB::bind_method(godot::D_METHOD("options_get_bool"), &FreeOrionNode::options_get_bool);
     godot::ClassDB::bind_method(godot::D_METHOD("options_get_string"), &FreeOrionNode::options_get_string);
@@ -59,6 +60,9 @@ void FreeOrionNode::_bind_methods() {
     ADD_SIGNAL(godot::MethodInfo("game_ended"));
     ADD_SIGNAL(godot::MethodInfo("combat_logs_updated"));
     ADD_SIGNAL(godot::MethodInfo("diplomacy_changed"));
+    ADD_SIGNAL(godot::MethodInfo("turn_progress",
+                                 godot::PropertyInfo(godot::Variant::STRING, "phase"),
+                                 godot::PropertyInfo(godot::Variant::STRING, "text")));
     ADD_SIGNAL(godot::MethodInfo("server_error",
                                  godot::PropertyInfo(godot::Variant::STRING, "message"),
                                  godot::PropertyInfo(godot::Variant::BOOL, "fatal")));
@@ -249,6 +253,30 @@ void FreeOrionNode::start_turn() {
     m_app->StartTurn(ui_data);
 }
 
+namespace {
+    // Stringtable key naming a turn processing phase, as the GG message window uses.
+    std::string TurnPhaseKey(Message::TurnProgressPhase phase) {
+        switch (phase) {
+        case Message::TurnProgressPhase::FLEET_MOVEMENT:      return "TURN_PROGRESS_PHASE_FLEET_MOVEMENT";
+        case Message::TurnProgressPhase::COMBAT:              return "TURN_PROGRESS_PHASE_COMBAT";
+        case Message::TurnProgressPhase::EMPIRE_PRODUCTION:   return "TURN_PROGRESS_PHASE_EMPIRE_GROWTH";
+        case Message::TurnProgressPhase::WAITING_FOR_PLAYERS: return "TURN_PROGRESS_PHASE_WAITING";
+        case Message::TurnProgressPhase::PROCESSING_ORDERS:   return "TURN_PROGRESS_PHASE_ORDERS";
+        case Message::TurnProgressPhase::COLONIZE_AND_SCRAP:  return "TURN_PROGRESS_COLONIZE_AND_SCRAP";
+        case Message::TurnProgressPhase::DOWNLOADING:         return "TURN_PROGRESS_PHASE_DOWNLOADING";
+        case Message::TurnProgressPhase::LOADING_GAME:        return "TURN_PROGRESS_PHASE_LOADING_GAME";
+        case Message::TurnProgressPhase::GENERATING_UNIVERSE: return "TURN_PROGRESS_PHASE_GENERATING_UNIVERSE";
+        case Message::TurnProgressPhase::STARTING_AIS:        return "TURN_PROGRESS_STARTING_AIS";
+        default:                                              return "UNKNOWN";
+        }
+    }
+}
+
+void FreeOrionNode::revise_turn() {
+    if (m_app && m_app->Networking().IsConnected())
+        m_app->Networking().SendMessage(UnreadyMessage());
+}
+
 void FreeOrionNode::quit_game() {
     if (m_app)
         m_app->StartQuitting();
@@ -380,6 +408,9 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             Message::TurnProgressPhase phase_id;
             ExtractTurnProgressMessageData(msg, phase_id);
             m_app->HandleTurnPhaseUpdate(phase_id);
+            const auto key = TurnPhaseKey(phase_id);
+            call_deferred("emit_signal", "turn_progress", godot::String::utf8(key.c_str()),
+                          godot::String::utf8(UserString(key).c_str()));
             break;
         }
         case Message::MessageType::TURN_PARTIAL_UPDATE: {
