@@ -162,7 +162,13 @@ public:
       *  - lanes (PackedInt32Array): pairs of indices into the system arrays,
       *    each known starlane listed once
       *  - fleet_ids (PackedInt32Array), fleet_positions (PackedVector2Array),
-      *    fleet_owner_ids (PackedInt32Array) */
+      *    fleet_owner_ids (PackedInt32Array)
+      *  - supply_systems / supply_system_owners: indices of systems each
+      *    empire supplies, with that empire's ID
+      *  - supply_lanes / supply_lane_owners: index pairs of lanes each
+      *    empire's supply crosses, one owner ID per pair
+      *  - field_ids, field_positions, field_radii (PackedFloat32Array),
+      *    field_types (type names) and field_graphics (art paths) */
     static godot::Dictionary get_map_snapshot();
 
 protected:

@@ -10,6 +10,9 @@
 
 #include "../../ClientApp.h"
 #include "../../../Empire/Empire.h"
+#include "../../../Empire/Supply.h"
+#include "../../../universe/Field.h"
+#include "../../../universe/FieldType.h"
 #include "../../../universe/Fleet.h"
 #include "../../../universe/Ship.h"
 #include "../../../universe/ShipDesign.h"
@@ -512,8 +515,17 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     godot::PackedInt32Array fleet_ids;
     godot::PackedVector2Array fleet_positions;
     godot::PackedInt32Array fleet_owner_ids;
+    godot::PackedInt32Array supply_systems;
+    godot::PackedInt32Array supply_system_owners;
+    godot::PackedInt32Array supply_lanes;
+    godot::PackedInt32Array supply_lane_owners;
+    godot::PackedInt32Array field_ids;
+    godot::PackedVector2Array field_positions;
+    godot::PackedFloat32Array field_radii;
+    godot::PackedStringArray field_types;
+    godot::PackedStringArray field_graphics;
 
-    if (const auto* app = ClientApp::GetApp()) {
+    if (auto* app = ClientApp::GetApp()) {
         const auto& objects = app->GetUniverse().Objects();
 
         std::unordered_map<int, int> system_index;
@@ -547,6 +559,49 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
             fleet_positions.push_back(Position(*fleet));
             fleet_owner_ids.push_back(fleet->Owner());
         }
+
+        // Fields (ion storms, nebulae, ...): their size meter is the radius.
+        const auto& destroyed = app->GetUniverse().EmpireKnownDestroyedObjectIDs(app->EmpireID());
+        for (const auto* field : objects.allRaw<Field>()) {
+            if (destroyed.contains(field->ID()))
+                continue;
+            const auto* size = field->GetMeter(MeterType::METER_SIZE);
+            const auto* type = GetFieldType(field->FieldTypeName());
+            field_ids.push_back(field->ID());
+            field_positions.push_back(Position(*field));
+            field_radii.push_back(size ? size->Initial() : 0.0f);
+            field_types.push_back(ToGodot(field->FieldTypeName()));
+            field_graphics.push_back(ToGodot(type && !type->Graphic().empty() ? type->Graphic()
+                                                                            : std::string{"fields/ion_storm.png"}));
+        }
+
+        // Supply: each empire's supplied systems and the lanes its supply
+        // crosses (traversals are directed; keep one per lane and empire).
+        const auto& supply = app->GetSupplyManager();
+        for (const auto& [empire_id, system_ids_supplied] : supply.FleetSupplyableSystemIDs()) {
+            for (const int sys_id : system_ids_supplied) {
+                if (const auto it = system_index.find(sys_id); it != system_index.end()) {
+                    supply_systems.push_back(it->second);
+                    supply_system_owners.push_back(empire_id);
+                }
+            }
+        }
+        for (const auto& [empire_id, traversals] : supply.SupplyStarlaneTraversals()) {
+            std::unordered_set<int64_t> seen;
+            for (const auto& [from_id, to_id] : traversals) {
+                const auto from = system_index.find(from_id);
+                const auto to = system_index.find(to_id);
+                if (from == system_index.end() || to == system_index.end())
+                    continue;
+                const int lo = std::min(from->second, to->second);
+                const int hi = std::max(from->second, to->second);
+                if (!seen.insert((static_cast<int64_t>(lo) << 32) | static_cast<uint32_t>(hi)).second)
+                    continue;
+                supply_lanes.push_back(lo);
+                supply_lanes.push_back(hi);
+                supply_lane_owners.push_back(empire_id);
+            }
+        }
     }
 
     godot::Dictionary snapshot;
@@ -557,6 +612,15 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["fleet_ids"] = fleet_ids;
     snapshot["fleet_positions"] = fleet_positions;
     snapshot["fleet_owner_ids"] = fleet_owner_ids;
+    snapshot["supply_systems"] = supply_systems;
+    snapshot["supply_system_owners"] = supply_system_owners;
+    snapshot["supply_lanes"] = supply_lanes;
+    snapshot["supply_lane_owners"] = supply_lane_owners;
+    snapshot["field_ids"] = field_ids;
+    snapshot["field_positions"] = field_positions;
+    snapshot["field_radii"] = field_radii;
+    snapshot["field_types"] = field_types;
+    snapshot["field_graphics"] = field_graphics;
     return snapshot;
 }
 
