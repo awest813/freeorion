@@ -379,7 +379,8 @@ func _on_fleet_scrap(ship_ids: PackedInt32Array) -> void:
 	_refresh_fleet_views(fleet_panel.fleet_id)
 
 
-# Colonise, invade or annex (each toggles the order), then show the result.
+# Colonise, invade, annex or bombard (each toggles the order), then show
+# the result.
 func _on_planet_action(planet_id: int, action: String) -> void:
 	if not follow_game:
 		return
@@ -391,6 +392,8 @@ func _on_planet_action(planet_id: int, action: String) -> void:
 			done = FOPlanetActions.invade(planet_id)
 		"annex":
 			done = FOPlanetActions.annex(planet_id)
+		"bombard":
+			done = FOPlanetActions.bombard(planet_id)
 	system_panel.refresh()
 	if not done:
 		system_panel.show_notice(tr("SYSTEM_PANEL_ACTION_REFUSED"))

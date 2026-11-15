@@ -1,7 +1,8 @@
 class_name OptionsSource
 extends RefCounted
-## Option values for OptionsScreen via the FOOptions singleton; tests use a
-## fake with the same methods.
+## Option values for OptionsScreen and GalaxySetupScreen via the FOOptions
+## singleton (plus the playable species and empire colours galaxy setup
+## offers); tests use a fake with the same methods.
 
 
 func _options() -> Object:
@@ -42,3 +43,11 @@ func find(prefix: String) -> PackedStringArray:
 
 func commit() -> bool:
 	return _options().commit()
+
+
+func playable_species() -> Array:
+	return FOUniverse.get_playable_species()
+
+
+func empire_colors() -> PackedColorArray:
+	return FOUniverse.get_empire_colors()

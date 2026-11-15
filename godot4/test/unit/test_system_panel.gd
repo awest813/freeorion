@@ -176,6 +176,8 @@ func test_action_texts():
 		tr("PL_ANNEXABLE").replace("%1%", "12.5")
 	)
 	assert_eq(SystemPanel.action_text("invade", {"state": ""}), "", "Not offered")
+	assert_eq(SystemPanel.action_text("bombard", {"state": "available"}), tr("PL_BOMBARD"))
+	assert_eq(SystemPanel.action_text("bombard", {"state": "pending"}), tr("PL_CANCEL_BOMBARD"))
 
 
 func test_unaffordable_annex_is_disabled():

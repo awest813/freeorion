@@ -49,6 +49,25 @@ func test_setup_reads_and_writes_options():
 	assert_eq(setup.source.get_value("setup.empire.name"), "Terran Union")
 
 
+func test_species_and_colour():
+	var setup := GalaxySetupScreen.new()
+	setup.source = _setup_options()
+	add_child_autofree(setup)
+	setup.refresh()
+	var species: OptionButton = setup._editors["setup.initial.species"]
+	assert_eq(species.item_count, 3, "Two playable species and Random")
+	assert_eq(species.get_item_metadata(species.selected), "SP_EGASSEM")
+	assert_eq(species.get_item_metadata(2), "RANDOM")
+	var swatches := setup._colors.get_children()
+	assert_eq(swatches.size(), 3)
+	assert_true(swatches[1].button_pressed, "The stored colour is picked")
+	swatches[2].pressed.emit()
+	species.select(0)
+	assert_true(setup.apply())
+	assert_eq(setup.source.get_value("setup.empire.color.index"), 2)
+	assert_eq(setup.source.get_value("setup.initial.species"), "SP_HUMAN")
+
+
 func test_star_count_field_clamps_to_range():
 	var setup := GalaxySetupScreen.new()
 	setup.source = _setup_options()
@@ -79,6 +98,10 @@ func _setup_options() -> RefCounted:
 	fake.options["setup.galaxy.age"] = {
 		"value": "GALAXY_SETUP_MEDIUM", "default": "GALAXY_SETUP_MEDIUM", "description": ""
 	}
+	fake.options["setup.initial.species"] = {
+		"value": "SP_EGASSEM", "default": "SP_HUMAN", "description": ""
+	}
+	fake.options["setup.empire.color.index"] = {"value": 1, "default": 9, "description": ""}
 	return fake
 
 

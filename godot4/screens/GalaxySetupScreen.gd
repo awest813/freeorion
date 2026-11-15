@@ -1,7 +1,7 @@
 class_name GalaxySetupScreen
 extends PanelContainer
-## New single-player game: player and empire, galaxy (seed, size, shape with
-## a preview, age, frequencies) and AI opponents. Values are the setup.*
+## New single-player game: player, empire (name, species, colour), galaxy
+## (seed, size, shape with a preview, age, frequencies) and AI opponents. Values are the setup.*
 ## options that the bridge's new_single_player_game() reads, so the form
 ## reads them on show and writes them back on Start.
 
@@ -101,6 +101,9 @@ const SHAPE_PREVIEWS := {
 var source: Variant = OptionsSource.new()
 
 var _editors := {}
+var _species: OptionButton
+var _colors: HFlowContainer
+var _color_index := 0
 var _preview: TextureRect
 var _status: Label
 
@@ -120,6 +123,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 ## Fill the form from the current setup options.
 func refresh() -> void:
+	_fill_species()
+	_fill_colors()
 	for option in _editors:
 		var editor: Control = _editors[option]
 		var value: Variant = source.get_value(option) if source.exists(option) else null
@@ -133,6 +138,8 @@ func refresh() -> void:
 			editor.set_value_no_signal(value)
 		elif editor is LineEdit:
 			editor.text = str(value)
+	if source.exists("setup.empire.color.index"):
+		_select_color(int(source.get_value("setup.empire.color.index")))
 	_status.text = ""
 	_update_preview()
 
@@ -151,6 +158,8 @@ func apply() -> bool:
 		if source.exists(option) and not source.set_value(option, value):
 			_status.text = tr("OPTIONS_INVALID").replace("%1%", option)
 			return false
+	if source.exists("setup.empire.color.index"):
+		source.set_value("setup.empire.color.index", _color_index)
 	return true
 
 
@@ -176,6 +185,14 @@ func _build() -> void:
 		_add_row(grid, field[1], edit, field[0])
 		if field[0] == "setup.seed":
 			edit.tooltip_text = tr("GSETUP_RANDOM_SEED")
+		if field[0] == "setup.empire.name":
+			_species = OptionButton.new()
+			_species.tooltip_text = tr("GSETUP_SPECIES_RANDOM_DESC")
+			_add_row(grid, "GSETUP_SPECIES", _species, "setup.initial.species")
+			_colors = HFlowContainer.new()
+			_colors.add_theme_constant_override("h_separation", FOUi.tokens.space_1)
+			_colors.add_theme_constant_override("v_separation", FOUi.tokens.space_1)
+			_add_row(grid, "GSETUP_EMPIRE_COLOR", _colors, "")
 	for field in NUMBERS:
 		var spin := SpinBox.new()
 		spin.min_value = field[2]
@@ -221,7 +238,56 @@ func _add_row(grid: GridContainer, label_key: String, editor: Control, option: S
 	grid.add_child(ScreenKit.label(tr(label_key), "SecondaryLabel"))
 	editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_child(editor)
-	_editors[option] = editor
+	if not option.is_empty():
+		_editors[option] = editor
+
+
+# Species to start with, and "Random". Content may still be parsing on the
+# first refresh, so this refills each time.
+func _fill_species() -> void:
+	_species.clear()
+	for species: Dictionary in source.playable_species():
+		_species.add_item(tr(species["name"]))
+		var index := _species.item_count - 1
+		_species.set_item_metadata(index, species["name"])
+		var icon := FOArt.icon(species.get("icon", ""))
+		if icon:
+			_species.set_item_icon(index, icon)
+	_species.add_item(tr("GSETUP_RANDOM"))
+	_species.set_item_metadata(_species.item_count - 1, "RANDOM")
+	_species.add_theme_constant_override("icon_max_width", FOUi.tokens.icon)
+
+
+# A swatch per empire colour; one is picked.
+func _fill_colors() -> void:
+	ScreenKit.clear(_colors)
+	var group := ButtonGroup.new()
+	var colors: PackedColorArray = source.empire_colors()
+	for i in colors.size():
+		var swatch := Button.new()
+		swatch.toggle_mode = true
+		swatch.button_group = group
+		swatch.custom_minimum_size = Vector2.ONE * FOUi.tokens.icon
+		swatch.tooltip_text = tr("GSETUP_EMPIRE_COLOR")
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = colors[i]
+		fill.set_corner_radius_all(FOUi.tokens.radius_small)
+		var picked := fill.duplicate()
+		picked.set_border_width_all(FOUi.tokens.focus_width)
+		picked.border_color = FOUi.tokens.text_primary
+		for state in ["normal", "hover", "disabled"]:
+			swatch.add_theme_stylebox_override(state, fill)
+		for state in ["pressed", "hover_pressed"]:
+			swatch.add_theme_stylebox_override(state, picked)
+		swatch.pressed.connect(_select_color.bind(i))
+		_colors.add_child(swatch)
+
+
+func _select_color(index: int) -> void:
+	var swatches := _colors.get_children().filter(func(c): return not c.is_queued_for_deletion())
+	_color_index = clampi(index, 0, maxi(0, swatches.size() - 1))
+	for i in swatches.size():
+		swatches[i].set_pressed_no_signal(i == _color_index)
 
 
 func _update_preview() -> void:

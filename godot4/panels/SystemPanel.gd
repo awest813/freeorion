@@ -10,8 +10,8 @@ extends PanelContainer
 signal close_requested
 ## An own fleet was selected in the list (-1: selection cleared).
 signal fleet_selected(fleet_id: int)
-## A planet action button was pressed: "colonize", "invade" or "annex" (each
-## toggles the order).
+## A planet action button was pressed: "colonize", "invade", "annex" or
+## "bombard" (each toggles the order).
 signal planet_action_requested(planet_id: int, action: String)
 ## A new focus was picked for an own planet.
 signal focus_requested(planet_id: int, focus: String)
@@ -341,7 +341,7 @@ func _planet_actions(planet: Dictionary) -> HFlowContainer:
 	var focus: Dictionary = actions.get("focus", {})
 	if focus.get("state", "") == "available":
 		flow.add_child(_focus_picker(planet_id, focus))
-	for action in ["colonize", "invade", "annex"]:
+	for action in ["colonize", "invade", "annex", "bombard"]:
 		var entry: Dictionary = actions.get(action, {})
 		var text := action_text(action, entry)
 		if text.is_empty():
@@ -378,8 +378,8 @@ func _focus_picker(planet_id: int, focus: Dictionary) -> OptionButton:
 	return picker
 
 
-## Button text for planet \a action ("colonize", "invade", "annex") in
-## \a entry's state; "" when the action isn't offered.
+## Button text for planet \a action ("colonize", "invade", "annex",
+## "bombard") in \a entry's state; "" when the action isn't offered.
 static func action_text(action: String, entry: Dictionary) -> String:
 	var state: String = entry.get("state", "")
 	var text := ""
@@ -414,6 +414,10 @@ static func action_text(action: String, entry: Dictionary) -> String:
 			text = _tr("PL_ANNEXABLE").replace("%1%", "%.1f" % entry.get("cost", 0.0))
 		["annex", "restricted"]:
 			text = _tr("PL_ANNEXATION_RESTRICTED")
+		["bombard", "available"]:
+			text = _tr("PL_BOMBARD")
+		["bombard", "pending"]:
+			text = _tr("PL_CANCEL_BOMBARD")
 	return text
 
 

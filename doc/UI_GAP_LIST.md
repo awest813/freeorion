@@ -26,7 +26,7 @@ a meter has its value) and diplomacy.
 | Priority | Open items | Main ones |
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
-| P1 | 6 | Meter breakdown tooltips; bombard; diplomacy; species, colour and rules in setup; multiplayer |
+| P1 | 4 | Meter breakdown tooltips; diplomacy; game rules in setup; multiplayer |
 | P2 | 23 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
 | P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
@@ -51,6 +51,8 @@ Closed on 2026-11-15:
 - **Victory and defeat:** announced in a dialog, once each.
 - **Supply on the map:** each empire's supplied area as one even tint, and its supplied lanes as bands, in the empire's colour.
 - **Planet detail:** click a planet's name for its meters (now, next turn's change, target), buildings (own ones can be scrapped) and specials, all linked to the Pedia. The side column scrolls when the panels don't fit.
+- **Species and colour in galaxy setup:** a species picker with icons (and Random) and a row of colour swatches, saved to the existing setup options.
+- **Bombard:** in the planet actions, with ships chosen by their bombard tags as in `SidePanel`. Covered by unit tests only so far; no bombard-capable ships early in a game.
 - **Fields (ion storms, nebulae, ...):** drawn with their art at their real radius. Their names and effects on hover are still missing (P2).
 
 ### Map and panels
@@ -58,14 +60,12 @@ Closed on 2026-11-15:
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Meter breakdown tooltips | `UI/MeterBrowseWnd.cpp`, `ShipDesignBrowseWnd`, `IconTextBrowseWnd` | L | Why a meter has its value (each effect's contribution). FreeOrion's main teaching tool. |
-| Bombard | `SidePanel.cpp` `ClickBombard` | S | Rarely used but part of the planet actions. |
 
 ### Game flow
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Diplomacy | `PlayerListWnd`, `DIPLO_MESSAGE`, `DIPLOMATIC_STATUS` | M | AIs propose peace and alliances even in single player; the client can neither see nor answer them. Includes an empires list. |
-| Species and colour in galaxy setup | `GalaxySetupWnd` species picker, colour selector | S | New games always use the stored species and colour. |
 | Game rules in galaxy setup | `GalaxySetupWnd` rules tab | M | Generated from the rules' metadata, like the options screen. |
 | Multiplayer | `ServerConnectWnd`, `MultiplayerLobbyWnd`, `PasswordEnterWnd`, `ChatWnd` | L | Connect, host, lobby (players, AIs, colours, ready), passwords, chat, and the lobby, auth, chat, status and timeout messages. |
 

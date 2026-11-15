@@ -63,3 +63,14 @@ func find(_prefix: String) -> PackedStringArray:
 func commit() -> bool:
 	committed = true
 	return true
+
+
+func playable_species() -> Array:
+	return [
+		{"name": "SP_HUMAN", "icon": "icons/species/human.png"},
+		{"name": "SP_EGASSEM", "icon": "icons/species/egassem.png"},
+	]
+
+
+func empire_colors() -> PackedColorArray:
+	return PackedColorArray([Color("#ff0000"), Color("#00ff00"), Color("#3d9bff")])
