@@ -72,6 +72,8 @@ var rows := {
 }
 
 var columns_text := ""
+var focus_calls: Array = []
+var enqueued: Array = []
 
 
 func empire_id() -> int:
@@ -86,7 +88,7 @@ func save_columns(text: String) -> void:
 	columns_text = text
 
 
-func list_objects(kind: String, own_only: bool) -> Array:
+func list_objects(kind: String, own_only: bool, _include_destroyed := false) -> Array:
 	calls.push_back([kind, own_only])
 	var result: Array = rows.get(kind, [])
 	if own_only:
@@ -127,3 +129,23 @@ static func _planet(
 		"shield": 10.0,
 		"troops": 6.0,
 	}
+
+
+func focus_options(_planet_id: int) -> PackedStringArray:
+	return PackedStringArray(["FOCUS_INDUSTRY", "FOCUS_RESEARCH"])
+
+
+func set_focus(planet_id: int, focus: String) -> bool:
+	focus_calls.push_back([planet_id, focus])
+	return true
+
+
+func buildable(_planet_id: int) -> Array:
+	return [
+		{"build_type": "building", "label": "BLD_MILITARY_COMMAND", "name": "BLD_MILITARY_COMMAND"}
+	]
+
+
+func enqueue(item: Dictionary, planet_id: int) -> bool:
+	enqueued.push_back([item.get("name", ""), planet_id])
+	return true

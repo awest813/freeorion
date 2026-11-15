@@ -63,12 +63,12 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 
 ## Objects list (`ObjectListWnd`)
 
-- [ ] Condition filter builder (homeworld, capital, armed, can colonise, species, focus, planet type, meter values, ...) — L
-- [ ] Visibility filter: visible now, seen before, destroyed — M
-- [ ] Fields as a kind — S
-- [ ] More columns (every meter, environment per species, distance to selection, last battle, specials, hull, parts, costs) — M
-- [ ] Nested rows (system › planet › building, fleet › ship), expand and collapse all — M
-- [ ] Select several rows; set focus on them; queue an item at them — S
+- [x] Condition filter builder (homeworld, capital, armed, can colonise, species, focus, planet type, meter values, ...) — L
+- [x] Visibility filter: visible now, seen before, destroyed — M
+- [x] Fields as a kind — S
+- [x] More columns (every meter, environment per species, distance to selection, last battle, specials, hull, parts, costs) — M
+- [x] Nested rows (system › planet › building, fleet › ship), expand and collapse all — M
+- [x] Select several rows; set focus on them; queue an item at them — S
 
 ## Combat reports and turn events (`CombatReport`, `SitRepPanel`)
 

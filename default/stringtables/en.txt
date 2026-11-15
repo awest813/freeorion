@@ -2885,6 +2885,117 @@ Initial forces (%1%)
 COMBAT_LOSSES
 Losses (%1%)
 
+OBJECTS_FIELDS
+Fields
+
+OBJECTS_COL_ENVIRONMENT
+Environment (capital species)
+
+OBJECTS_COL_SPECIALS
+Specials
+
+OBJECTS_COL_LAST_ATTACKED
+Last attacked
+
+OBJECTS_COL_DISTANCE
+Distance to selection
+
+OBJECTS_COL_HULL
+Hull
+
+OBJECTS_COL_PARTS
+Parts
+
+OBJECTS_COL_COST
+Cost
+
+OBJECTS_COL_NEAR
+Nearest system
+
+OBJECTS_COL_RADIUS
+Radius
+
+OBJECTS_CONDITIONS
+Conditions
+
+OBJECTS_ADD_CONDITION
+Add a condition
+
+OBJECTS_REMOVE_CONDITION
+Remove this condition
+
+OBJECTS_TRAIT_HOMEWORLD
+Is a homeworld
+
+OBJECTS_TRAIT_CAPITAL
+Is a capital
+
+OBJECTS_TRAIT_ARMED
+Is armed
+
+OBJECTS_TRAIT_COLONIZE
+Can colonise
+
+OBJECTS_OP_AT_LEAST
+at least
+
+OBJECTS_OP_AT_MOST
+at most
+
+OBJECTS_OP_EQUAL
+equals
+
+OBJECTS_OP_IS
+is
+
+OBJECTS_OP_CONTAINS
+contains
+
+OBJECTS_OP_NOT
+is not
+
+OBJECTS_OP_TRUE
+yes
+
+OBJECTS_OP_FALSE
+no
+
+OBJECTS_VISIBILITY
+Visibility
+
+OBJECTS_VIS_VISIBLE
+Visible now
+
+OBJECTS_VIS_SEEN
+Seen before
+
+OBJECTS_VIS_DESTROYED
+Destroyed
+
+OBJECTS_EXPAND_ALL
+Expand all
+
+OBJECTS_COLLAPSE_ALL
+Collapse all
+
+OBJECTS_NESTED_PLANETS
+System › planet › building
+
+OBJECTS_NESTED_FLEETS
+Fleet › ship
+
+# %1% number of planets
+OBJECTS_SET_FOCUS
+Set focus on %1% selected
+
+# %1% number of planets
+OBJECTS_QUEUE_AT
+Queue at %1% selected
+
+# %1% number of planets
+OBJECTS_QUEUED
+Queued at %1% planets.
+
 OPTIONS_LANGUAGE_NAME
 Language
 

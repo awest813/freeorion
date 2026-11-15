@@ -134,7 +134,11 @@ func test_column_chooser_is_remembered():
 	assert_gt(menu.item_count, 10)
 	screen.set_column_shown("type", true)
 	screen.set_column_shown("troops", false)
-	assert_eq(screen._tree.columns, ObjectsScreen.COLUMNS["planets"].size() - 3)
+	var optional := ObjectsScreen.OPTIONAL_COLUMNS.filter(func(c): return c.begins_with("planets:"))
+	# Every column but the optional ones, plus type, less troops.
+	assert_eq(
+		screen._tree.columns, ObjectsScreen.COLUMNS["planets"].size() - optional.size() + 1 - 1
+	)
 	assert_eq(
 		ObjectsScreen.parse_column_choice(fake.columns_text),
 		{"planets:type": true, "planets:troops": false}

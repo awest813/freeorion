@@ -3,17 +3,24 @@ extends PanelContainer
 ## Objects: every known planet, fleet, ship, building or system in a table
 ## that sorts by any column (click its title) and filters by name, owner and
 ## a preset per kind (populated planets, idle fleets, ...). Rows can be
-## grouped (by location, owner, ...) with totals per group. Right-click a
-## title to choose the columns, a row for its actions. Double-click (or
-## Enter on) a row to show the object on the map.
+## grouped (by location, owner, ...) with totals per group, or nested
+## (system › planet › building, fleet › ship). A condition filter tests
+## columns and traits; a visibility filter picks objects seen now, seen
+## before or destroyed. Right-click a title to choose the columns, a row
+## for its actions (on every selected row: set focus, queue an item).
+## Double-click (or Enter on) a row to show the object on the map.
 
 signal close_requested
 signal link_activated(kind: String, arg: String)
 ## "Build here" on own planet \a planet_id.
 signal production_requested(planet_id: int)
 
-## Row menu ids.
+## Row menu ids (focus and queue entries are above these).
 enum { ACTION_MAP, ACTION_PEDIA, ACTION_BUILD }
+const FOCUS_MENU_BASE := 100
+const QUEUE_MENU_BASE := 1000
+## Group key for nested rows (system › planet › building, fleet › ship).
+const NESTED := "__nested"
 
 ## Kinds: list name, tab label key.
 const KINDS := [
@@ -22,6 +29,7 @@ const KINDS := [
 	["ships", "OBJECTS_SHIPS"],
 	["buildings", "OBJECTS_BUILDINGS"],
 	["systems", "OBJECTS_SYSTEMS"],
+	["fields", "OBJECTS_FIELDS"],
 ]
 ## Columns per kind: row key, title key, format. Formats: text, tr (a
 ## stringtable key), number, int, owner, eta, structure, stance, location.
@@ -44,6 +52,19 @@ const COLUMNS := {
 		["type", "OBJECTS_COL_TYPE", "tr"],
 		["size", "OBJECTS_COL_SIZE", "tr"],
 		["shield", "METER_SHIELD", "int"],
+		["target_population", "METER_TARGET_POPULATION", "number"],
+		["construction", "METER_CONSTRUCTION", "number"],
+		["stockpile", "METER_STOCKPILE", "number"],
+		["max_defense", "METER_MAX_DEFENSE", "int"],
+		["max_shield", "METER_MAX_SHIELD", "int"],
+		["max_troops", "METER_MAX_TROOPS", "number"],
+		["rebels", "METER_REBEL_TROOPS", "number"],
+		["detection", "METER_DETECTION", "int"],
+		["stealth", "METER_STEALTH", "int"],
+		["environment", "OBJECTS_COL_ENVIRONMENT", "tr"],
+		["specials", "OBJECTS_COL_SPECIALS", "text"],
+		["last_attacked", "OBJECTS_COL_LAST_ATTACKED", "int"],
+		["distance", "OBJECTS_COL_DISTANCE", "int"],
 	],
 	"fleets":
 	[
@@ -56,6 +77,9 @@ const COLUMNS := {
 		["eta", "OBJECTS_COL_ETA", "eta"],
 		["aggression", "OBJECTS_COL_STANCE", "stance"],
 		["colony_ships", "OBJECTS_COL_COLONY_SHIPS", "int"],
+		["speed", "METER_SPEED", "int"],
+		["fuel", "METER_FUEL", "number"],
+		["distance", "OBJECTS_COL_DISTANCE", "int"],
 	],
 	"ships":
 	[
@@ -66,6 +90,12 @@ const COLUMNS := {
 		["owner_name", "OWNER", "owner"],
 		["species", "SPECIES", "tr"],
 		["structure", "METER_STRUCTURE", "structure"],
+		["hull", "OBJECTS_COL_HULL", "text"],
+		["parts", "OBJECTS_COL_PARTS", "int"],
+		["cost", "OBJECTS_COL_COST", "number"],
+		["speed", "METER_SPEED", "int"],
+		["fuel", "METER_FUEL", "number"],
+		["distance", "OBJECTS_COL_DISTANCE", "int"],
 	],
 	"buildings":
 	[
@@ -80,10 +110,46 @@ const COLUMNS := {
 		["star", "OBJECTS_COL_STAR", "tr"],
 		["planets", "OBJECTS_COL_PLANETS", "int"],
 		["fleets", "OBJECTS_COL_FLEETS", "int"],
+		["distance", "OBJECTS_COL_DISTANCE", "int"],
+	],
+	"fields":
+	[
+		["name", "NAME", "text"],
+		["system_name", "OBJECTS_COL_NEAR", "text"],
+		["size", "OBJECTS_COL_RADIUS", "int"],
+		["distance", "OBJECTS_COL_DISTANCE", "int"],
 	],
 }
 ## Columns hidden until chosen in the column menu: "kind:key".
-const OPTIONAL_COLUMNS := ["planets:type", "planets:size", "planets:shield", "fleets:colony_ships"]
+const OPTIONAL_COLUMNS := [
+	"planets:type",
+	"planets:size",
+	"planets:shield",
+	"planets:target_population",
+	"planets:construction",
+	"planets:stockpile",
+	"planets:max_defense",
+	"planets:max_shield",
+	"planets:max_troops",
+	"planets:rebels",
+	"planets:detection",
+	"planets:stealth",
+	"planets:environment",
+	"planets:specials",
+	"planets:last_attacked",
+	"planets:distance",
+	"fleets:colony_ships",
+	"fleets:speed",
+	"fleets:fuel",
+	"fleets:distance",
+	"ships:hull",
+	"ships:parts",
+	"ships:cost",
+	"ships:speed",
+	"ships:fuel",
+	"ships:distance",
+	"systems:distance",
+]
 ## Filter presets per kind: name, label key ("all" first).
 const FILTERS := {
 	"planets":
@@ -101,14 +167,16 @@ const FILTERS := {
 	"ships": [["all", "OBJECTS_FILTER_ALL"], ["damaged", "OBJECTS_FILTER_DAMAGED"]],
 	"buildings": [["all", "OBJECTS_FILTER_ALL"]],
 	"systems": [["all", "OBJECTS_FILTER_ALL"]],
+	"fields": [["all", "OBJECTS_FILTER_ALL"]],
 }
 ## Grouping per kind: row key ("" for none).
 const GROUPS := {
-	"planets": ["", "system_name", "owner_name", "species"],
-	"fleets": ["", "system_name", "owner_name"],
+	"planets": ["", "system_name", "owner_name", "species", NESTED],
+	"fleets": ["", "system_name", "owner_name", NESTED],
 	"ships": ["", "fleet_name", "design", "system_name", "species"],
 	"buildings": ["", "system_name", "building_type"],
 	"systems": [""],
+	"fields": [""],
 }
 ## Formats shown right-aligned and sorted as numbers.
 const NUMERIC := ["number", "int", "eta", "structure"]
@@ -120,6 +188,11 @@ var source: Variant = ObjectsSource.new()
 var kind := "planets"
 var sort_key := "name"
 var sort_ascending := true
+## Where the map's selected system is (for the distance column); INF for
+## none. GameShell sets it before showing the screen.
+var selection_position := Vector2.INF
+## Visibility filter: "visible", "seen", "destroyed" -> shown.
+var visibility_shown := {"visible": true, "seen": true, "destroyed": false}
 
 var _info: Label
 var _tabs: TabBar
@@ -133,6 +206,9 @@ var _rows: Array = []
 ## Columns shown or hidden against their default: "kind:key" -> shown.
 var _column_choice := {}
 var _menu: PopupMenu
+var _conditions: ObjectsConditions
+var _visibility: MenuButton
+var _expand_row: HBoxContainer
 
 
 func _init() -> void:
@@ -152,8 +228,34 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func refresh() -> void:
 	if _column_choice.is_empty():
 		_column_choice = parse_column_choice(source.load_columns())
-	_rows = source.list_objects(kind, _only_mine.button_pressed)
+	_rows = source.list_objects(kind, _only_mine.button_pressed, visibility_shown["destroyed"])
+	# Distance to the map's selected system, for its column.
+	for row: Dictionary in _rows:
+		if selection_position.is_finite() and row.has("x"):
+			row["distance"] = Vector2(row["x"], row["y"]).distance_to(selection_position)
 	_rebuild()
+
+
+## Show objects in visibility state \a state ("visible", "seen",
+## "destroyed") or not.
+func set_visibility_shown(state: String, shown: bool) -> void:
+	var reload: bool = state == "destroyed" and visibility_shown["destroyed"] != shown
+	visibility_shown[state] = shown
+	if reload:
+		refresh()
+	else:
+		_rebuild()
+
+
+## Open (true) or fold every group and nested row.
+func expand_all(expanded: bool) -> void:
+	var root := _tree.get_root()
+	if root == null:
+		return
+	var item := root.get_first_child()
+	while item:
+		item.set_collapsed_recursive(not expanded)
+		item = item.get_next()
 
 
 ## Whether column \a key of the shown kind is shown.
@@ -214,8 +316,15 @@ func sort_by(key: String) -> void:
 func shown_rows() -> Array:
 	var needle := _search.text.strip_edges().to_lower()
 	var preset := _filter_name()
+	var conditions: Array = _conditions.conditions
 	var rows := _rows.filter(
-		func(row): return _matches(row, needle) and passes_filter(kind, preset, row)
+		func(row):
+			return (
+				_matches(row, needle)
+				and passes_filter(kind, preset, row)
+				and visibility_shown.get(row.get("visibility", "visible"), true)
+				and ObjectsConditions.passes(row, conditions, _display)
+			)
 	)
 	var numeric := _is_numeric(sort_key)
 	var key := sort_key
@@ -289,31 +398,74 @@ func _build() -> void:
 	_filter.item_selected.connect(func(_i): _rebuild())
 	toolbar.add_child(_filter)
 	_group = OptionButton.new()
+	_group.fit_to_longest_item = false
+	_group.custom_minimum_size.x = 190
+	_group.clip_text = true
 	_group.tooltip_text = tr("OBJECTS_GROUP_TIP")
 	_group.item_selected.connect(func(_i): _rebuild())
 	toolbar.add_child(_group)
 	_search = LineEdit.new()
 	_search.placeholder_text = tr("OBJECTS_SEARCH")
 	_search.clear_button_enabled = true
-	_search.custom_minimum_size.x = 260
+	_search.custom_minimum_size.x = 220
 	_search.text_changed.connect(func(_t): _rebuild())
 	toolbar.add_child(_search)
+
+	# Second row: conditions, visibility, folding.
+	var filters := HBoxContainer.new()
+	filters.add_theme_constant_override("separation", FOUi.tokens.space_3)
+	box.add_child(filters)
+	var conditions_toggle := Button.new()
+	conditions_toggle.text = tr("OBJECTS_CONDITIONS")
+	conditions_toggle.toggle_mode = true
+	conditions_toggle.theme_type_variation = "GhostButton"
+	filters.add_child(conditions_toggle)
+	_visibility = MenuButton.new()
+	_visibility.text = tr("OBJECTS_VISIBILITY")
+	_visibility.flat = false
+	var popup := _visibility.get_popup()
+	for state in ["visible", "seen", "destroyed"]:
+		popup.add_check_item(tr("OBJECTS_VIS_" + state.to_upper()))
+		popup.set_item_checked(popup.item_count - 1, visibility_shown[state])
+	popup.hide_on_checkable_item_selection = false
+	popup.index_pressed.connect(
+		func(index: int):
+			var state: String = ["visible", "seen", "destroyed"][index]
+			popup.set_item_checked(index, not visibility_shown[state])
+			set_visibility_shown(state, not visibility_shown[state])
+	)
+	filters.add_child(_visibility)
+	_expand_row = HBoxContainer.new()
+	filters.add_child(_expand_row)
+	for entry in [["OBJECTS_EXPAND_ALL", true], ["OBJECTS_COLLAPSE_ALL", false]]:
+		var button := Button.new()
+		button.text = tr(entry[0])
+		button.theme_type_variation = "GhostButton"
+		button.pressed.connect(expand_all.bind(entry[1]))
+		_expand_row.add_child(button)
+	_conditions = ObjectsConditions.new()
+	_conditions.visible = false
+	_conditions.changed.connect(_rebuild)
+	conditions_toggle.toggled.connect(func(on): _conditions.visible = on)
+	box.add_child(_conditions)
 
 	_tree = Tree.new()
 	_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tree.hide_root = true
 	_tree.column_titles_visible = true
-	_tree.select_mode = Tree.SELECT_ROW
+	_tree.select_mode = Tree.SELECT_MULTI
+	# Nested rows are indented under their parent.
+	_tree.add_theme_constant_override("item_margin", FOUi.tokens.space_4)
 	_tree.tooltip_text = tr("OBJECTS_ACTIVATE_HINT")
 	_tree.column_title_clicked.connect(_on_column_title_clicked)
 	_tree.item_activated.connect(_on_item_activated)
 	_tree.allow_rmb_select = true
 	_tree.item_mouse_selected.connect(_on_item_mouse_selected)
 	box.add_child(_tree)
-	_fill_pickers()
 	_empty = ScreenKit.label(tr("OBJECTS_EMPTY"), "SecondaryLabel")
 	_empty.visible = false
 	box.add_child(_empty)
+	_fill_pickers()
 
 
 # Filter and group choices for the shown kind.
@@ -325,15 +477,16 @@ func _fill_pickers() -> void:
 	_filter.visible = _filter.item_count > 1
 	_group.clear()
 	for key: String in GROUPS[kind]:
-		_group.add_item(
-			(
-				tr("OBJECTS_GROUP_NONE")
-				if key.is_empty()
-				else tr("OBJECTS_GROUP_BY").replace("%1%", tr(_title_key(key)))
-			)
-		)
+		var label := tr("OBJECTS_GROUP_BY").replace("%1%", tr(_title_key(key)))
+		if key.is_empty():
+			label = tr("OBJECTS_GROUP_NONE")
+		elif key == NESTED:
+			label = tr("OBJECTS_NESTED_" + kind.to_upper())
+		_group.add_item(label)
 	_group.select(0)
 	_group.visible = _group.item_count > 1
+	if _conditions:
+		_conditions.set_kind(kind, COLUMNS[kind])
 
 
 func _title_key(key: String) -> String:
@@ -382,14 +535,27 @@ func _rebuild() -> void:
 		_tree.set_column_expand(i, not numeric)
 		_tree.set_column_expand_ratio(i, 3 if i == 0 else 2)
 		_tree.set_column_clip_content(i, not numeric)
-		_tree.set_column_custom_minimum_width(i, NUMBER_WIDTH if numeric else 0)
+		_tree.set_column_custom_minimum_width(
+			i, NUMBER_WIDTH if numeric else (200 if i == 0 else 0)
+		)
 	var root := _tree.create_item()
 	var rows := shown_rows()
 	var group_key := _group_key()
+	_expand_row.visible = not group_key.is_empty()
 	var groups := {}
+	var children := _nested_children(rows) if group_key == NESTED else {}
 	for row: Dictionary in rows:
 		var parent := root
-		if not group_key.is_empty():
+		if group_key == NESTED:
+			# Planets under their system; their buildings (fleets' ships)
+			# under them.
+			if kind == "planets":
+				var system := _display(row, "system_name")
+				if not groups.has(system):
+					groups[system] = _group_item(root, system)
+				parent = groups[system]
+				_add_to_group(parent, row)
+		elif not group_key.is_empty():
 			var value := _display(row, group_key)
 			if not groups.has(value):
 				groups[value] = _group_item(root, value)
@@ -406,6 +572,11 @@ func _rebuild() -> void:
 			if column[2] == "owner" and row.get("owner_id", -1) >= 0:
 				item.set_custom_color(i, row.get("owner_color", Color.WHITE))
 		_set_row_icon(item, row)
+		for child: Dictionary in children.get(row["id"], []):
+			var sub := _tree.create_item(item)
+			sub.set_text(0, child["text"])
+			sub.set_metadata(0, child["link"])
+			sub.set_custom_color(0, FOUi.tokens.text_secondary)
 	for group: TreeItem in groups.values():
 		_finish_group(group)
 	_info.text = tr("OBJECTS_COUNT").replace("%1%", str(rows.size()))
@@ -414,6 +585,32 @@ func _rebuild() -> void:
 
 # A group heading: its value, how many rows, and the totals of number
 # columns (filled in by _add_to_group()).
+# Rows under each row when nested: planet id -> its buildings, fleet id ->
+# its ships: [{text, link}].
+func _nested_children(rows: Array) -> Dictionary:
+	var children := {}
+	var child_kind: String = {"planets": "buildings", "fleets": "ships"}.get(kind, "")
+	if child_kind.is_empty():
+		return children
+	var ids := {}
+	for row: Dictionary in rows:
+		ids[row["id"]] = true
+	var parent_key: String = "planet_id" if child_kind == "buildings" else "fleet_id"
+	for child: Dictionary in source.list_objects(child_kind, _only_mine.button_pressed, false):
+		var parent_id: int = child.get(parent_key, -1)
+		if not ids.has(parent_id):
+			continue
+		if not children.has(parent_id):
+			children[parent_id] = []
+		var text: String = (
+			tr(child.get("building_type", ""))
+			if child_kind == "buildings"
+			else "%s · %s" % [child.get("name", ""), child.get("design", "")]
+		)
+		children[parent_id].push_back({"text": text, "link": row_link(child_kind, child)})
+	return children
+
+
 func _group_item(root: TreeItem, value: String) -> TreeItem:
 	var item := _tree.create_item(root)
 	item.set_meta("group", value if not value.is_empty() else tr("OBJECTS_GROUP_UNKNOWN"))
@@ -467,7 +664,10 @@ func _display(row: Dictionary, key: String) -> String:
 			format = column[2]
 	var value: Variant = row.get(key, "")
 	var text := str(value)
-	# Planets nobody lives on have no meters worth showing.
+	# Planets nobody lives on have no meters worth showing; nor do rows
+	# without the value (the distance with nothing selected).
+	if NUMERIC.has(format) and not (value is float or value is int):
+		return ""
 	if kind == "planets" and NUMERIC.has(format) and str(row.get("species", "")).is_empty():
 		return ""
 	match format:
@@ -535,19 +735,80 @@ func open_row_menu(row: Dictionary) -> PopupMenu:
 	var own: bool = row.get("owner_id", -1) == source.empire_id() and row.get("owner_id", -1) >= 0
 	if kind == "planets" and own:
 		menu.add_item(tr("OBJECTS_BUILD_HERE"), ACTION_BUILD)
-	menu.id_pressed.connect(
-		func(id: int):
-			match id:
-				ACTION_MAP:
-					var link := row_link(kind, row)
-					link_activated.emit(link[0], link[1])
-				ACTION_PEDIA:
-					link_activated.emit(article[0], article[1])
-				ACTION_BUILD:
-					production_requested.emit(row["id"])
-	)
+	# On every selected own planet: set a focus, queue an item.
+	var planets := selected_own_planets()
+	var foci: PackedStringArray = []
+	var items: Array = []
+	if not planets.is_empty():
+		foci = source.focus_options(planets[0])
+		items = source.buildable(planets[0])
+		var foci_menu := PopupMenu.new()
+		for i in foci.size():
+			foci_menu.add_item(tr(foci[i]), FOCUS_MENU_BASE + i)
+		foci_menu.id_pressed.connect(func(id): _menu_id(id, row, article, foci, items, planets))
+		if foci.size() > 0:
+			menu.add_submenu_node_item(
+				tr("OBJECTS_SET_FOCUS").replace("%1%", str(planets.size())), foci_menu
+			)
+		var queue_menu := PopupMenu.new()
+		for i in items.size():
+			queue_menu.add_item(_item_name(items[i]), QUEUE_MENU_BASE + i)
+		queue_menu.id_pressed.connect(func(id): _menu_id(id, row, article, foci, items, planets))
+		if items.size() > 0:
+			menu.add_submenu_node_item(
+				tr("OBJECTS_QUEUE_AT").replace("%1%", str(planets.size())), queue_menu
+			)
+	menu.id_pressed.connect(func(id): _menu_id(id, row, article, foci, items, planets))
 	menu.popup(Rect2i(Vector2i(get_global_mouse_position()), Vector2i.ZERO))
 	return menu
+
+
+## Ids of the selected rows that are the player's planets.
+func selected_own_planets() -> PackedInt32Array:
+	var ids := PackedInt32Array()
+	if kind != "planets":
+		return ids
+	var item := _tree.get_next_selected(null)
+	while item:
+		if item.has_meta("row"):
+			var row: Dictionary = item.get_meta("row")
+			if row.get("owner_id", -1) == source.empire_id() and row.get("owner_id", -1) >= 0:
+				ids.push_back(row["id"])
+		item = _tree.get_next_selected(item)
+	return ids
+
+
+func _menu_id(
+	id: int,
+	row: Dictionary,
+	article: Array,
+	foci: PackedStringArray,
+	items: Array,
+	planets: PackedInt32Array
+) -> void:
+	if id >= QUEUE_MENU_BASE:
+		for planet_id in planets:
+			source.enqueue(items[id - QUEUE_MENU_BASE], planet_id)
+		_info.text = tr("OBJECTS_QUEUED").replace("%1%", str(planets.size()))
+		return
+	if id >= FOCUS_MENU_BASE:
+		for planet_id in planets:
+			source.set_focus(planet_id, foci[id - FOCUS_MENU_BASE])
+		refresh()
+		return
+	match id:
+		ACTION_MAP:
+			var link := row_link(kind, row)
+			link_activated.emit(link[0], link[1])
+		ACTION_PEDIA:
+			link_activated.emit(article[0], article[1])
+		ACTION_BUILD:
+			production_requested.emit(row["id"])
+
+
+func _item_name(item: Dictionary) -> String:
+	var label: String = item.get("label", "")
+	return tr(label) if item.get("build_type") in ["building", "stockpile"] else label
 
 
 ## The Pedia article for \a row of \a kind_name: [kind, name], or [].

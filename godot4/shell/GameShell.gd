@@ -559,6 +559,13 @@ func _prepare_screen(screen_name: String) -> void:
 			save_screen.refresh()
 		"pedia":
 			pass
+		"objects":
+			# Distances are measured from the map's selected system.
+			var selected := map_view.map.selected_system_id()
+			objects_screen.selection_position = (
+				map_view.map.system_position(selected) if selected >= 0 else Vector2.INF
+			)
+			objects_screen.refresh()
 		_:
 			_screens()[screen_name].refresh()
 

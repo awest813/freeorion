@@ -24,8 +24,13 @@ public:
       * - ships: design, icon, fleet_id, fleet_name, species, structure,
       *   max_structure
       * - buildings: building_type, planet_id, planet_name
-      * - systems: star, planets, fleets */
-    static godot::Array list_objects(const godot::String& kind, bool own_only = false);
+      * - systems: star, planets, fleets
+      * - fields: field_type, size
+      * Every row also has visibility ("visible": seen this turn, "seen":
+      * known from before, "destroyed") and x, y; destroyed objects are
+      * listed only with \a include_destroyed. */
+    static godot::Array list_objects(const godot::String& kind, bool own_only = false,
+                                     bool include_destroyed = false);
 
 protected:
     static void _bind_methods();

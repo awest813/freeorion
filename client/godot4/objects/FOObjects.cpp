@@ -5,6 +5,9 @@
 #include "../../ClientApp.h"
 #include "../../../Empire/Empire.h"
 #include "../../../universe/Building.h"
+#include "../../../universe/Field.h"
+#include "../../../universe/ShipPart.h"
+#include "../../../universe/Species.h"
 #include "../../../universe/Fleet.h"
 #include "../../../universe/Planet.h"
 #include "../../../universe/Ship.h"
@@ -40,13 +43,28 @@ namespace {
         const ObjectMap& objects;
         int viewer;
         bool own_only;
+        bool include_destroyed = false;
+
+        bool Destroyed(const UniverseObject& object) const {
+            return universe.DestroyedObjectIds().contains(object.ID()) ||
+                (viewer != ALL_EMPIRES && universe.EmpireKnownDestroyedObjectIDs(viewer).contains(object.ID()));
+        }
 
         bool Skip(const UniverseObject& object) const {
             if (own_only && (viewer == ALL_EMPIRES || object.Owner() != viewer))
                 return true;
-            const auto& destroyed = universe.DestroyedObjectIds();
-            return destroyed.contains(object.ID()) ||
-                (viewer != ALL_EMPIRES && universe.EmpireKnownDestroyedObjectIDs(viewer).contains(object.ID()));
+            return !include_destroyed && Destroyed(object);
+        }
+
+        // "visible" this turn, "seen" before, or "destroyed" (GG's object
+        // list visibility filter).
+        const char* VisibilityName(const UniverseObject& object) const {
+            if (Destroyed(object))
+                return "destroyed";
+            if (viewer == ALL_EMPIRES || object.OwnedBy(viewer))
+                return "visible";
+            return universe.GetObjectVisibilityByEmpire(object.ID(), viewer) >= Visibility::VIS_BASIC_VISIBILITY ?
+                "visible" : "seen";
         }
 
         godot::String Name(int id) const {
@@ -69,6 +87,9 @@ namespace {
                 row["owner_color"] = godot::Color(0.6f, 0.6f, 0.6f, 1.0f);
             }
             row["system_id"] = object.SystemID();
+            row["visibility"] = VisibilityName(object);
+            row["x"] = object.X();
+            row["y"] = object.Y();
             row["system_name"] = object.SystemID() != INVALID_OBJECT_ID ? Name(object.SystemID()) : godot::String();
             return row;
         }
@@ -92,6 +113,34 @@ namespace {
                 row["defense"] = MeterValue(*planet, MeterType::METER_DEFENSE);
                 row["shield"] = MeterValue(*planet, MeterType::METER_SHIELD);
                 row["troops"] = MeterValue(*planet, MeterType::METER_TROOPS);
+                // More meters, as columns to choose (GG's object list has them all).
+                row["target_population"] = MeterValue(*planet, MeterType::METER_TARGET_POPULATION);
+                row["construction"] = MeterValue(*planet, MeterType::METER_CONSTRUCTION);
+                row["stockpile"] = MeterValue(*planet, MeterType::METER_STOCKPILE);
+                row["max_defense"] = MeterValue(*planet, MeterType::METER_MAX_DEFENSE);
+                row["max_shield"] = MeterValue(*planet, MeterType::METER_MAX_SHIELD);
+                row["max_troops"] = MeterValue(*planet, MeterType::METER_MAX_TROOPS);
+                row["rebels"] = MeterValue(*planet, MeterType::METER_REBEL_TROOPS);
+                row["detection"] = MeterValue(*planet, MeterType::METER_DETECTION);
+                row["stealth"] = MeterValue(*planet, MeterType::METER_STEALTH);
+                const auto empire = context.GetEmpire(planet->Owner());
+                row["capital"] = empire && empire->CapitalID() == planet->ID();
+                bool homeworld = false;
+                for (const auto& [species, homeworlds] : context.species.GetSpeciesHomeworldsMap())
+                    homeworld = homeworld || homeworlds.contains(planet->ID());
+                row["homeworld"] = homeworld;
+                // How well the player's capital species would live here.
+                const auto viewer_empire = context.GetEmpire(viewer);
+                const auto* capital = viewer_empire ? objects.getRaw<Planet>(viewer_empire->CapitalID()) : nullptr;
+                const auto* capital_species = capital ? context.species.GetSpecies(capital->SpeciesName()) : nullptr;
+                row["environment"] = capital_species ?
+                    ToGodot(::to_string(capital_species->GetPlanetEnvironment(planet->Type()))) : godot::String();
+                std::string specials;
+                for (const auto& [name, turn_capacity] : planet->Specials())
+                    specials += (specials.empty() ? "" : ", ") + UserString(name);
+                row["specials"] = ToGodot(specials);
+                const int attacked = planet->LastTurnAttackedByShip();
+                row["last_attacked"] = attacked > 0 ? attacked : 0;
                 rows.push_back(row);
             }
             return rows;
@@ -135,6 +184,10 @@ namespace {
                 // Colony and outpost ships, and turns since the fleet was formed
                 // (0 for ships built or split off this turn).
                 row["colony_ships"] = colony_ships;
+                row["armed"] = fleet->HasArmedShips(context);
+                row["can_colonize"] = colony_ships > 0;
+                row["speed"] = fleet->Speed(objects);
+                row["fuel"] = fleet->Fuel(objects);
                 row["age"] = fleet->AgeInTurns(context.current_turn);
                 rows.push_back(row);
             }
@@ -160,6 +213,38 @@ namespace {
                 row["species"] = ToGodot(ship->SpeciesName());
                 row["structure"] = MeterValue(*ship, MeterType::METER_STRUCTURE);
                 row["max_structure"] = MeterValue(*ship, MeterType::METER_MAX_STRUCTURE);
+                row["armed"] = ship->IsArmed(context);
+                row["can_colonize"] = ship->CanColonize(universe, context.species);
+                row["hull"] = design ? ToGodot(UserString(design->Hull())) : godot::String();
+                row["parts"] = design ? static_cast<int>(design->PartCount()) : 0;
+                row["cost"] = design ? design->ProductionCost(ship->Owner(), INVALID_OBJECT_ID, context) : 0.0f;
+                row["speed"] = MeterValue(*ship, MeterType::METER_SPEED);
+                row["fuel"] = MeterValue(*ship, MeterType::METER_FUEL);
+                rows.push_back(row);
+            }
+            return rows;
+        }
+
+        // Fields: their type and size; "located" at the nearest known system.
+        godot::Array Fields() const {
+            godot::Array rows;
+            for (const auto* field : objects.allRaw<Field>()) {
+                if (Skip(*field))
+                    continue;
+                auto row = Row(*field);
+                row["name"] = ToGodot(UserString(field->FieldTypeName()));
+                row["field_type"] = ToGodot(field->FieldTypeName());
+                row["size"] = MeterValue(*field, MeterType::METER_SIZE);
+                double best = -1.0;
+                for (const auto* system : objects.allRaw<System>()) {
+                    const double dx = system->X() - field->X(), dy = system->Y() - field->Y();
+                    const double d = dx * dx + dy * dy;
+                    if (best < 0.0 || d < best) {
+                        best = d;
+                        row["system_id"] = system->ID();
+                        row["system_name"] = ToGodot(system->PublicName(viewer, universe));
+                    }
+                }
                 rows.push_back(row);
             }
             return rows;
@@ -215,21 +300,23 @@ namespace {
 
 void FOObjects::_bind_methods() {
     using godot::ClassDB, godot::D_METHOD;
-    ClassDB::bind_static_method(get_class_static(), D_METHOD("list_objects", "kind", "own_only"),
-                                &FOObjects::list_objects, DEFVAL(false));
+    ClassDB::bind_static_method(get_class_static(), D_METHOD("list_objects", "kind", "own_only", "include_destroyed"),
+                                &FOObjects::list_objects, DEFVAL(false), DEFVAL(false));
 }
 
-godot::Array FOObjects::list_objects(const godot::String& kind, bool own_only) {
+godot::Array FOObjects::list_objects(const godot::String& kind, bool own_only, bool include_destroyed) {
     const auto* app = ClientApp::GetApp();
     if (!app)
         return {};
     try {
         const auto& context = app->GetContext();
-        const Lister lister{context, context.ContextUniverse(), context.ContextObjects(), app->EmpireID(), own_only};
+        const Lister lister{context, context.ContextUniverse(), context.ContextObjects(), app->EmpireID(), own_only,
+                            include_destroyed};
         if (kind == "planets")   return lister.Planets();
         if (kind == "fleets")    return lister.Fleets();
         if (kind == "ships")     return lister.Ships();
         if (kind == "buildings") return lister.Buildings();
+        if (kind == "fields")    return lister.Fields();
         if (kind == "systems")   return own_only ? lister.OwnSystems() : lister.Systems();
         ErrorLogger() << "FOObjects::list_objects: unknown kind " << kind.utf8().get_data();
     } catch (const std::exception& e) {
