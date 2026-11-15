@@ -11,15 +11,21 @@
 #include "../../ClientApp.h"
 #include "../../../Empire/Empire.h"
 #include "../../../Empire/Supply.h"
+#include "../../../universe/Building.h"
+#include "../../../universe/BuildingType.h"
 #include "../../../universe/Field.h"
 #include "../../../universe/FieldType.h"
 #include "../../../universe/Fleet.h"
+#include "../../../universe/Planet.h"
 #include "../../../universe/Ship.h"
 #include "../../../universe/ShipDesign.h"
 #include "../../../universe/ShipHull.h"
-#include "../../../universe/Planet.h"
+#include "../../../universe/Special.h"
+#include "../../../universe/Species.h"
 #include "../../../universe/System.h"
 #include "../../../universe/Universe.h"
+#include "../../../util/Order.h"
+#include "../../../util/OrderSet.h"
 #include "../../../util/SitRepEntry.h"
 
 namespace {
@@ -432,6 +438,7 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_color", "empire_id"), &FOUniverse::get_empire_color);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_name", "empire_id"), &FOUniverse::get_empire_name);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_resources"), &FOUniverse::get_empire_resources);
+    ClassDB::bind_static_method(cls, D_METHOD("get_planet_detail", "planet_id"), &FOUniverse::get_planet_detail);
     ClassDB::bind_static_method(cls, D_METHOD("get_sitreps", "turn"), &FOUniverse::get_sitreps, DEFVAL(-1));
     ClassDB::bind_static_method(cls, D_METHOD("get_map_snapshot"), &FOUniverse::get_map_snapshot);
 }
@@ -652,5 +659,99 @@ godot::Dictionary FOUniverse::get_empire_resources() {
     result["detection"] = detection ? detection->Current() : 0.0f;
     result["eliminated"] = empire->Eliminated();
     result["won"] = empire->Won();
+    return result;
+}
+
+namespace {
+    // Meters the planet panel shows: the meter, and the target or maximum it
+    // grows towards (METER_ENUM_END: none).
+    constexpr std::array<std::pair<MeterType, MeterType>, 13> PLANET_METERS{{
+        {MeterType::METER_POPULATION,   MeterType::METER_TARGET_POPULATION},
+        {MeterType::METER_INDUSTRY,     MeterType::METER_TARGET_INDUSTRY},
+        {MeterType::METER_RESEARCH,     MeterType::METER_TARGET_RESEARCH},
+        {MeterType::METER_INFLUENCE,    MeterType::METER_TARGET_INFLUENCE},
+        {MeterType::METER_CONSTRUCTION, MeterType::METER_TARGET_CONSTRUCTION},
+        {MeterType::METER_HAPPINESS,    MeterType::METER_TARGET_HAPPINESS},
+        {MeterType::METER_SUPPLY,       MeterType::METER_MAX_SUPPLY},
+        {MeterType::METER_STOCKPILE,    MeterType::METER_MAX_STOCKPILE},
+        {MeterType::METER_DEFENSE,      MeterType::METER_MAX_DEFENSE},
+        {MeterType::METER_SHIELD,       MeterType::METER_MAX_SHIELD},
+        {MeterType::METER_TROOPS,       MeterType::METER_MAX_TROOPS},
+        {MeterType::METER_DETECTION,    MeterType::NUM_METER_TYPES},
+        {MeterType::METER_STEALTH,      MeterType::NUM_METER_TYPES},
+    }};
+
+    bool IsScrapping(const OrderSet& orders, int object_id) {
+        for (const auto& [order_id, order] : orders)
+            if (auto scrap = std::dynamic_pointer_cast<ScrapOrder>(order); scrap && scrap->ObjectID() == object_id)
+                return true;
+        return false;
+    }
+}
+
+godot::Dictionary FOUniverse::get_planet_detail(int planet_id) {
+    godot::Dictionary result;
+    const auto* app = ClientApp::GetApp();
+    const auto* planet = Lookup<Planet>(planet_id);
+    if (!app || !planet)
+        return result;
+    const auto& context = app->GetContext();
+    result["id"] = planet_id;
+    result["name"] = ToGodot(planet->PublicName(app->EmpireID(), context.ContextUniverse()));
+    result["type"] = ToGodot(::to_string(planet->Type()));
+    result["size"] = ToGodot(::to_string(planet->Size()));
+    result["species"] = ToGodot(planet->SpeciesName());
+    result["focus"] = ToGodot(planet->Focus());
+    result["owner_id"] = planet->Owner();
+    result["own"] = !planet->Unowned() && planet->OwnedBy(app->EmpireID());
+    const auto owner = context.GetEmpire(planet->Owner());
+    result["owner_name"] = owner ? ToGodot(owner->Name()) : godot::String();
+    if (owner) {
+        const auto c = owner->Color();
+        result["owner_color"] = godot::Color::from_rgba8(c[0], c[1], c[2], c[3]);
+    }
+    result["environment"] = planet->SpeciesName().empty() ? godot::String() :
+        ToGodot(::to_string(planet->EnvironmentForSpecies(context.species)));
+
+    godot::Array meters;
+    for (const auto& [type, target_type] : PLANET_METERS) {
+        const auto* meter = planet->GetMeter(type);
+        if (!meter)
+            continue;
+        const auto* target = target_type != MeterType::NUM_METER_TYPES ? planet->GetMeter(target_type) : nullptr;
+        godot::Dictionary entry;
+        entry["meter"] = ToGodot(::to_string(type));
+        entry["now"] = meter->Initial();
+        entry["next"] = meter->Current();
+        entry["target"] = target ? target->Current() : meter->Current();
+        meters.push_back(entry);
+    }
+    result["meters"] = meters;
+
+    godot::Array buildings;
+    for (const auto* building : context.ContextObjects().findRaw<Building>(planet->BuildingIDs())) {
+        if (!building)
+            continue;
+        godot::Dictionary entry;
+        entry["id"] = building->ID();
+        entry["type"] = ToGodot(building->BuildingTypeName());
+        entry["name"] = ToGodot(building->PublicName(app->EmpireID(), context.ContextUniverse()));
+        const auto* type = GetBuildingType(building->BuildingTypeName());
+        entry["icon"] = type ? ToGodot(type->Icon()) : godot::String();
+        entry["scrapping"] = IsScrapping(app->Orders(), building->ID());
+        buildings.push_back(entry);
+    }
+    result["buildings"] = buildings;
+
+    godot::Array specials;
+    for (const auto& [name, turn_capacity] : planet->Specials()) {
+        godot::Dictionary entry;
+        entry["name"] = ToGodot(name);
+        const auto* special = GetSpecial(name);
+        entry["icon"] = special ? ToGodot(special->Graphic()) : godot::String();
+        entry["capacity"] = turn_capacity.second;
+        specials.push_back(entry);
+    }
+    result["specials"] = specials;
     return result;
 }

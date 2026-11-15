@@ -150,6 +150,15 @@ public:
       * {} without an empire. */
     static godot::Dictionary get_empire_resources();
 
+    /** Everything the planet panel shows about planet \a planet_id: name,
+      * type, size, species, focus, owner_id, own, owner_name, owner_color,
+      * environment (for its species, a PlanetEnvironment name), meters
+      * (array of {meter, now, next, target}: this turn, projected next
+      * turn and the target or maximum it moves to; only meters the planet
+      * has), buildings ({id, type, name, icon, scrapping}) and specials
+      * ({name, icon, capacity}). {} if unknown. */
+    static godot::Dictionary get_planet_detail(int planet_id);
+
     /** The player's situation reports for \a turn (default: current turn),
       * as dictionaries {text, icon, label, turn}. text keeps FreeOrion link
       * markup (<planet 12>Name</planet>), for FORichText. */
