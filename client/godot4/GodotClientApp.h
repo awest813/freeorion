@@ -3,6 +3,7 @@
 
 #include "../ClientApp.h"
 
+#include <chrono>
 #include <queue>
 #include <string>
 
@@ -39,6 +40,19 @@ public:
     /** The server finished the oldest pending save; sends the next one. */
     void SaveGameCompleted();
 
+    /** Starts leaving the game: asks the local server to shut down. Call
+      * UpdateQuitting() each frame until it returns true; the client is then
+      * back at its pre-game state, ready for a new or loaded game. */
+    void StartQuitting();
+
+    /** Advances a quit started by StartQuitting() without blocking: waits up
+      * to a few seconds for the server to disconnect, then terminates it and
+      * clears the game data. Returns true once done (or if not quitting). */
+    bool UpdateQuitting();
+
+    /** True from StartQuitting() until UpdateQuitting() completes. */
+    bool Quitting() const noexcept { return m_quitting; }
+
     int  AutoTurnsLeft() const;     ///< returns number of turns left to execute automatically
     void InitAutoTurns(int auto_turns); ///< Initialize auto turn counter
     void DecAutoTurns(int n = 1);       ///< Decrease auto turn counter
@@ -60,12 +74,17 @@ private:
       * process already started by this client; performs no cleanup of other
       * processes, such as AIs. */
     void FreeServer();
+
+    /** Clears the game: universe, empires, orders, players, turn. */
+    void ResetClientData();
 #ifndef FREEORION_ANDROID
     Process m_server_process;   ///< the server process (when hosting a game or playing single player); will be empty when playing multiplayer as a non-host player
 #endif
     bool m_single_player_game = true;   ///< true when this game is a single-player game
     bool m_game_started = false;        ///< true when a game is currently in progress
     int  m_auto_turns = 0;              ///< auto turn counter
+    bool m_quitting = false;            ///< leaving the game: waiting for the server to disconnect
+    std::chrono::steady_clock::time_point m_quit_start;
 
     /** Filenames of all in progress saves.  There maybe multiple saves in
         progress if a player and an autosave are initiated at the same time. */

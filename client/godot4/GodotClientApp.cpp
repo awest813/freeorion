@@ -7,6 +7,7 @@
 #endif
 
 #include "../ClientNetworking.h"
+#include "../../combat/CombatLogManager.h"
 #include "../../Empire/Empire.h"
 #include "../../parse/PythonParser.h"
 #include "../../util/Directories.h"
@@ -344,6 +345,58 @@ void GodotClientApp::SaveGameCompleted() {
         m_game_saves_in_progress.pop();
     if (!m_game_saves_in_progress.empty())
         m_networking->SendMessage(HostSaveGameInitiateMessage(m_game_saves_in_progress.front()));
+}
+
+void GodotClientApp::ResetClientData() {
+    m_networking->SetPlayerID(Networking::INVALID_PLAYER_ID);
+    m_networking->SetHostPlayerID(Networking::INVALID_PLAYER_ID);
+    SetEmpireID(ALL_EMPIRES);
+    SetCurrentTurn(INVALID_GAME_TURN);
+    m_universe.Clear();
+    m_empires.Clear();
+    m_orders.Reset();
+    m_player_info.clear();
+    GetCombatLogManager().Clear();
+    ClearPreviousPendingSaves(m_game_saves_in_progress);
+}
+
+namespace {
+    // As the GG client's QuittingGame state: wait this long for the server to
+    // disconnect after asking it to shut down, then terminate it.
+    constexpr auto QUITTING_TIMEOUT = std::chrono::seconds(5);
+}
+
+void GodotClientApp::StartQuitting() {
+    if (m_quitting)
+        return;
+    DebugLogger() << "GodotClientApp::StartQuitting";
+    m_quitting = true;
+    m_game_started = false;
+    m_auto_turns = 0;
+    m_quit_start = std::chrono::steady_clock::now();
+    if (m_networking->IsTxConnected())
+        m_networking->SendMessage(ShutdownServerMessage());
+}
+
+bool GodotClientApp::UpdateQuitting() {
+    if (!m_quitting)
+        return true;
+    if (m_networking->IsConnected()) {
+        if (std::chrono::steady_clock::now() - m_quit_start < QUITTING_TIMEOUT)
+            return false;
+        WarnLogger() << "GodotClientApp::UpdateQuitting: server didn't disconnect; terminating it";
+        m_networking->DisconnectFromServer();
+#ifndef FREEORION_ANDROID
+        m_server_process.RequestTermination();
+#endif
+    } else {
+        // The server disconnected: it is shutting down in order, let it finish.
+        DebugLogger() << "GodotClientApp::UpdateQuitting: server disconnected";
+    }
+    FreeServer();
+    ResetClientData();
+    m_quitting = false;
+    return true;
 }
 
 void GodotClientApp::InitAutoTurns(int auto_turns) {

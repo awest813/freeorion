@@ -2,10 +2,28 @@
 
 #include "../../util/i18n.h"
 
+#include <algorithm>
+#include <string>
+
 namespace {
-    // Stringtables are UTF-8; godot::StringName(const char*) would read Latin-1.
+    // Stringtable keys are upper-case identifiers, such as "MAP_BTN_PEDIA".
+    bool LooksLikeKey(const std::string& text) {
+        const auto upper = [](char c) { return c >= 'A' && c <= 'Z'; };
+        const auto key_char = [&upper](char c) { return upper(c) || (c >= '0' && c <= '9') || c == '_'; };
+        return std::any_of(text.begin(), text.end(), upper) && std::all_of(text.begin(), text.end(), key_char);
+    }
+
     godot::StringName Translate(const godot::StringName& key) {
-        const std::string& text = UserString(godot::String(key).utf8().get_data());
+        const std::string source = godot::String(key).utf8().get_data();
+        // Godot also auto-translates text that is already translated or isn't
+        // a key at all (names, numbers), e.g. when a control's text is set
+        // before it joins a parent that turns auto-translation off. Leave such
+        // text as it is (an empty result means "untranslated") rather than
+        // logging it as a missing key. Missing keys still show as "ERROR: KEY".
+        if (!LooksLikeKey(source) && !UserStringExists(source))
+            return {};
+        const std::string& text = UserString(source);
+        // Stringtables are UTF-8; godot::StringName(const char*) would read Latin-1.
         return godot::StringName(godot::String::utf8(text.data(), static_cast<int>(text.size())));
     }
 }

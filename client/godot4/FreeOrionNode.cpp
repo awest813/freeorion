@@ -40,6 +40,8 @@ void FreeOrionNode::_bind_methods() {
     godot::ClassDB::bind_method(godot::D_METHOD("start_parsing_thread"), &FreeOrionNode::start_parsing_thread);
     godot::ClassDB::bind_method(godot::D_METHOD("new_single_player_game"), &FreeOrionNode::new_single_player_game);
     godot::ClassDB::bind_method(godot::D_METHOD("start_turn"), &FreeOrionNode::start_turn);
+    godot::ClassDB::bind_method(godot::D_METHOD("quit_game"), &FreeOrionNode::quit_game);
+    godot::ClassDB::bind_method(godot::D_METHOD("is_quitting"), &FreeOrionNode::is_quitting);
     godot::ClassDB::bind_method(godot::D_METHOD("options_get_bool"), &FreeOrionNode::options_get_bool);
     godot::ClassDB::bind_method(godot::D_METHOD("options_get_string"), &FreeOrionNode::options_get_string);
     godot::ClassDB::bind_method(godot::D_METHOD("options_find_options", "prefix", "allow_unrecognized"), &FreeOrionNode::options_find_options, DEFVAL(false));
@@ -54,6 +56,7 @@ void FreeOrionNode::_bind_methods() {
     ADD_SIGNAL(godot::MethodInfo("parsing_completed"));
     ADD_SIGNAL(godot::MethodInfo("start_game", godot::PropertyInfo(godot::Variant::BOOL, "is_new_game")));
     ADD_SIGNAL(godot::MethodInfo("turn_update"));
+    ADD_SIGNAL(godot::MethodInfo("game_ended"));
     ADD_SIGNAL(godot::MethodInfo("save_completed",
                                  godot::PropertyInfo(godot::Variant::STRING, "filename"),
                                  godot::PropertyInfo(godot::Variant::INT, "bytes_written")));
@@ -160,6 +163,14 @@ void FreeOrionNode::_process(double) {
     if (!m_app)
         return;
 
+    if (m_app->Quitting()) {
+        // Leaving the game: drop what the server still sends until it's gone.
+        while (m_app->Networking().GetMessage()) {}
+        if (m_app->UpdateQuitting())
+            emit_signal("game_ended");
+        return;
+    }
+
     const auto deadline = std::chrono::steady_clock::now() + MESSAGE_DISPATCH_BUDGET;
     do {
         auto msg = m_app->Networking().GetMessage();
@@ -220,6 +231,14 @@ void FreeOrionNode::start_turn() {
     SaveGameUIData ui_data;
     m_app->StartTurn(ui_data);
 }
+
+void FreeOrionNode::quit_game() {
+    if (m_app)
+        m_app->StartQuitting();
+}
+
+bool FreeOrionNode::is_quitting() const
+{ return m_app && m_app->Quitting(); }
 
 bool FreeOrionNode::options_get_bool(godot::String option) const
 { return GetOptionsDB().Get<bool>(option.utf8().get_data()); }
@@ -364,6 +383,12 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                           godot::String::utf8(save_filename.c_str()), bytes_written);
             break;
         }
+        case Message::MessageType::PLAYER_CHAT:
+        case Message::MessageType::PLAYER_STATUS:
+        case Message::MessageType::TURN_TIMEOUT:
+            // Not shown by this client yet.
+            DebugLogger() << "FreeOrionNode::HandleMessage : ignoring message of type " << msg.Type();
+            break;
         default:
             ErrorLogger() << "FreeOrionNode::HandleMessage : Not implemented reacting to message of type\""
                           << msg.Type() << "\".";

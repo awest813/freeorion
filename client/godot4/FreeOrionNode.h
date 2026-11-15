@@ -47,6 +47,12 @@ private:
 
     void start_turn(); ///< Starts new turn
 
+    /** Leaves the game: shuts the local server down and clears the game data
+      * over the next frames, then emits game_ended. */
+    void quit_game();
+
+    bool is_quitting() const; ///< True while quit_game() is in progress
+
     bool options_get_bool(godot::String option) const;
 
     godot::String options_get_string(godot::String option) const;
