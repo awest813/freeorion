@@ -134,8 +134,15 @@ func highlight_slots_for(part_name: String, from := -1) -> void:
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
-	if visible and event.is_action_pressed("ui_cancel"):
+	if not visible:
+		return
+	if event.is_action_pressed("ui_cancel"):
 		close_requested.emit()
+		get_viewport().set_input_as_handled()
+	# Delete empties the selected slot (while no text field has the keys).
+	var key := event as InputEventKey
+	if key and key.pressed and key.keycode in [KEY_DELETE, KEY_BACKSPACE] and selected_slot >= 0:
+		clear_slot(selected_slot)
 		get_viewport().set_input_as_handled()
 
 

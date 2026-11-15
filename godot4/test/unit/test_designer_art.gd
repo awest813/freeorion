@@ -96,3 +96,16 @@ func test_stats_icons_design_thumbnails_and_hull_caption():
 	await wait_process_frames(1)
 	var row_button: Button = screen._design_list.get_child(0).get_child(0)
 	assert_not_null(row_button.icon, "The design's hull shown")
+
+
+func test_delete_empties_the_selected_slot():
+	var screen := _screen()
+	await wait_process_frames(2)
+	screen.select_hull("SH_BASIC_MEDIUM")
+	screen._on_slot_pressed(0)
+	assert_true(screen.place_part("SR_WEAPON_1_1"))
+	var key := InputEventKey.new()
+	key.keycode = KEY_DELETE
+	key.pressed = true
+	screen._unhandled_key_input(key)
+	assert_eq(screen.parts[0], "", "Emptied")

@@ -3665,7 +3665,7 @@ DESIGNER_NO_SLOT
 No free slot fits that part.
 
 DESIGNER_SLOT_HINT
-Select a slot, then click a part, or click a part to fill the first free slot it fits (Shift: every free slot). Drag parts onto slots, between them or off the hull. Right-click a slot to empty it.
+Select a slot, then click a part, or click a part to fill the first free slot it fits (Shift: every free slot). Drag parts onto slots, between them or off the hull. Right-click a slot, or select it and press Delete, to empty it.
 
 DESIGNER_FITS
 Fits the selected slot
