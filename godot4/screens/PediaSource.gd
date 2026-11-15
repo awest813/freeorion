@@ -9,3 +9,7 @@ func get_article(kind: String, article_name: String) -> Dictionary:
 
 func get_index() -> Array:
 	return FOPedia.get_index()
+
+
+func search(text: String) -> Array:
+	return FOPedia.search(text)

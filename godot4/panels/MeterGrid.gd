@@ -4,6 +4,10 @@ extends GridContainer
 ## turn's change, and the target or maximum it moves to. Hovering a name
 ## lists the effects behind the value, as the GG meter tooltips do.
 ## Meters that are zero throughout (an empty planet's industry) are left out.
+## Clicking a name asks for the meter's Pedia article.
+
+## A meter's name was clicked: open its article.
+signal meter_clicked(meter: String)
 
 ## Meter icons (icons/meter/*.png) where the file isn't the meter's name.
 const METER_ICONS := {
@@ -49,6 +53,13 @@ func fill(meters: Array) -> void:
 		label.mouse_filter = Control.MOUSE_FILTER_PASS
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.tooltip_builder = accounting_tooltip.bind(meter.get("accounting_meter", key))
+		label.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		label.gui_input.connect(
+			func(event: InputEvent):
+				var click := event as InputEventMouseButton
+				if click and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+					meter_clicked.emit(key)
+		)
 		add_child(label)
 		var tip := (
 			tr("PLANET_PANEL_METER_TIP")

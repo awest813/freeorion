@@ -11,7 +11,12 @@
 /** Static Pedia API for GDScript.
   *
   * Kinds follow FreeOrion's link tags: tech, buildingtype, species, special,
-  * shippart, shiphull, fieldtype, policy, encyclopedia.
+  * shippart, shiphull, fieldtype, policy, encyclopedia, metertype, empire
+  * (by ID), shipdesign (by ID), planet, system, fleet, ship, building (by
+  * ID); encyclopedia ENC_GALAXY_SETUP and ENC_GAME_RULES describe this game.
+  * Articles may also carry requirements (where it can be built, in words)
+  * and links grouped as unlocked_by, leads_to, exclusions, liked_by,
+  * disliked_by, hull, parts, policies, planets.
   *
   * get_article(kind, name) -> {kind, name, title (stringtable key),
   *   icon, text (expanded description with link markup, for FORichText),
@@ -29,6 +34,9 @@ public:
     static godot::Array get_index();
     static bool has_article(const godot::String& kind, const godot::String& name);
     static godot::String resolve_values(const godot::String& text);
+    /** Articles whose text contains \a text (3 letters or more): [{kind,
+      * name, category}]. */
+    static godot::Array search(const godot::String& text);
     /** Whether the content has been parsed (set by FreeOrionNode); named
       * values are only evaluated once it has. */
     static std::atomic<bool>& ContentReady();

@@ -20,10 +20,35 @@ const ARTICLE_KINDS := [
 	"fieldtype",
 	"policy",
 	"encyclopedia",
+	"metertype",
+	"empire",
+	"shipdesign",
+	"planet",
+	"system",
+	"fleet",
+	"ship",
+	"building",
 ]
+## Kinds of universe objects: their articles can show them on the map.
+const OBJECT_KINDS := ["planet", "system", "fleet", "ship", "building"]
 const MAX_RESULTS := 80
 ## Groups of links under an article's facts, in this order.
-const LINK_GROUPS := ["prerequisites", "unlocks", "likes", "dislikes", "homeworlds"]
+const LINK_GROUPS := [
+	"prerequisites",
+	"leads_to",
+	"unlocks",
+	"unlocked_by",
+	"exclusions",
+	"hull",
+	"parts",
+	"likes",
+	"dislikes",
+	"liked_by",
+	"disliked_by",
+	"homeworlds",
+	"policies",
+	"planets",
+]
 const SIDEBAR_WIDTH := 320
 
 var source: Variant = PediaSource.new()
@@ -34,6 +59,9 @@ var _index: Array = []
 var _back: Button
 var _forward: Button
 var _title: Label
+var _on_map: Button
+## The shown article's universe object: [kind, id] or [].
+var _object := []
 var _icon: TextureRect
 var _facts: GridContainer
 var _text: RichTextLabel
@@ -58,8 +86,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+## Whether links of \a kind open in the Pedia from anywhere (universe
+## objects open on the map, and in the Pedia only from the Pedia).
 static func is_article_kind(kind: String) -> bool:
-	return kind in ARTICLE_KINDS
+	return kind in ARTICLE_KINDS and not kind in OBJECT_KINDS
 
 
 ## Open the article \a kind / \a article_name, adding it to the history.
@@ -129,6 +159,12 @@ func _build() -> void:
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	header.add_child(_title)
+	_on_map = Button.new()
+	_on_map.text = tr("PEDIA_SHOW_ON_MAP")
+	_on_map.theme_type_variation = "GhostButton"
+	_on_map.visible = false
+	_on_map.pressed.connect(func(): link_activated.emit(_object[0], _object[1]))
+	header.add_child(_on_map)
 	var close := ScreenKit.small_button("✕", "PANEL_CLOSE")
 	close.pressed.connect(close_requested.emit)
 	header.add_child(close)
@@ -178,9 +214,17 @@ func _show_article(article: Dictionary) -> void:
 		_fill_environments([])
 		return
 	_title.text = tr(article.get("title", ""))
+	_object = (
+		[article["kind"], str(article["name"])] if article.get("kind", "") in OBJECT_KINDS else []
+	)
+	_on_map.visible = not _object.is_empty()
 	_icon.texture = FOArt.icon(article.get("icon", ""))
 	_icon.visible = _icon.texture != null
-	_text.text = FORichText.to_bbcode(article.get("text", ""), FOUi.tokens.icon_small)
+	var text: String = article.get("text", "")
+	var requirements: String = article.get("requirements", "")
+	if not requirements.is_empty():
+		text += "\n\n<b>%s</b>\n%s" % [tr("PEDIA_REQUIREMENTS"), requirements]
+	_text.text = FORichText.to_bbcode(text, FOUi.tokens.icon_small)
 	_text.scroll_to_line(0)
 	ScreenKit.clear(_facts)
 	for fact: Array in article.get("facts", []):
@@ -248,6 +292,8 @@ func _follow(link: Dictionary) -> void:
 		OS.shell_open(arg)
 	elif is_article_kind(kind):
 		open(kind, arg)
+	elif kind in OBJECT_KINDS and open(kind, arg):
+		pass
 	else:
 		link_activated.emit(kind, arg)
 
@@ -276,10 +322,18 @@ func _refresh_results() -> void:
 	for entry: Dictionary in _index:
 		if needle.is_empty() and entry["kind"] != _browse_kind:
 			continue
-		var title := tr(entry["name"])
+		var title: String = entry.get("label", tr(entry["name"]))
 		if needle.is_empty() or title.to_lower().contains(needle):
 			matches.push_back([title, entry])
 	matches.sort_custom(func(a, b): return a[0].naturalnocasecmp_to(b[0]) < 0)
+	# Then articles whose text has it (GG's full-text search).
+	if needle.length() >= 3:
+		var found := {}
+		for match: Array in matches:
+			found[match[1]["kind"] + "/" + match[1]["name"]] = true
+		for entry: Dictionary in source.search(needle):
+			if not found.has(entry["kind"] + "/" + entry["name"]):
+				matches.push_back(["%s  ·  %s" % [tr(entry["name"]), tr("PEDIA_IN_TEXT")], entry])
 	if needle.is_empty():
 		var up := _result_button("◀  " + tr("PEDIA_ALL_TOPICS"))
 		up.pressed.connect(browse.bind(""))

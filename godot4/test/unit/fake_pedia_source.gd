@@ -2,6 +2,32 @@ extends RefCounted
 ## In-memory stand-in for PediaSource (tests and screenshots).
 
 var articles := {
+	"planet/12":
+	{
+		"kind": "planet",
+		"name": "12",
+		"title": "Hegira β I",
+		"icon": "",
+		"text": "Owner: <empire 1>Terrans</empire>",
+		"facts": [["PEDIA_FACT_PLANET_TYPE", "Terran"]],
+		"links": [],
+	},
+	"shipdesign/7":
+	{
+		"kind": "shipdesign",
+		"name": "7",
+		"title": "Frigate Ms",
+		"icon": "icons/ship_hulls/basic-medium-hull_small.png",
+		"text": "A warship.",
+		"facts": [["PEDIA_FACT_ATTACK", "18"]],
+		"requirements": "a planet with a shipyard",
+		"links":
+		[
+			{"kind": "shiphull", "name": "SH_BASIC_MEDIUM", "group": "hull"},
+			{"kind": "shippart", "name": "SR_WEAPON_1_1", "group": "parts"},
+			{"kind": "tech", "name": "SHP_MIL_ROBO_CONT", "group": "unlocked_by"},
+		],
+	},
 	"tech/LRN_ALGO_ELEGANCE":
 	{
 		"kind": "tech",
@@ -61,6 +87,7 @@ var index: Array = [
 	{"kind": "tech", "name": "LRN_ALGO_ELEGANCE", "category": "LEARNING_CATEGORY"},
 	{"kind": "tech", "name": "LRN_PHYS_BRAIN", "category": "LEARNING_CATEGORY"},
 	{"kind": "buildingtype", "name": "BLD_SHIPYARD_BASE", "category": ""},
+	{"kind": "shipdesign", "name": "7", "category": "", "label": "Frigate Ms"},
 ]
 
 
@@ -70,3 +97,12 @@ func get_article(kind: String, article_name: String) -> Dictionary:
 
 func get_index() -> Array:
 	return index
+
+
+func search(text: String) -> Array:
+	var found := []
+	for key: String in articles:
+		if str(articles[key].get("text", "")).to_lower().contains(text):
+			var parts := key.split("/")
+			found.push_back({"kind": parts[0], "name": parts[1], "category": ""})
+	return found

@@ -50,7 +50,12 @@ func test_text_links():
 	screen._text.meta_clicked.emit("fo://tech/LRN_PHYS_BRAIN")
 	assert_eq(screen.current(), ["tech", "LRN_PHYS_BRAIN"], "Article link opens in place")
 	watch_signals(screen)
+	screen._text.meta_clicked.emit("fo://planet/99")
+	assert_signal_emitted_with_parameters(screen, "link_activated", ["planet", "99"])
 	screen._text.meta_clicked.emit("fo://planet/12")
+	assert_eq(screen.current(), ["planet", "12"], "Objects with an article open in the Pedia")
+	assert_true(screen._on_map.visible)
+	screen._on_map.pressed.emit()
 	assert_signal_emitted_with_parameters(screen, "link_activated", ["planet", "12"])
 
 
@@ -68,7 +73,7 @@ func test_browse_by_kind():
 	screen.browse("")
 	await wait_process_frames(1)
 	var kinds := screen._results.get_children().map(func(b): return b.text)
-	assert_eq(kinds.size(), 2, "Tech and building kinds")
+	assert_eq(kinds.size(), 3, "Tech, building and design kinds")
 	assert_string_contains(kinds[0], "(2)")
 	screen.browse("tech")
 	await wait_process_frames(1)
@@ -122,3 +127,41 @@ func test_species_likes_homeworlds_and_environments():
 		[],
 		"Other articles have none"
 	)
+
+
+func test_design_article_groups_and_requirements():
+	screen.open("shipdesign", "7")
+	assert_eq(screen._title.text, "Frigate Ms")
+	assert_false(screen._on_map.visible)
+	assert_not_null(_link_button(tr("SH_BASIC_MEDIUM")))
+	assert_not_null(_link_button(tr("SHP_MIL_ROBO_CONT")))
+	var groups := screen._links.find_children("*", "Label", true, false).map(func(l): return l.text)
+	assert_has(groups, tr("PEDIA_LINKS_UNLOCKED_BY"))
+	assert_has(groups, tr("PEDIA_LINKS_PARTS"))
+	assert_string_contains(screen._text.get_parsed_text(), "a planet with a shipyard")
+
+
+func test_labelled_entries_and_full_text_search():
+	screen.browse("shipdesign")
+	await wait_process_frames(1)
+	var titles := screen._results.get_children().map(func(b): return b.text)
+	assert_has(titles, "Frigate Ms", "Designs listed by name, not ID")
+	screen.search("physically")
+	await wait_process_frames(1)
+	titles = screen._results.get_children().map(func(b): return b.text)
+	assert_eq(titles.size(), 1)
+	assert_string_contains(titles[0], tr("PEDIA_IN_TEXT"))
+	assert_false(PediaScreen.is_article_kind("planet"), "Map links stay on the map")
+	assert_true(PediaScreen.is_article_kind("metertype"))
+
+
+func test_meter_names_link_to_their_articles():
+	var grid := MeterGrid.new()
+	add_child_autofree(grid)
+	grid.fill([{"meter": "METER_INDUSTRY", "now": 4.0, "next": 5.0}])
+	watch_signals(grid)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	grid.get_child(1).gui_input.emit(click)
+	assert_signal_emitted_with_parameters(grid, "meter_clicked", ["METER_INDUSTRY"])

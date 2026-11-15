@@ -238,6 +238,7 @@ func _build() -> void:
 	_visibility.visible = false
 	box.add_child(_visibility)
 	_meters = MeterGrid.new()
+	_meters.meter_clicked.connect(func(meter): link_activated.emit("metertype", meter))
 	box.add_child(_meters)
 	_buildings_title = ScreenKit.label(tr("PLANET_PANEL_BUILDINGS"), "SecondaryLabel")
 	box.add_child(_buildings_title)

@@ -369,7 +369,7 @@ func item_actions(entry: Dictionary, count: int) -> Array:
 		actions.push_back(5)
 	if entry.get("location_id", -1) >= 0:
 		actions.push_back(6)
-	if entry.get("build_type") == "building":
+	if entry.get("build_type") == "building" or ship:
 		actions.push_back(7)
 	return actions
 
@@ -393,7 +393,15 @@ func run_item_action(id: int, entry: Dictionary, count: int) -> void:
 		6:
 			location_requested.emit(entry.get("location_id", -1))
 		7:
-			pedia_requested.emit("buildingtype", entry.get("name", ""))
+			pedia_requested.emit.callv(pedia_target(entry))
+
+
+## The Pedia article of a queue or catalogue item: [kind, name]; ships
+## open their design's.
+static func pedia_target(item: Dictionary) -> Array:
+	if item.get("build_type") == "ship":
+		return ["shipdesign", str(item.get("design_id", -1))]
+	return ["buildingtype", item.get("name", "")]
 
 
 func _fill_item_menu(popup: PopupMenu, entry: Dictionary, count: int) -> void:
@@ -430,10 +438,10 @@ func _catalog_row(item: Dictionary) -> Control:
 		"%2%", str(item.get("turns", 0))
 	)
 	text.add_child(ScreenKit.label(cost, "SmallLabel"))
-	if item.get("build_type") == "building":
+	if item.get("build_type") in ["building", "ship"]:
 		var info := ScreenKit.small_button("?", "PEDIA_OPEN")
 		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		info.pressed.connect(pedia_requested.emit.bind("buildingtype", item.get("name", "")))
+		info.pressed.connect(func(): pedia_requested.emit.callv(pedia_target(item)))
 		row.add_child(info)
 	var where := ScreenKit.small_button("⌖", "PRODUCTION_WHERE")
 	where.size_flags_vertical = Control.SIZE_SHRINK_CENTER

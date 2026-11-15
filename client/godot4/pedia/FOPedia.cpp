@@ -10,6 +10,15 @@
 #include "../../../universe/BuildingType.h"
 #include "../../../universe/Encyclopedia.h"
 #include "../../../universe/FieldType.h"
+#include "../../../universe/Building.h"
+#include "../../../universe/Condition.h"
+#include "../../../universe/Fleet.h"
+#include "../../../universe/Ship.h"
+#include "../../../universe/ShipDesign.h"
+#include "../../../universe/System.h"
+#include "../../../Empire/EmpireManager.h"
+#include "../../../util/GameRules.h"
+#include "../../../util/MultiplayerCommon.h"
 #include "../../../universe/NamedValueRefManager.h"
 #include "../../../universe/ValueRef.h"
 #include "../../../universe/ShipHull.h"
@@ -87,6 +96,80 @@ namespace {
         }
     }
 
+    // What unlocks \a name of \a type: techs and policies.
+    void UnlockedBy(godot::Array& links, UnlockableItemType type, const std::string& name) {
+        const auto unlocks = [&](const std::vector<UnlockableItem>& items) {
+            return std::any_of(items.begin(), items.end(),
+                               [&](const auto& item) { return item.type == type && item.name == name; });
+        };
+        for (const auto& [tech_name, tech] : GetTechManager())
+            if (unlocks(tech.UnlockedItems()))
+                Link(links, "tech", tech_name, "unlocked_by");
+        for (const auto& [policy_name, policy] : GetPolicyManager().Policies())
+            if (unlocks(policy.UnlockedItems()))
+                Link(links, "policy", policy_name, "unlocked_by");
+    }
+
+    // The condition an item needs where it is built, in words.
+    godot::String Requirements(const Condition::Condition* condition) {
+        if (!condition)
+            return {};
+        try {
+            return ToGodot(condition->Description());
+        } catch (const std::exception&) {
+            return {};
+        }
+    }
+
+    // Who unlocks it, what it leads to and excludes, which species like or
+    // dislike it, where it can be built (GG's article sections).
+    void AddRelations(godot::Dictionary& a, godot::Array& links, const std::string& kind, const std::string& name) {
+        if (kind == "tech") {
+            if (const auto* tech = GetTech(name))
+                for (const auto& next : tech->UnlockedTechs())
+                    Link(links, "tech", next, "leads_to");
+            UnlockedBy(links, UnlockableItemType::UIT_TECH, name);
+        } else if (kind == "buildingtype") {
+            UnlockedBy(links, UnlockableItemType::UIT_BUILDING, name);
+            if (const auto* type = GetBuildingType(name))
+                a["requirements"] = Requirements(type->Location());
+        } else if (kind == "shippart") {
+            UnlockedBy(links, UnlockableItemType::UIT_SHIP_PART, name);
+            if (const auto* part = GetShipPart(name)) {
+                a["requirements"] = Requirements(part->Location());
+                for (const auto& ex : part->Exclusions())
+                    LinkAnything(links, ex, "exclusions");
+            }
+        } else if (kind == "shiphull") {
+            UnlockedBy(links, UnlockableItemType::UIT_SHIP_HULL, name);
+            if (const auto* hull = GetShipHull(name)) {
+                a["requirements"] = Requirements(hull->Location());
+                for (const auto& ex : hull->Exclusions())
+                    LinkAnything(links, ex, "exclusions");
+            }
+        } else if (kind == "policy") {
+            UnlockedBy(links, UnlockableItemType::UIT_POLICY, name);
+            if (const auto* policy = GetPolicy(name))
+                for (const auto& ex : policy->Exclusions())
+                    Link(links, "policy", ex, "exclusions");
+        }
+        if (kind == "policy" || kind == "buildingtype" || kind == "special" || kind == "tech" || kind == "shippart") {
+            if (const auto* app = ClientApp::GetApp()) {
+                for (const auto& [species_name, species] : app->GetSpeciesManager().AllSpecies()) {
+                    const auto& likes = species.Likes();
+                    const auto& dislikes = species.Dislikes();
+                    if (std::find(likes.begin(), likes.end(), name) != likes.end())
+                        Link(links, "species", species_name, "liked_by");
+                    if (std::find(dislikes.begin(), dislikes.end(), name) != dislikes.end())
+                        Link(links, "species", species_name, "disliked_by");
+                }
+            }
+        }
+    }
+
+    bool ExtraArticle(godot::Dictionary& a, godot::Array& facts, godot::Array& links,
+                      const std::string& kind, const std::string& name);
+
     godot::Dictionary Article(const std::string& kind, const std::string& name) {
         godot::Dictionary a;
         godot::Array facts, links;
@@ -139,6 +222,23 @@ namespace {
                 environments.push_back(entry);
             }
             a["environments"] = environments;
+            // What it thinks of each empire (GG's species opinions).
+            if (app) {
+                const auto& opinions = app->GetSpeciesManager().GetSpeciesEmpireOpinionsMap();
+                if (const auto it = opinions.find(name); it != opinions.end()) {
+                    std::string text;
+                    for (const auto& [opinion_empire_id, opinion] : it->second) {
+                        const auto empire = app->GetContext().GetEmpire(opinion_empire_id);
+                        if (!empire)
+                            continue;
+                        text.append("\n<empire ").append(std::to_string(opinion_empire_id)).append(">")
+                            .append(empire->Name()).append("</empire>: ")
+                            .append(DoubleToString(opinion.first.Initial(), 3, false));
+                    }
+                    if (!text.empty())
+                        a["text"] = godot::String(a["text"]) + ToGodot("\n\n<b>" + UserString("SPECIES_OPINIONS") + "</b>" + text);
+                }
+            }
             // Homeworlds the player knows of, linked to the map.
             if (app) {
                 const auto& homeworlds = app->GetSpeciesManager().GetSpeciesHomeworldsMap();
@@ -202,6 +302,9 @@ namespace {
             for (const auto& prereq : policy->Prerequisites())
                 Link(links, "policy", prereq, "prerequisites");
             Unlocks(links, policy->UnlockedItems());
+        } else if (kind == "encyclopedia" && (name == "ENC_GALAXY_SETUP" || name == "ENC_GAME_RULES")) {
+            if (!ExtraArticle(a, facts, links, kind, name))
+                return {};
         } else if (kind == "encyclopedia") {
             const auto& article = GetEncyclopedia().GetArticleByKey(name);
             if (article.name.empty())
@@ -211,9 +314,10 @@ namespace {
             a["text"] = Text(article.description);
             if (!article.category.empty())
                 Fact(facts, "PEDIA_FACT_CATEGORY", Text(article.category));
-        } else {
+        } else if (!ExtraArticle(a, facts, links, kind, name)) {
             return {};
         }
+        AddRelations(a, links, kind, name);
         a["kind"] = ToGodot(kind);
         a["name"] = ToGodot(name);
         a["facts"] = facts;
@@ -221,11 +325,17 @@ namespace {
         return a;
     }
 
-    void Index(godot::Array& index, const char* kind, std::string_view name, std::string_view category = {}) {
+    void Index(godot::Array& index, const char* kind, std::string_view name, std::string_view category = {},
+               std::string_view label = {})
+    {
         godot::Dictionary entry;
         entry["kind"] = kind;
         entry["name"] = ToGodot(name);
         entry["category"] = ToGodot(category);
+        // Entries named by ID (empires, designs) or by a meter type carry
+        // the title to list them by.
+        if (!label.empty())
+            entry["label"] = ToGodot(label);
         index.push_back(entry);
     }
 }
@@ -237,6 +347,7 @@ void FOPedia::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_index"), &FOPedia::get_index);
     ClassDB::bind_static_method(cls, D_METHOD("has_article", "kind", "name"), &FOPedia::has_article);
     ClassDB::bind_static_method(cls, D_METHOD("resolve_values", "text"), &FOPedia::resolve_values);
+    ClassDB::bind_static_method(cls, D_METHOD("search", "text"), &FOPedia::search);
 }
 
 godot::Dictionary FOPedia::get_article(const godot::String& kind, const godot::String& name) {
@@ -276,6 +387,26 @@ godot::Array FOPedia::get_index() {
         for (const auto& [category, articles] : GetEncyclopedia().Articles())
             for (const auto& article : articles)
                 Index(index, "encyclopedia", article.name, category);
+        Index(index, "encyclopedia", "ENC_GALAXY_SETUP", "ENC_INDEX");
+        Index(index, "encyclopedia", "ENC_GAME_RULES", "ENC_INDEX");
+        for (const auto& [type, type_name] : MeterTypeValues()) {
+            if (type <= MeterType::INVALID_METER_TYPE || type >= MeterType::NUM_METER_TYPES)
+                continue;
+            const std::string label_key = std::string{type_name} + "_VALUE_LABEL";
+            Index(index, "metertype", type_name, {},
+                  UserStringExists(label_key) ? UserString(label_key) : UserString(type_name));
+        }
+        if (const auto* app = ClientApp::GetApp()) {
+            for (const auto& [id, empire] : app->Empires())
+                Index(index, "empire", std::to_string(id), {}, empire->Name());
+            if (const auto* empire = app->GetEmpire(app->EmpireID()))
+                for (const int id : empire->ShipDesigns())
+                    if (const auto* design = app->GetUniverse().GetShipDesign(id))
+                        Index(index, "shipdesign", std::to_string(id), {}, design->Name(true));
+        }
+        for (const auto* premade : GetPredefinedShipDesignManager().GetOrderedShipDesigns())
+            if (premade)
+                Index(index, "shipdesign", std::to_string(premade->ID()), "premade", premade->Name(true));
     } catch (const std::exception& e) {
         ErrorLogger() << "FOPedia::get_index: " << e.what();
     }
@@ -326,4 +457,286 @@ godot::String FOPedia::resolve_values(const godot::String& text) {
 std::atomic<bool>& FOPedia::ContentReady() {
     static std::atomic<bool> ready = false;
     return ready;
+}
+
+namespace {
+    std::string EmpireLink(int empire_id, const ScriptingContext& context) {
+        const auto empire = context.GetEmpire(empire_id);
+        if (!empire)
+            return UserString("UNOWNED");
+        return "<empire " + std::to_string(empire_id) + ">" + empire->Name() + "</empire>";
+    }
+
+    template <typename T>
+    std::string ObjectLink(const char* tag, const T* obj, int empire_id, const Universe& universe) {
+        if (!obj)
+            return {};
+        return std::string{"<"} + tag + " " + std::to_string(obj->ID()) + ">" +
+            obj->PublicName(empire_id, universe) + "</" + tag + ">";
+    }
+
+    std::string MeterLine(const UniverseObject& obj, MeterType type) {
+        const auto* meter = obj.GetMeter(type);
+        if (!meter)
+            return {};
+        return "<metertype " + std::string{to_string(type)} + ">" + UserString(std::string{to_string(type)}) +
+            "</metertype>: " + DoubleToString(meter->Initial(), 3, false) + "\n";
+    }
+
+    // Planets, systems, fleets, ships and buildings, as GG's object pages:
+    // what it is, whose, where, and what it holds.
+    bool ObjectArticle(godot::Dictionary& a, godot::Array& facts, const std::string& kind, int id) {
+        const auto* app = ClientApp::GetApp();
+        if (!app)
+            return false;
+        const auto& context = app->GetContext();
+        const auto& objects = context.ContextObjects();
+        const auto& universe = context.ContextUniverse();
+        const int viewer = app->EmpireID();
+        const UniverseObject* obj = objects.getRaw(id);
+        if (!obj)
+            return false;
+        std::string text;
+        const auto* system = objects.getRaw<System>(obj->SystemID());
+        if (kind == "planet") {
+            const auto* planet = objects.getRaw<Planet>(id);
+            if (!planet)
+                return false;
+            Fact(facts, "PEDIA_FACT_PLANET_TYPE", Text(std::string{to_string(planet->Type())}));
+            Fact(facts, "PEDIA_FACT_PLANET_SIZE", Text(std::string{to_string(planet->Size())}));
+            if (!planet->SpeciesName().empty())
+                text += UserString("PEDIA_SPECIES") + ": <species " + planet->SpeciesName() + ">" +
+                    UserString(planet->SpeciesName()) + "</species>\n";
+            for (const auto type : {MeterType::METER_POPULATION, MeterType::METER_INDUSTRY, MeterType::METER_RESEARCH,
+                                    MeterType::METER_INFLUENCE, MeterType::METER_HAPPINESS, MeterType::METER_SUPPLY,
+                                    MeterType::METER_DEFENSE, MeterType::METER_SHIELD, MeterType::METER_TROOPS})
+                text += MeterLine(*planet, type);
+            for (const auto* building : objects.findRaw<const Building>(planet->BuildingIDs()))
+                text += "\n" + ObjectLink("building", building, viewer, universe);
+        } else if (kind == "system") {
+            const auto* sys = objects.getRaw<System>(id);
+            if (!sys)
+                return false;
+            Fact(facts, "PEDIA_FACT_STAR", Text(std::string{to_string(sys->GetStarType())}));
+            for (const auto* planet : objects.findRaw<const Planet>(sys->PlanetIDs()))
+                text += ObjectLink("planet", planet, viewer, universe) + "\n";
+        } else if (kind == "fleet") {
+            const auto* fleet = objects.getRaw<Fleet>(id);
+            if (!fleet)
+                return false;
+            for (const auto* ship : objects.findRaw<const Ship>(fleet->ShipIDs()))
+                text += ObjectLink("ship", ship, viewer, universe) + "\n";
+        } else if (kind == "ship") {
+            const auto* ship = objects.getRaw<Ship>(id);
+            if (!ship)
+                return false;
+            if (const auto* design = universe.GetShipDesign(ship->DesignID()))
+                text += UserString("PEDIA_DESIGN") + ": <shipdesign " + std::to_string(design->ID()) + ">" +
+                    design->Name(true) + "</shipdesign>\n";
+            text += UserString("PEDIA_FLEET") + ": " + ObjectLink("fleet", objects.getRaw<Fleet>(ship->FleetID()), viewer, universe) + "\n";
+            if (!ship->SpeciesName().empty())
+                text += UserString("PEDIA_SPECIES") + ": <species " + ship->SpeciesName() + ">" +
+                    UserString(ship->SpeciesName()) + "</species>\n";
+            for (const auto type : {MeterType::METER_STRUCTURE, MeterType::METER_SHIELD, MeterType::METER_FUEL,
+                                    MeterType::METER_SPEED, MeterType::METER_DETECTION, MeterType::METER_STEALTH})
+                text += MeterLine(*ship, type);
+        } else if (kind == "building") {
+            const auto* building = objects.getRaw<Building>(id);
+            if (!building)
+                return false;
+            text += "<buildingtype " + building->BuildingTypeName() + ">" + UserString(building->BuildingTypeName()) +
+                "</buildingtype>\n";
+            text += UserString("PEDIA_PLANET") + ": " + ObjectLink("planet", objects.getRaw<Planet>(building->PlanetID()), viewer, universe) + "\n";
+        } else {
+            return false;
+        }
+        a["title"] = ToGodot(obj->PublicName(viewer, universe));
+        a["icon"] = godot::String();
+        std::string where = system ? UserString("PEDIA_SYSTEM") + ": " + ObjectLink("system", system, viewer, universe) + "\n" : "";
+        a["text"] = ToGodot(UserString("PEDIA_OWNER") + ": " + EmpireLink(obj->Owner(), context) + "\n" +
+                            where + "\n" + text);
+        a["object_id"] = id;
+        return true;
+    }
+
+    bool ExtraArticle(godot::Dictionary& a, godot::Array& facts, godot::Array& links,
+                      const std::string& kind, const std::string& name)
+    {
+        const auto* app = ClientApp::GetApp();
+        if (kind == "metertype") {
+            const auto type = MeterTypeFromString(name, MeterType::INVALID_METER_TYPE);
+            if (type == MeterType::INVALID_METER_TYPE)
+                return false;
+            const std::string label_key = name + "_VALUE_LABEL";
+            a["title"] = ToGodot(UserStringExists(label_key) ? UserString(label_key) : UserString(name));
+            a["icon"] = godot::String();
+            const std::string desc_key = name + "_VALUE_DESC";
+            a["text"] = ToGodot(UserStringExists(desc_key) ? UserString(desc_key) : UserString(name));
+            return true;
+        }
+        if (kind == "shipdesign") {
+            const int id = std::atoi(name.c_str());
+            const ShipDesign* design = app ? app->GetUniverse().GetShipDesign(id) : nullptr;
+            if (!design)
+                for (const auto* premade : GetPredefinedShipDesignManager().GetOrderedShipDesigns())
+                    if (premade && premade->ID() == id)
+                        design = premade;
+            if (!design)
+                return false;
+            a["title"] = ToGodot(design->Name(true));
+            const auto* hull = GetShipHull(design->Hull());
+            a["icon"] = hull ? ToGodot(hull->Icon()) : godot::String();
+            a["text"] = ToGodot(design->Description(true));
+            Fact(facts, "PEDIA_FACT_ATTACK", Number(design->Attack()));
+            Fact(facts, "PEDIA_FACT_STRUCTURE", Number(design->Structure()));
+            Fact(facts, "PEDIA_FACT_SHIELDS", Number(design->Shields()));
+            Fact(facts, "PEDIA_FACT_SPEED", Number(design->Speed()));
+            Fact(facts, "PEDIA_FACT_FUEL", Number(design->Fuel()));
+            Fact(facts, "PEDIA_FACT_DETECTION", Number(design->Detection()));
+            Fact(facts, "PEDIA_FACT_STEALTH", Number(design->Stealth()));
+            if (app) {
+                const auto* empire = app->GetEmpire(app->EmpireID());
+                const int location = empire ? empire->CapitalID() : INVALID_OBJECT_ID;
+                Fact(facts, "PEDIA_FACT_COST", Number(design->ProductionCost(app->EmpireID(), location, app->GetContext())) + " PP");
+                Fact(facts, "PEDIA_FACT_TIME", godot::String::num_int64(design->ProductionTime(app->EmpireID(), location, app->GetContext())));
+                if (empire && !empire->ShipDesignAvailable(*design))
+                    Fact(facts, "PEDIA_FACT_AVAILABLE", ToGodot(UserString("NO")));
+            }
+            Link(links, "shiphull", design->Hull(), "hull");
+            std::set<std::string_view> seen;
+            for (const auto& part : design->Parts())
+                if (!part.empty() && seen.insert(part).second)
+                    Link(links, "shippart", part, "parts");
+            return true;
+        }
+        if (kind == "empire") {
+            if (!app)
+                return false;
+            const int id = std::atoi(name.c_str());
+            const auto& context = app->GetContext();
+            const auto empire = context.GetEmpire(id);
+            if (!empire)
+                return false;
+            a["title"] = ToGodot(empire->Name());
+            a["icon"] = godot::String();
+            a["color"] = godot::Color(empire->Color()[0] / 255.0, empire->Color()[1] / 255.0, empire->Color()[2] / 255.0);
+            std::string text;
+            if (const auto* capital = context.ContextObjects().getRaw<Planet>(empire->CapitalID()))
+                text += UserString("EMPIRE_CAPITAL") + ObjectLink("planet", capital, app->EmpireID(), context.ContextUniverse());
+            else
+                text += UserString("NO_CAPITAL");
+            text += "\n" + UserString("EMPIRE_ID") + ": " + name + "\n" + UserString("PEDIA_PLAYER") + ": " + empire->PlayerName();
+            const auto& meters = empire->GetMeters();
+            if (!meters.empty()) {
+                text += "\n";
+                for (const auto& [meter_name, meter] : meters)
+                    text += "\n" + UserString(meter_name) + ": " + DoubleToString(meter.Initial(), 3, false);
+            }
+            // Species' opinions of this empire.
+            std::string opinions;
+            for (const auto& [species_name, empire_opinions] : context.species.GetSpeciesEmpireOpinionsMap()) {
+                const auto it = empire_opinions.find(id);
+                if (it == empire_opinions.end())
+                    continue;
+                opinions += "\n<species " + species_name + ">" + UserString(species_name) + "</species>: " +
+                    DoubleToString(it->second.first.Initial(), 3, false);
+            }
+            if (!opinions.empty())
+                text += "\n\n<b>" + UserString("SPECIES_OPINIONS") + "</b>" + opinions;
+            a["text"] = ToGodot(text);
+            for (const auto& policy : empire->AdoptedPolicies())
+                Link(links, "policy", policy, "policies");
+            const auto owned = context.ContextObjects().findRaw<const Planet>(
+                [id](const Planet* p) { return p->OwnedBy(id); });
+            for (const auto* planet : owned) {
+                godot::Dictionary link;
+                link["kind"] = "planet";
+                link["name"] = godot::String::num_int64(planet->ID());
+                link["label"] = ToGodot(planet->PublicName(app->EmpireID(), context.ContextUniverse()));
+                link["group"] = "planets";
+                links.push_back(link);
+            }
+            Fact(facts, "PEDIA_FACT_PLANETS", godot::String::num_int64(static_cast<int64_t>(owned.size())));
+            Fact(facts, "PEDIA_FACT_TECHS", godot::String::num_int64(static_cast<int64_t>(empire->ResearchedTechs().size())));
+            return true;
+        }
+        if (kind == "planet" || kind == "system" || kind == "fleet" || kind == "ship" || kind == "building")
+            return ObjectArticle(a, facts, kind, std::atoi(name.c_str()));
+        if (kind == "encyclopedia" && name == "ENC_GALAXY_SETUP") {
+            if (!app)
+                return false;
+            const auto& gsd = app->GetGalaxySetupData();
+            a["title"] = ToGodot(name);
+            a["icon"] = godot::String();
+            a["text"] = ToGodot(boost::io::str(FlexibleFormat(UserString("ENC_GALAXY_SETUP_SETTINGS"))
+                % gsd.seed % std::to_string(gsd.size) % TextForGalaxyShape(gsd.shape)
+                % TextForGalaxySetupSetting(gsd.age) % TextForGalaxySetupSetting(gsd.starlane_freq)
+                % TextForGalaxySetupSetting(gsd.planet_density) % TextForGalaxySetupSetting(gsd.specials_freq)
+                % TextForGalaxySetupSetting(gsd.monster_freq) % TextForGalaxySetupSetting(gsd.native_freq)
+                % TextForAIAggression(gsd.ai_aggr) % gsd.game_uid));
+            return true;
+        }
+        if (kind == "encyclopedia" && name == "ENC_GAME_RULES") {
+            std::string text;
+            std::string_view last_category = "\x01";
+            for (const auto* rule : GetGameRules().GetSortedByCategoryAndRank()) {
+                if (last_category != rule->category) {
+                    last_category = rule->category;
+                    text += "\n<b>" + UserString(last_category.empty() ? "GENERAL" : last_category) + "</b>\n";
+                }
+                const std::string line = UserString(rule->name) + ": " + rule->ValueToString();
+                text += rule->ValueIsDefault() ? line + "\n" : "<u>" + line + "</u>\n";
+            }
+            a["title"] = ToGodot(name);
+            a["icon"] = godot::String();
+            a["text"] = ToGodot(text);
+            return true;
+        }
+        return false;
+    }
+}
+
+godot::Array FOPedia::search(const godot::String& needle_text) {
+    godot::Array result;
+    const std::string needle = ToStd(needle_text.to_lower());
+    if (needle.size() < 3)
+        return result;
+    const auto matches = [&](const std::string& key) {
+        if (key.empty())
+            return false;
+        auto text = UserString(key);
+        std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return std::tolower(c); });
+        return text.find(needle) != std::string::npos;
+    };
+    try {
+        for (const auto& [name, tech] : GetTechManager())
+            if (tech.Researchable() && matches(tech.Description()))
+                Index(result, "tech", name, tech.Category());
+        for (const auto& [name, type] : GetBuildingTypeManager())
+            if (matches(type->Description()))
+                Index(result, "buildingtype", name);
+        if (const auto* app = ClientApp::GetApp())
+            for (const auto& [name, species] : app->GetSpeciesManager().AllSpecies())
+                if (matches(species.Description()))
+                    Index(result, "species", name);
+        for (const auto name : SpecialNames())
+            if (const auto* special = GetSpecial(name); special && matches(special->Description()))
+                Index(result, "special", name);
+        for (const auto& [name, part] : GetShipPartManager())
+            if (matches(part->Description()))
+                Index(result, "shippart", name);
+        for (const auto& [name, hull] : GetShipHullManager())
+            if (matches(hull->Description()))
+                Index(result, "shiphull", name);
+        for (const auto& [name, policy] : GetPolicyManager().Policies())
+            if (matches(policy.Description()))
+                Index(result, "policy", name, policy.Category());
+        for (const auto& [category, articles] : GetEncyclopedia().Articles())
+            for (const auto& article : articles)
+                if (matches(article.description))
+                    Index(result, "encyclopedia", article.name, category);
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOPedia::search: " << e.what();
+    }
+    return result;
 }

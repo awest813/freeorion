@@ -91,7 +91,7 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] PP of the selected location's supply group — S
 - [x] Add to the top of the queue (production and research) — S
 - [x] "Unavailable" catalogue filter — S
-- [ ] Ship design articles in the Pedia (and design links) — M
+- [x] Ship design articles in the Pedia (and design links) — M
 - [x] Pause research of a tech — S
 - [x] Tech tree: status filters, several categories at once, unlock icons on cards, rich tooltips, zoom buttons, Shift+click to queue — M
 - [x] Tech list: sortable columns — S
@@ -101,7 +101,7 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] Designer: specific reasons a design is invalid; name check; description — S
 - [x] Designer: clear all parts; fill every slot of a type; drag parts — M
 - [x] Designer: part and hull availability and obsolete filters; mark parts and hulls obsolete; hide redundant parts; part class toggles — M
-- [ ] Designer: Pedia and tooltips for parts, hulls, designs; mark designs that can't be built; "add all saved now" — S
+- [x] Designer: Pedia and tooltips for parts, hulls, designs; mark designs that can't be built; "add all saved now" — S
 
 ## Title, options, saves, messages, Pedia, empires
 
@@ -114,8 +114,8 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [ ] Save list: galaxy details, sortable columns — S
 - [ ] Message log: turn begun, game saved, diplomatic changes, chat, `/pedia` — M
 - [x] Content checksum mismatch warning — S
-- [ ] Pedia: empire articles; species opinions and who likes or dislikes what — M
-- [ ] Pedia: unlocked by, prerequisites and exclusions, location requirements — M
-- [ ] Pedia: meter types, galaxy setup and game rules, objects; full-text search — S
+- [x] Pedia: empire articles; species opinions and who likes or dislikes what — M
+- [x] Pedia: unlocked by, prerequisites and exclusions, location requirements — M
+- [x] Pedia: meter types, galaxy setup and game rules, objects; full-text search — S
 - [ ] Empires: summary numbers per empire, player type and ready marks — S
 - [ ] Remaining interface sounds (list select, drop, panel open and close, fleet and system hover) — S

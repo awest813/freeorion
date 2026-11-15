@@ -37,7 +37,7 @@ func test_item_menu_offers_what_applies():
 	ship["progress"] = 0.4
 	ship["location_id"] = 101
 	ship["rally_point_id"] = 12
-	assert_eq(screen.item_actions(ship, 2), [0, 2, 3, 5, 6], "no rally target selected")
+	assert_eq(screen.item_actions(ship, 2), [0, 2, 3, 5, 6, 7], "no rally target selected")
 	screen.rally_target = func() -> Array: return [11, "Hegira β"]
 	assert_has(screen.item_actions(ship, 2), 4)
 

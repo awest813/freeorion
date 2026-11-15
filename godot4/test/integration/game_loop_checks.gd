@@ -215,6 +215,8 @@ func _check_pedia() -> void:
 		if not first_by_kind.has(entry["kind"]):
 			first_by_kind[entry["kind"]] = entry["name"]
 	for kind in PediaScreen.ARTICLE_KINDS:
+		if kind in PediaScreen.OBJECT_KINDS:
+			continue  # opened from links, not listed
 		_test.assert_true(first_by_kind.has(kind), "Index has %s entries" % kind)
 		if not first_by_kind.has(kind):
 			continue
@@ -224,6 +226,27 @@ func _check_pedia() -> void:
 	var algo := FOPedia.get_article("tech", "LRN_ALGO_ELEGANCE")
 	_test.assert_gt(algo["facts"].size(), 1, "Tech facts")
 	_test.assert_gt(algo["links"].size(), 0, "Tech links to unlocks")
+	_check_pedia_extras()
+
+
+# The articles GG generates: objects, setup, rules; relations; search.
+func _check_pedia_extras() -> void:
+	var capital := FOPedia.get_article(
+		"planet", str(FOUniverse.get_empire_resources().get("capital_id", -1))
+	)
+	_test.assert_false(capital.is_empty(), "Capital's article")
+	_test.assert_string_contains(capital.get("text", ""), "<empire ", "Owner linked")
+	var setup := FOPedia.get_article("encyclopedia", "ENC_GALAXY_SETUP")
+	_test.assert_false(setup.get("text", "").is_empty(), "Galaxy setup article")
+	var rules := FOPedia.get_article("encyclopedia", "ENC_GAME_RULES")
+	_test.assert_string_contains(rules.get("text", ""), ":", "Game rules article")
+	var shipyard := FOPedia.get_article("buildingtype", "BLD_GAS_GIANT_GEN")
+	var groups: Array = shipyard.get("links", []).map(func(l): return l["group"])
+	_test.assert_has(groups, "unlocked_by", "Generator says what unlocks it")
+	_test.assert_false(shipyard.get("requirements", "").is_empty(), "Where it can be built")
+	_test.assert_gt(FOPedia.search("shipyard").size(), 3, "Full-text search")
+	var empire := FOPedia.get_article("empire", str(FOUniverse.get_empire_id()))
+	_test.assert_false(empire.is_empty(), "Own empire's article")
 
 
 # Fleet orders on two own stationary fleets at the same system: stance,

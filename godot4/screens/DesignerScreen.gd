@@ -21,7 +21,7 @@ signal close_requested
 signal pedia_requested(kind: String, article_name: String)
 
 ## Own designs' menu.
-enum DesignAction { RENAME, KEEP, ASIDE, DELETE }
+enum DesignAction { RENAME, KEEP, ASIDE, DELETE, PEDIA }
 ## Hulls' menu.
 enum HullAction { PEDIA, OBSOLETE }
 
@@ -422,6 +422,7 @@ func _design_menu(design: Dictionary) -> MenuButton:
 	popup.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	if design.get("renamable", false):
 		popup.add_item(tr("DESIGNER_RENAME"), DesignAction.RENAME)
+	popup.add_item(tr("PEDIA_OPEN"), DesignAction.PEDIA)
 	popup.add_item(tr("DESIGNER_SAVE_TO_DISK"), DesignAction.KEEP)
 	popup.add_item(tr("DESIGNER_OBSOLETE"), DesignAction.ASIDE)
 	popup.add_separator()
@@ -441,6 +442,8 @@ func _design_menu(design: Dictionary) -> MenuButton:
 					_design_order(source.set_obsolete(id, true))
 				DesignAction.DELETE:
 					confirm_delete(design)
+				DesignAction.PEDIA:
+					pedia_requested.emit("shipdesign", str(id))
 	)
 	return menu
 

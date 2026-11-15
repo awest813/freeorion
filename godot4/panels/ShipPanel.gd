@@ -88,13 +88,16 @@ func show_data(data: Dictionary) -> void:
 	_fill_parts(data.get("parts", []))
 
 
-## Design, hull and species (linked) and owner, joined by " · ", in
+## Design, hull and species (linked to the Pedia) and owner, joined by " · ", in
 ## FORichText markup.
 static func subtitle(data: Dictionary) -> String:
 	var parts: PackedStringArray = []
 	var design: String = data.get("design", "")
 	if not design.is_empty():
-		parts.push_back(design)
+		var design_id: int = data.get("design_id", -1)
+		parts.push_back(
+			"<shipdesign %d>%s</shipdesign>" % [design_id, design] if design_id >= 0 else design
+		)
 	var hull: String = data.get("hull", "")
 	if not hull.is_empty():
 		parts.push_back("<shiphull %s>%s</shiphull>" % [hull, _tr(hull)])
@@ -164,6 +167,7 @@ func _build() -> void:
 	_stats.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
 	box.add_child(_stats)
 	_meters = MeterGrid.new()
+	_meters.meter_clicked.connect(func(meter): link_activated.emit("metertype", meter))
 	box.add_child(_meters)
 	_parts_title = ScreenKit.label(tr("SHIP_PANEL_PARTS"), "SecondaryLabel")
 	box.add_child(_parts_title)
