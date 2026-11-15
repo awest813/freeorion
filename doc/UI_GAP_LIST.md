@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 12 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
+| P2 | 11 | Tech tree graph; design management and comparison; where to build; ship detail; graphs; sound; turn readiness; hotkey rebinding |
 | P3 | 16 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -86,13 +86,13 @@ Closed:
 - **Delete a save:** from the save and load screens, after a confirmation.
 - **Credits and website:** on the title screen. Multiplayer belongs to the multiplayer item.
 - **Restore the view on load:** the map's centre and zoom go with each turn's orders and come back when a save loads. Saves from the GG client keep only their zoom, since it stores the map position differently.
+- **Production pause and stockpile:** queue items can be paused or resumed and allowed to draw on the imperial stockpile. The stockpile transfer project can be built. The screen shows the stockpile, how much a turn may draw from it, and next turn's amount. Stockpile limits per item (the GG blocksize split) are still open.
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Tech tree graph | `TechTreeWnd`, `TechTreeLayout`, `TechTreeArcs` | L | The fork has the list view only. |
 | Design management | `DesignWnd` saved/premade/monster lists | M | Save designs to disk, mark obsolete or hide, delete, browse premade and monster designs. |
 | Compare a design with the current one | `DesignWnd` | S | |
-| Production: pause, stockpile | `QueueListBox`, `ProductionWnd` | M | Pause and resume items, allow the imperial stockpile, stockpile projects and limits. |
 | Production: where can I build this | `BuildDesignatorWnd` | M | Highlight valid locations on the map, build at several at once. |
 | Ship detail | `FleetWnd` ship data panel | M | Per-ship meters with breakdowns, parts, attack, fighters. |
 | Drag ships between fleets | `FleetWnd` | M | Split and merge exist; drag-and-drop doesn't. |

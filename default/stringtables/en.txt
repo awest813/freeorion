@@ -2450,6 +2450,25 @@ At %1% · %2% PP this turn
 PRODUCTION_QUANTITY
 Quantity
 
+PRODUCTION_PAUSE
+Pause: this item gets no PP until resumed
+
+PRODUCTION_RESUME
+Resume
+
+PRODUCTION_PAUSED
+paused
+
+PRODUCTION_STOCKPILE_USE
+Allow this item to draw PP from the imperial stockpile
+
+# %1% PP in the stockpile, %2% PP a turn can take from it, %3% expected next turn.
+PRODUCTION_STOCKPILE
+Imperial stockpile: %1% PP · up to %2% PP a turn · %3% next turn
+
+PRODUCTION_STOCKPILE_TIP
+Unspent PP flow into the imperial stockpile; items allowed to use it draw from it up to the extraction limit each turn.
+
 PRODUCTION_MOVE_UP
 Move up
 

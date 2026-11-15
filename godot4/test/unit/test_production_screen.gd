@@ -28,7 +28,10 @@ func test_queue_rows_and_points():
 
 func test_first_location_selected_and_catalog_filled():
 	assert_eq(screen.selected_location_id(), 101)
-	assert_eq(_catalog_names(), [tr("BLD_SHIPYARD_BASE"), "Outpost Ship", "Scout"])
+	assert_eq(
+		_catalog_names(),
+		[tr("BLD_SHIPYARD_BASE"), "Outpost Ship", "Scout", tr("PROJECT_BT_STOCKPILE")]
+	)
 
 
 func test_filter_and_search():
@@ -86,3 +89,27 @@ func _texts(node: Node) -> Array:
 	for label in node.find_children("*", "Label", true, false):
 		texts.push_back(label.text)
 	return texts
+
+
+func test_pause_and_stockpile_toggles():
+	var running := screen._queue_list.get_child(0)
+	var paused := screen._queue_list.get_child(1)
+	assert_string_contains(" ".join(_texts(paused)), tr("PRODUCTION_PAUSED"))
+	assert_lt(paused.modulate.a, 1.0, "Paused items are dimmed")
+	_button_in(running, "Ⅱ").pressed.emit()
+	_button_in(paused, "▶").pressed.emit()
+	var toggles := running.find_children("*", "Button", true, false).filter(
+		func(b): return b.toggle_mode
+	)
+	var stockpile: Button = toggles[0]
+	stockpile.button_pressed = true
+	assert_eq(
+		fake.calls,
+		[["set_paused", 0, true], ["set_paused", 1, false], ["set_stockpile_allowed", 0, true]]
+	)
+
+
+func test_stockpile_project_and_line():
+	assert_string_contains(screen._stockpile.text, "PP")
+	var names := _texts(screen._catalog)
+	assert_has(names, tr("PROJECT_BT_STOCKPILE"), "The stockpile project is buildable")

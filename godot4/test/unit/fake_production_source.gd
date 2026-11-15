@@ -27,6 +27,8 @@ var queue: Array = [
 		"progress": 0.0,
 		"allocated_pp": 3.5,
 		"turns_left": -1,
+		"paused": true,
+		"stockpile_allowed": true,
 	},
 ]
 var buildable: Array = [
@@ -56,6 +58,15 @@ var buildable: Array = [
 		"icon": "icons/ship_hulls/basic-small-hull_small.png",
 		"cost": 12.0,
 		"turns": 2,
+	},
+	{
+		"build_type": "stockpile",
+		"name": "PROJECT_BT_STOCKPILE",
+		"design_id": -1,
+		"label": "PROJECT_BT_STOCKPILE",
+		"icon": "icons/meter/stockpile.png",
+		"cost": 1.0,
+		"turns": 1,
 	},
 ]
 var calls: Array = []
@@ -94,4 +105,14 @@ func move(index: int, new_index: int) -> bool:
 
 func set_quantity(index: int, quantity: int) -> bool:
 	calls.push_back(["set_quantity", index, quantity])
+	return true
+
+
+func set_paused(index: int, paused: bool) -> bool:
+	calls.push_back(["set_paused", index, paused])
+	return true
+
+
+func set_stockpile_allowed(index: int, allowed: bool) -> bool:
+	calls.push_back(["set_stockpile_allowed", index, allowed])
 	return true

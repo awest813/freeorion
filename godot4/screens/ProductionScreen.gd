@@ -13,6 +13,7 @@ const FILTERS := ["all", "building", "ship"]
 var source: Variant = ProductionSource.new()
 
 var _points: Label
+var _stockpile: Label
 var _queue_list: VBoxContainer
 var _location: OptionButton
 var _filter: TabBar
@@ -78,6 +79,10 @@ func _build() -> void:
 	queue_column.size_flags_stretch_ratio = 1.2
 	columns.add_child(queue_column)
 	_points = ScreenKit.header(queue_column, "PRODUCTION_WND_TITLE", close_requested.emit)
+	_stockpile = ScreenKit.label("", "SmallLabel")
+	_stockpile.tooltip_text = tr("PRODUCTION_STOCKPILE_TIP")
+	_stockpile.mouse_filter = Control.MOUSE_FILTER_PASS
+	queue_column.add_child(_stockpile)
 	_queue_list = ScreenKit.list()
 	queue_column.add_child(ScreenKit.scrolling(_queue_list))
 
@@ -112,6 +117,12 @@ func _refresh_queue() -> void:
 		tr("PRODUCTION_POINTS")
 		. replace("%1%", "%.1f" % points.get("spent", 0.0))
 		. replace("%2%", "%.1f" % points.get("available", 0.0))
+	)
+	_stockpile.text = (
+		tr("PRODUCTION_STOCKPILE")
+		. replace("%1%", "%.1f" % points.get("stockpile", 0.0))
+		. replace("%2%", "%.1f" % points.get("stockpile_capacity", 0.0))
+		. replace("%3%", "%.1f" % points.get("stockpile_expected", 0.0))
 	)
 	ScreenKit.clear(_queue_list)
 	var queue: Array = source.get_queue()
@@ -169,9 +180,32 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 		. replace("%1%", entry.get("location_name", ""))
 		. replace("%2%", "%.1f" % entry.get("allocated_pp", 0.0))
 	)
+	var paused: bool = entry.get("paused", false)
+	if paused:
+		detail += " · " + tr("PRODUCTION_PAUSED")
+		card.modulate = Color(1, 1, 1, 0.6)
 	text.add_child(ScreenKit.label(detail, "SmallLabel"))
 
 	var index: int = entry.get("index", position)
+	# Pause or resume; allow or forbid drawing on the imperial stockpile.
+	var toggles := VBoxContainer.new()
+	toggles.add_theme_constant_override("separation", 0)
+	row.add_child(toggles)
+	var pause := ScreenKit.small_button(
+		"▶" if paused else "Ⅱ", "PRODUCTION_RESUME" if paused else "PRODUCTION_PAUSE"
+	)
+	pause.pressed.connect(func(): _order(source.set_paused(index, not paused)))
+	toggles.add_child(pause)
+	var stockpile := Button.new()
+	stockpile.toggle_mode = true
+	stockpile.button_pressed = entry.get("stockpile_allowed", false)
+	stockpile.icon = FOArt.meter_icon("stockpile")
+	stockpile.expand_icon = true
+	stockpile.custom_minimum_size = Vector2.ONE * (FOUi.tokens.icon_small + FOUi.tokens.space_2)
+	stockpile.theme_type_variation = "SegmentButton"
+	stockpile.tooltip_text = tr("PRODUCTION_STOCKPILE_USE")
+	stockpile.toggled.connect(func(on: bool): _order(source.set_stockpile_allowed(index, on)))
+	toggles.add_child(stockpile)
 	if entry.get("build_type") == "ship":
 		var quantity := SpinBox.new()
 		quantity.min_value = 1
@@ -230,6 +264,7 @@ func _order(ok: bool) -> void:
 
 
 func _display_name(item: Dictionary) -> String:
-	# Buildings carry stringtable keys, ship designs their display name.
+	# Buildings and the stockpile project carry stringtable keys, ship designs
+	# their display name.
 	var label: String = item.get("label", "")
-	return tr(label) if item.get("build_type") == "building" else label
+	return tr(label) if item.get("build_type") in ["building", "stockpile"] else label

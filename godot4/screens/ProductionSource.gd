@@ -29,6 +29,8 @@ func get_locations() -> Array:
 func enqueue(item: Dictionary, location_id: int) -> bool:
 	if item.get("build_type") == "building":
 		return FOProduction.enqueue_building(item["name"], location_id)
+	if item.get("build_type") == "stockpile":
+		return FOProduction.enqueue_stockpile_project(location_id)
 	return FOProduction.enqueue_ship(item["design_id"], location_id, 1)
 
 
@@ -42,3 +44,11 @@ func move(index: int, new_index: int) -> bool:
 
 func set_quantity(index: int, quantity: int) -> bool:
 	return FOProduction.set_quantity(index, quantity)
+
+
+func set_paused(index: int, paused: bool) -> bool:
+	return FOProduction.set_paused(index, paused)
+
+
+func set_stockpile_allowed(index: int, allowed: bool) -> bool:
+	return FOProduction.set_stockpile_allowed(index, allowed)
