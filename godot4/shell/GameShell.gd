@@ -36,6 +36,7 @@ var empires_screen: EmpiresScreen
 var active_screen := ""
 
 var _side_scroll: ScrollContainer
+var _navigator := MapNavigator.new()
 
 ## Newest combat the player has seen in the combat screen.
 var _seen_combat_id := -1
@@ -186,6 +187,9 @@ func _ready() -> void:
 
 	map_view.system_selected.connect(_on_system_selected)
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
+	map_view.map.field_activated.connect(
+		func(field_type: String): open_pedia("fieldtype", field_type)
+	)
 	system_panel.close_requested.connect(map_view.map.select_system.bind(GalaxyMap.NO_SYSTEM))
 	system_panel.fleet_selected.connect(_on_fleet_selected)
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
@@ -194,6 +198,9 @@ func _ready() -> void:
 		GlobalFreeOrionNode.combat_logs_updated.connect(_on_combat_logs_updated)
 		GlobalFreeOrionNode.server_error.connect(_on_server_error)
 		GlobalFreeOrionNode.diplomacy_changed.connect(_on_diplomacy_changed)
+		var options := Engine.get_singleton("FOOptions")
+		if options.exists("ui.map.detection.shown"):
+			map_view.map.show_detection = options.get_value("ui.map.detection.shown")
 		# A loaded game that was already won or lost isn't announced again.
 		check_game_over(FOUniverse.get_empire_resources(), true)
 
@@ -206,6 +213,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		show_screen(MENU_KEYS[event.keycode])
 		get_viewport().set_input_as_handled()
 		return
+	if event is InputEventKey and event.pressed and active_screen.is_empty():
+		if _handle_map_key(event):
+			get_viewport().set_input_as_handled()
+			return
 	if not event.is_action_pressed("ui_cancel") or not active_screen.is_empty():
 		return
 	if map_view.map.selected_system_id() != GalaxyMap.NO_SYSTEM:
@@ -213,6 +224,60 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	else:
 		open_menu()
 	get_viewport().set_input_as_handled()
+
+
+# Map keys: Ctrl+H home, the navigator's steps, Ctrl+D detection ranges.
+func _handle_map_key(event: InputEventKey) -> bool:
+	if event.keycode == KEY_H and event.ctrl_pressed:
+		go_home()
+		return true
+	if event.keycode == KEY_D and event.ctrl_pressed:
+		set_detection_shown(not map_view.map.show_detection)
+		return true
+	var nav := MapNavigator.match_key(event)
+	if nav.is_empty() or not follow_game:
+		return not nav.is_empty()
+	go_to(_navigator.step(nav[0], nav[1]))
+	return true
+
+
+## Centre on \a target ({system_id, fleet_id, position}): select its system,
+## and its fleet if it is one.
+func go_to(target: Dictionary) -> void:
+	if target.is_empty():
+		return
+	var system_id: int = target.get("system_id", -1)
+	var fleet_id: int = target.get("fleet_id", -1)
+	if system_id >= 0:
+		map_view.map.focus_system(system_id)
+		if fleet_id >= 0:
+			system_panel.select_fleet(fleet_id)
+	else:
+		# A fleet between systems: no system is selected, only the fleet.
+		map_view.map.select_system(GalaxyMap.NO_SYSTEM)
+		map_view.map.camera.center_on(target.get("position", Vector2.ZERO))
+		if fleet_id >= 0:
+			_on_fleet_selected(fleet_id)
+
+
+## Centre on the capital's system.
+func go_home() -> void:
+	if not follow_game:
+		return
+	var capital: FOPlanet = FOUniverse.get_planet(
+		FOUniverse.get_empire_resources().get("capital_id", -1)
+	)
+	if capital:
+		map_view.map.focus_system(capital.get_system_id())
+
+
+## Show or hide detection ranges, and remember it.
+func set_detection_shown(shown: bool) -> void:
+	map_view.map.show_detection = shown
+	var options := Engine.get_singleton("FOOptions") if follow_game else null
+	if options and options.exists("ui.map.detection.shown"):
+		options.set_value("ui.map.detection.shown", shown)
+		options.commit()
 
 
 ## Open the in-game menu over the map (and any open screen).
@@ -331,10 +396,14 @@ func _on_system_context_requested(system_id: int) -> void:
 	var fleet_id := system_panel.selected_fleet_id()
 	if fleet_id < 0 or not follow_game:
 		return
-	if FOOrders.issue_fleet_move(fleet_id, system_id) < 0:
+	# With Shift, the move is a waypoint after the fleet's current route.
+	var append := Input.is_key_pressed(KEY_SHIFT)
+	if FOOrders.issue_fleet_move(fleet_id, system_id, append) < 0:
 		system_panel.show_notice(tr("SYSTEM_PANEL_ORDER_REFUSED"))
 		return
 	system_panel.refresh()
+	if fleet_panel.visible:
+		fleet_panel.refresh()
 	_show_route(fleet_id)
 
 

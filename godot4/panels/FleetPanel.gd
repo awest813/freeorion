@@ -104,7 +104,7 @@ func show_data(data: Dictionary) -> void:
 # Big fleets scroll instead of pushing the panel off the screen.
 func _fit_ship_list() -> void:
 	var height := 0.0
-	var rows := _ships.get_children()
+	var rows := _ships.get_children().filter(func(row): return not row.is_queued_for_deletion())
 	for i in mini(rows.size(), VISIBLE_SHIPS):
 		height += rows[i].get_combined_minimum_size().y
 	height += (

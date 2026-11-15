@@ -1971,6 +1971,9 @@ Waiting…
 TOPBAR_REVISE_TIP
 Take the turn back to change orders. Possible until the server starts processing it.
 
+OPTIONS_DB_UI_MAP_DETECTION_SHOWN
+Show the detection ranges of your planets and ships on the map (Ctrl+D)
+
 PANEL_CLOSE
 Close
 

@@ -13,6 +13,8 @@ signal system_selected(system_id: int)
 signal system_hovered(system_id: int)
 ## Right-click (not drag) on a system, e.g. to order the active fleet there.
 signal system_context_requested(system_id: int)
+## A field (no system under the cursor) was clicked: its type, for the Pedia.
+signal field_activated(field_type: String)
 
 const PICK_RADIUS_PX := 14.0
 const GRID_CELL := 64.0
@@ -21,6 +23,13 @@ const NO_SYSTEM := -1
 const CULL_MARGIN_PX := 32.0
 
 var bounds := Rect2()
+## Show the player's detection ranges (option ui.map.detection.shown).
+var show_detection := false:
+	set(value):
+		show_detection = value
+		if _detection_layer:
+			_detection_layer.get_parent().visible = value
+			_detection_layer.queue_redraw()
 
 var _system_ids := PackedInt32Array()
 var _positions := PackedVector2Array()
@@ -52,6 +61,12 @@ var _field_positions := PackedVector2Array()
 var _field_radii := PackedFloat32Array()
 var _field_ids := PackedInt32Array()
 var _field_graphics := PackedStringArray()
+var _field_types := PackedStringArray()
+var _hovered_field := -1
+var _hover_point := Vector2()
+var _detection_layer: MapLayer
+var _detection_positions := PackedVector2Array()
+var _detection_radii := PackedFloat32Array()
 
 @onready var camera: GalaxyCamera = $Camera
 @onready var _lane_layer: MapLayer = $Lanes
@@ -75,6 +90,16 @@ func _ready() -> void:
 	supply_group.add_child(_supply_area)
 	add_child(supply_group)
 	move_child(supply_group, _lane_layer.get_index())
+	# Detection ranges: one even tint as supply, above it; hidden by default.
+	var detection_group := CanvasGroup.new()
+	detection_group.name = "Detection"
+	detection_group.self_modulate = Color(1, 1, 1, MapStyle.DETECTION_ALPHA)
+	detection_group.visible = show_detection
+	_detection_layer = MapLayer.new()
+	_detection_layer.draw_callback = _draw_detection
+	detection_group.add_child(_detection_layer)
+	add_child(detection_group)
+	move_child(detection_group, _lane_layer.get_index())
 	# Fields lie under everything else of the map.
 	_field_layer = MapLayer.new()
 	_field_layer.name = "Fields"
@@ -127,6 +152,10 @@ func set_snapshot(
 	_field_positions = snapshot.get("field_positions", PackedVector2Array())
 	_field_radii = snapshot.get("field_radii", PackedFloat32Array())
 	_field_graphics = snapshot.get("field_graphics", PackedStringArray())
+	_field_types = snapshot.get("field_types", PackedStringArray())
+	_detection_positions = snapshot.get("detection_positions", PackedVector2Array())
+	_detection_radii = snapshot.get("detection_radii", PackedFloat32Array())
+	_hovered_field = -1
 	_supply_lanes = snapshot.get("supply_lanes", PackedInt32Array())
 	_supply_lane_colors = snapshot.get("supply_lane_colors", PackedColorArray())
 	_supply_systems = snapshot.get("supply_systems", PackedInt32Array())
@@ -185,6 +214,18 @@ func route_points() -> PackedVector2Array:
 
 ## Hover highlight and name chip for \a system_id (-1 clears); the mouse
 ## normally drives this, tests and screenshots call it directly.
+## Index of the field covering \a world_pos (the smallest one if several),
+## or -1.
+func pick_field(world_pos: Vector2) -> int:
+	var best := -1
+	for i in _field_positions.size():
+		var radius := _field_radii[i] if i < _field_radii.size() else 0.0
+		if world_pos.distance_to(_field_positions[i]) <= radius:
+			if best < 0 or radius < _field_radii[best]:
+				best = i
+	return best
+
+
 func hover_system(system_id: int) -> void:
 	var index: int = _index_by_id.get(system_id, NO_SYSTEM)
 	if index == _hovered:
@@ -240,17 +281,30 @@ func visible_world_rect() -> Rect2:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
-		var hovered_id := pick_system(camera.screen_to_world(event.position))
+		var world := camera.screen_to_world(event.position)
+		var hovered_id := pick_system(world)
 		var index: int = _index_by_id.get(hovered_id, NO_SYSTEM)
 		if index != _hovered:
 			_hovered = index
 			_overlay.queue_redraw()
 			_label_layer.queue_redraw()
 			system_hovered.emit(hovered_id)
+		# Away from systems, a field under the cursor gets a name chip.
+		var field := pick_field(world) if index == NO_SYSTEM else -1
+		if field != _hovered_field or field >= 0:
+			_hovered_field = field
+			_hover_point = world
+			_label_layer.queue_redraw()
 	elif event is InputEventMouseButton:
 		var button := event as InputEventMouseButton
 		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
-			select_system(pick_system(camera.screen_to_world(button.position)))
+			var world := camera.screen_to_world(button.position)
+			var system_id := pick_system(world)
+			var field := pick_field(world) if system_id == NO_SYSTEM else -1
+			if field >= 0 and field < _field_types.size():
+				field_activated.emit(_field_types[field])
+			else:
+				select_system(system_id)
 			get_viewport().set_input_as_handled()
 		elif (
 			button.button_index == MOUSE_BUTTON_RIGHT and not button.pressed and camera.was_click()
@@ -267,6 +321,8 @@ func _on_zoom_changed(zoom_level: float) -> void:
 
 func _on_view_changed() -> void:
 	_field_layer.queue_redraw()
+	if show_detection:
+		_detection_layer.queue_redraw()
 	_supply_area.queue_redraw()
 	_lane_layer.queue_redraw()
 	_overlay.queue_redraw()
@@ -449,6 +505,7 @@ func _draw_labels(layer: CanvasItem) -> void:
 	var placed := _LabelGrid.new()
 	_draw_route_chip(layer, placed)
 	_draw_hover_chip(layer, placed)
+	_draw_field_chip(layer, placed)
 	for i in _label_order:
 		if i == _hovered:
 			continue
@@ -523,6 +580,50 @@ func _draw_hover_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
 		size,
 		text_color
 	)
+
+
+# Name of the field under the cursor, just below it.
+func _draw_field_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
+	if _hovered != NO_SYSTEM or _hovered_field < 0 or _hovered_field >= _field_types.size():
+		return
+	var text := TranslationServer.translate(_field_types[_hovered_field])
+	var at := camera.world_to_screen(_hover_point) + Vector2(0, MapStyle.LABEL_OFFSET_PX.y + 8)
+	_draw_chip(layer, placed, text, at)
+
+
+# A text chip centred horizontally on \a at (its top edge).
+func _draw_chip(layer: CanvasItem, placed: _LabelGrid, text: String, at: Vector2) -> void:
+	var tokens: FOTokens = FOUi.tokens
+	var size := MapStyle.LABEL_FONT_SIZE
+	var width := _label_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var pad := Vector2(tokens.space_2, tokens.space_1) if tokens else Vector2(8, 4)
+	var top_left := at + Vector2(-width * 0.5, 0)
+	var chip := Rect2(top_left - pad, Vector2(width, size * 1.25) + pad * 2.0).abs()
+	chip.position = chip.position.round()
+	placed.try_place(chip)
+	layer.draw_rect(chip, Color(tokens.surface_overlay if tokens else Color(0.1, 0.1, 0.12), 0.92))
+	layer.draw_rect(chip, tokens.border_strong if tokens else Color.GRAY, false, 1.0)
+	layer.draw_string(
+		_label_font,
+		(top_left + Vector2(0, size)).round(),
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		size,
+		tokens.text_primary if tokens else Color.WHITE
+	)
+
+
+# The player's detection ranges, opaque (the group around this layer fades
+# them), with their rims drawn a little stronger.
+func _draw_detection(layer: CanvasItem) -> void:
+	var view := visible_world_rect()
+	var color := MapStyle.DETECTION_COLOR
+	for i in _detection_positions.size():
+		var center := _detection_positions[i]
+		var radius := _detection_radii[i]
+		if view.grow(radius).has_point(center):
+			layer.draw_circle(center, radius, color)
 
 
 # Label priority: selected system, then explored systems, then the rest.

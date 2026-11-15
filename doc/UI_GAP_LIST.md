@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 21 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
+| P2 | 17 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
 | P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -74,6 +74,13 @@ Closed on 2026-11-15:
 Closed:
 - **Turn progress:** while you wait, the top bar shows what the server is doing ("Resolving Combat", ...). So does the title while a game is generated or loaded.
 - **Revise an ended turn:** the End turn button becomes "Revise N" until the server starts processing.
+- **Map navigation keys:** as the GG map's:
+  - Ctrl+H for the home system.
+  - Ctrl+, / Ctrl+. for the previous and next system; with Shift, systems with your planets.
+  - Ctrl+F / Ctrl+G for your fleets; Alt+F / Alt+G for your idle fleets.
+- **Detection ranges:** Ctrl+D shows your detection ranges as one faint tint. The choice is remembered (option `ui.map.detection.shown`).
+- **Fields on hover:** a field's name shows under the cursor; clicking it opens its Pedia article.
+- **Fleet waypoints:** Shift + right-click adds a move after the fleet's current route.
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
@@ -83,10 +90,6 @@ Closed:
 | Compare a design with the current one | `DesignWnd` | S | |
 | Production: pause, stockpile | `QueueListBox`, `ProductionWnd` | M | Pause and resume items, allow the imperial stockpile, stockpile projects and limits. |
 | Production: where can I build this | `BuildDesignatorWnd` | M | Highlight valid locations on the map, build at several at once. |
-| Map navigation hotkeys | `MapWnd::ConnectKeyboardAcceleratorSignals` | S | Previous/next system, own system, fleet, idle fleet; zoom keys exist. |
-| Detection ranges overlay | `MapWnd` detection circles | S | |
-| Field names and effects on hover | `FieldIcon` | S | Fields are drawn; hovering one says nothing yet. |
-| Fleet waypoints | `MapWnd` shift-click | S | The bridge supports appended moves; the map doesn't offer them. |
 | Ship detail | `FleetWnd` ship data panel | M | Per-ship meters with breakdowns, parts, attack, fighters. |
 | Drag ships between fleets | `FleetWnd` | M | Split and merge exist; drag-and-drop doesn't. |
 | Sitrep history and filters | `SitRepPanel` prev/next turn, type filters, snooze | S | The feed shows the current turn only. |

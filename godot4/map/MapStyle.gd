@@ -43,6 +43,10 @@ const SUPPLY_LANE_PX := 6.0
 const SUPPLY_LANE_ALPHA := 0.35
 const SUPPLY_SYSTEM_ALPHA := 0.13
 const SUPPLY_SYSTEM_RADIUS := 0.45
+## Detection ranges, when shown: one faint tint, in a colour no empire's
+## supply uses.
+const DETECTION_ALPHA := 0.12
+const DETECTION_COLOR := Color("#b8f2e6")
 ## Fields (ion storms, nebulae, ...): their art, faded so lanes stay legible.
 const FIELD_ALPHA := 0.6
 ## Background star density: one star per this many screen pixels.

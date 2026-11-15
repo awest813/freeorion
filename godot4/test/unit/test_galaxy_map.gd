@@ -181,3 +181,34 @@ func test_supply_and_fields_are_read_and_drawn():
 	assert_lt(group.self_modulate.a, 1.0, "Supply is faded as one group")
 	assert_lt(map.get_node("Fields").get_index(), group.get_index(), "Fields lie under the supply")
 	assert_lt(group.get_index(), map._lane_layer.get_index(), "Supply lies under the lanes")
+
+
+func test_fields_are_picked_and_clicked():
+	var snapshot := _grid_snapshot()
+	snapshot["field_ids"] = PackedInt32Array([7, 8])
+	snapshot["field_positions"] = PackedVector2Array([Vector2(150, 150), Vector2(160, 150)])
+	snapshot["field_radii"] = PackedFloat32Array([80.0, 20.0])
+	snapshot["field_types"] = PackedStringArray(["FLD_ION_STORM", "FLD_NEBULA_1"])
+	map.set_snapshot(snapshot, _names(), PackedColorArray())
+	assert_eq(map.pick_field(Vector2(160, 150)), 1, "The smaller field wins")
+	assert_eq(map.pick_field(Vector2(100, 150)), 0)
+	assert_eq(map.pick_field(Vector2(900, 900)), -1)
+	watch_signals(map)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = map.camera.world_to_screen(Vector2(130, 175))
+	map._unhandled_input(click)
+	assert_signal_emitted_with_parameters(map, "field_activated", ["FLD_ION_STORM"])
+
+
+func test_detection_ranges_hidden_until_shown():
+	var snapshot := _grid_snapshot()
+	snapshot["detection_positions"] = PackedVector2Array([Vector2(0, 0)])
+	snapshot["detection_radii"] = PackedFloat32Array([75.0])
+	map.set_snapshot(snapshot, _names(), PackedColorArray())
+	var group: CanvasGroup = map.get_node("Detection")
+	assert_false(group.visible)
+	map.show_detection = true
+	assert_true(group.visible)
+	assert_eq(map._detection_radii[0], 75.0)
