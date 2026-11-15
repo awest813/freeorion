@@ -12,6 +12,10 @@ signal close_requested
 signal link_activated(kind: String, arg: String)
 ## Scrap own building \a building_id, or cancel it.
 signal scrap_requested(building_id: int)
+## An own planet was renamed (Enter in its name).
+signal rename_requested(planet_id: int, new_name: String)
+## Give own planet \a planet_id to empire \a empire_id (-1: cancel a gift).
+signal give_requested(planet_id: int, empire_id: int)
 
 const WIDTH := 340
 
@@ -28,10 +32,13 @@ var accounting_provider: Callable:
 		_meters.accounting_provider = value
 ## Returns get_planet_suitability() for a planet; tests replace it.
 var suitability_provider := func(id: int) -> Array: return FOUniverse.get_planet_suitability(id)
+## Empires at peace an own planet can be given to: FOOrders.get_give_targets().
+var give_targets_provider := func(id: int) -> Dictionary: return FOOrders.get_give_targets(id)
 
 var _data := {}
 var _type_icon: TextureRect
-var _title: Label
+var _title: LineEdit
+var _give: MenuButton
 var _swatch: ColorRect
 var _subtitle: Label
 var _meters: MeterGrid
@@ -73,7 +80,12 @@ func show_data(data: Dictionary) -> void:
 	if was_hidden:
 		FOUi.fade_in(self)
 	_type_icon.texture = FOArt.planet_type_icon(data.get("type", ""))
-	_title.text = data.get("name", "")
+	if not _title.has_focus():
+		_title.text = data.get("name", "")
+	var own: bool = data.get("own", false)
+	_title.editable = own
+	_title.tooltip_text = tr("PLANET_PANEL_RENAME") if own else ""
+	_give.visible = own
 	var owner_name: String = data.get("owner_name", "")
 	_swatch.visible = not owner_name.is_empty()
 	_swatch.color = data.get("owner_color", Color.WHITE)
@@ -85,6 +97,29 @@ func show_data(data: Dictionary) -> void:
 	ScreenKit.clear(_suitability)
 	_suitability.visible = false
 	_suitability_button.set_pressed_no_signal(false)
+
+
+## Gift entries for the planet shown: [label, empire id (-1: cancel)].
+func give_entries() -> Array:
+	var gifts: Dictionary = give_targets_provider.call(planet_id)
+	var entries := []
+	for target: Dictionary in gifts.get("targets", []):
+		var give := tr("ORDER_GIVE_PLANET_TO_EMPIRE").trim_suffix("...").trim_suffix("…")
+		entries.push_back(["%s %s" % [give, target["name"]], target["id"]])
+	if gifts.get("giving_to", -1) >= 0:
+		entries.push_back([tr("ORDER_CANCEL_GIVE_PLANET"), -1])
+	return entries
+
+
+func _fill_give_menu() -> void:
+	var popup := _give.get_popup()
+	popup.clear()
+	var entries := give_entries()
+	for entry in entries:
+		popup.add_item(entry[0], entry[1])
+	if entries.is_empty():
+		popup.add_item(tr("PLANET_PANEL_NO_GIFT"))
+		popup.set_item_disabled(0, true)
 
 
 ## "Medium Terran · Human (Good) · Industry · Empire" for \a data.
@@ -141,10 +176,30 @@ func _build() -> void:
 	_swatch.custom_minimum_size = Vector2(FOUi.tokens.space_3, FOUi.tokens.space_3)
 	_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	title_row.add_child(_swatch)
-	_title = ScreenKit.label("", "TitleLabel")
-	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_title = LineEdit.new()
+	_title.flat = true
+	_title.editable = false
+	_title.add_theme_font_size_override("font_size", FOUi.tokens.font_size_title)
+	# Read-only names (not the player's) read as titles, not as greyed fields.
+	_title.add_theme_color_override("font_uneditable_color", FOUi.tokens.text_primary)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title.text_submitted.connect(
+		func(text: String):
+			_title.release_focus()
+			if not text.strip_edges().is_empty():
+				rename_requested.emit(planet_id, text.strip_edges())
+	)
 	title_row.add_child(_title)
+	# Give the planet to an empire at peace with something here (GG's
+	# planet menu).
+	_give = MenuButton.new()
+	_give.text = "⋯"
+	_give.flat = false
+	_give.tooltip_text = tr("PLANET_PANEL_MENU")
+	_give.visible = false
+	_give.about_to_popup.connect(_fill_give_menu)
+	_give.get_popup().id_pressed.connect(func(id): give_requested.emit(planet_id, id))
+	title_row.add_child(_give)
 	_subtitle = ScreenKit.label("", "SmallLabel")
 	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	titles.add_child(_subtitle)

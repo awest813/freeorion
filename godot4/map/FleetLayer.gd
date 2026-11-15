@@ -15,6 +15,11 @@ var selected_fleet := -1:
 	set(value):
 		selected_fleet = value
 		queue_redraw()
+## Draw the paths of moving fleets (GG's ui.map.fleet.eta.shown).
+var show_paths := true:
+	set(value):
+		show_paths = value
+		queue_redraw()
 
 var _positions := PackedVector2Array()
 var _ids := PackedInt32Array()
@@ -22,6 +27,8 @@ var _owners := PackedInt32Array()
 var _colors := PackedColorArray()
 var _stack := PackedInt32Array()
 var _paths: Array = []
+var _blockaded := PackedByteArray()
+var _stale := PackedByteArray()
 var _turn_ends: Array = []
 ## Fleets marked as selected together (box selection): id -> true.
 var _marked := {}
@@ -41,6 +48,8 @@ func set_fleets(snapshot: Dictionary, colors: PackedColorArray) -> void:
 	_owners = snapshot.get("fleet_owner_ids", PackedInt32Array())
 	_paths = snapshot.get("fleet_paths", [])
 	_turn_ends = snapshot.get("fleet_turn_ends", [])
+	_blockaded = snapshot.get("fleet_blockaded", PackedByteArray())
+	_stale = snapshot.get("fleet_stale", PackedByteArray())
 	_colors = colors
 	_stack.resize(_positions.size())
 	var count_at := {}
@@ -121,6 +130,11 @@ func preview_label() -> String:
 	return _preview_label
 
 
+func is_blockaded(fleet_id: int) -> bool:
+	var index := _ids.find(fleet_id)
+	return index >= 0 and index < _blockaded.size() and _blockaded[index] == 1
+
+
 ## The path fleet \a fleet_id is on (empty if not moving).
 func path_of(fleet_id: int) -> PackedVector2Array:
 	var index := _ids.find(fleet_id)
@@ -132,7 +146,8 @@ func _draw() -> void:
 		return
 	var px := 1.0 / map.camera.zoom_level()
 	var view := map.visible_world_rect()
-	_draw_paths(px, view)
+	if show_paths:
+		_draw_paths(px, view)
 	_draw_preview(px)
 	_draw_markers(px, view)
 
@@ -184,7 +199,20 @@ func _draw_markers(px: float, view: Rect2) -> void:
 			continue
 		var origin := marker_origin(i, px)
 		var color: Color = _colors[i] if i < _colors.size() else Color.WHITE
+		# Fleets not seen this turn (sensor ghosts) are drawn faded.
+		if i < _stale.size() and _stale[i]:
+			color.a = 0.35
 		var fleet_id := _ids[i] if i < _ids.size() else -1
+		# A blockaded fleet gets a bar across its marker.
+		if i < _blockaded.size() and _blockaded[i]:
+			var bar := Vector2(0, size * 0.9)
+			draw_line(
+				origin - bar + Vector2(size * 1.1, 0),
+				origin + bar + Vector2(size * 1.1, 0),
+				MapStyle.BLOCKADE_COLOR,
+				2.0 * px,
+				true
+			)
 		if _marked.has(fleet_id) or fleet_id == selected_fleet:
 			draw_arc(origin, size * 1.1, 0, TAU, 20, accent, 1.5 * px, true)
 		draw_primitive(

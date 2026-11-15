@@ -2801,6 +2801,33 @@ FLEETS_ORDERED
 TOPBAR_WASTED_SHOW
 Click to show where.
 
+MAP_MENU_FLEET_PATHS
+Fleet movement lines
+
+SYSTEM_PANEL_RENAME
+Type a new name and press Enter to rename the system
+
+SYSTEM_PANEL_PICK
+Pick another system
+
+SYSTEM_PANEL_PREV
+Previous system
+
+SYSTEM_PANEL_NEXT
+Next system
+
+PLANET_PANEL_RENAME
+Type a new name and press Enter to rename the planet
+
+PLANET_PANEL_MENU
+More planet actions
+
+PLANET_PANEL_NO_GIFT
+No empire at peace here to give it to
+
+FLEET_PANEL_BLOCKADED
+Blockaded
+
 OPTIONS_LANGUAGE_NAME
 Language
 

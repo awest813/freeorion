@@ -25,6 +25,8 @@ const STAR_PX := 16.0
 const LANE_PX := 1.5
 const ROUTE_DASH_PX := 8.0
 const FLEET_PX := 7.0
+## The bar on a blockaded fleet's marker.
+const BLOCKADE_COLOR := Color("#f07171")
 const SELECTION_RING_PX := 13.0
 const LABEL_FONT_SIZE := 13
 const LABEL_OFFSET_PX := Vector2(0, 16)
@@ -93,3 +95,27 @@ static func glow_texture() -> Texture2D:
 	texture.width = 64
 	texture.height = 64
 	return texture
+
+
+## Opaque screen-space backdrop (space colour plus static stars) baked into one
+## texture per viewport size, so the whole background is a single quad.
+## Deterministic so screenshots are stable.
+static func bake_starfield(size: Vector2i) -> ImageTexture:
+	var image := Image.create(size.x, size.y, false, Image.FORMAT_RGB8)
+	image.fill(MapStyle.SPACE_COLOR)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7919
+	var count := int(size.x * size.y / MapStyle.BACKGROUND_PX_PER_STAR)
+	for i in count:
+		var shade := rng.randf_range(0.25, 0.7)
+		var star := Color(shade, shade, shade * 1.1)
+		var color := MapStyle.SPACE_COLOR.lerp(star, rng.randf_range(0.4, 0.9))
+		var x := rng.randi_range(0, size.x - 2)
+		var y := rng.randi_range(0, size.y - 2)
+		image.set_pixel(x, y, color)
+		if rng.randf() < 0.25:
+			# A few brighter, two-pixel stars.
+			var halo := MapStyle.SPACE_COLOR.lerp(color, 0.5)
+			image.set_pixel(x + 1, y, halo)
+			image.set_pixel(x, y + 1, halo)
+	return ImageTexture.create_from_image(image)

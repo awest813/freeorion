@@ -11,6 +11,7 @@ const MAP_AIDS := {
 	"scale_legend": "ui.map.scale.legend.shown",
 	"scale_circle": "ui.map.scale.circle.shown",
 	"minimap": "ui.map.minimap.shown",
+	"zoom_slider": "ui.map.zoom.slider.shown",
 }
 
 ## Remembers the map mode.
@@ -179,7 +180,7 @@ func merge_selected_fleets() -> void:
 		if fleet:
 			FOOrders.merge_ships(target, fleet.get_ship_ids())
 	clear_fleet_selection()
-	_shell._refresh_fleet_views(target)
+	_shell.refresh_fleet_views(target)
 
 
 ## Order every selected fleet to \a system_id (Shift: after their routes);
@@ -265,6 +266,8 @@ func is_map_aid_shown(aid: String) -> bool:
 			return _shell.map_view.map.show_scale_circle
 		"minimap":
 			return _shell.minimap.visible
+		"zoom_slider":
+			return _shell.zoom_slider.visible
 	return false
 
 
@@ -276,6 +279,8 @@ func _apply_map_aid(aid: String, shown: bool) -> void:
 			_shell.map_view.map.show_scale_circle = shown
 		"minimap":
 			_shell.minimap.visible = shown
+		"zoom_slider":
+			_shell.zoom_slider.visible = shown
 
 
 # Map modes -------------------------------------------------------------

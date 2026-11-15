@@ -90,7 +90,8 @@ func test_no_planets_message():
 
 func test_close_button_requests_close():
 	watch_signals(panel)
-	var close: Button = panel.find_children("*", "Button", true, false)[0]
+	var buttons := panel.find_children("*", "Button", true, false)
+	var close: Button = buttons.filter(func(b): return b.tooltip_text == tr("PANEL_CLOSE"))[0]
 	close.pressed.emit()
 	assert_signal_emitted(panel, "close_requested")
 
@@ -208,3 +209,30 @@ func test_ships_dropped_on_a_fleet():
 	assert_signal_emitted_with_parameters(
 		panel, "ships_dropped", [target_id, PackedInt32Array([5])]
 	)
+
+
+func test_system_picker_steps_and_wraps():
+	panel.systems_provider = func() -> Array: return [[3, "Alpha"], [5, "Beta"], [9, "Gamma"]]
+	var data := SAMPLE.duplicate(true)
+	data["id"] = 9
+	panel.show_data(data)
+	watch_signals(panel)
+	panel.step_system(1)
+	assert_signal_emitted_with_parameters(panel, "system_requested", [3])
+	panel.step_system(-1)
+	assert_signal_emitted_with_parameters(panel, "system_requested", [5])
+	panel._fill_picker()
+	assert_eq(panel._picker.get_popup().item_count, 3)
+
+
+func test_own_systems_are_renamed_in_place():
+	var data := SAMPLE.duplicate(true)
+	data["id"] = 9
+	data["own"] = true
+	panel.show_data(data)
+	assert_true(panel._title.editable)
+	watch_signals(panel)
+	panel._title.text_submitted.emit(" New Home ")
+	assert_signal_emitted_with_parameters(panel, "rename_requested", [9, "New Home"])
+	panel.show_data(SAMPLE)
+	assert_false(panel._title.editable, "not someone else's")

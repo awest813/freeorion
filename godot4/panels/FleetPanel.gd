@@ -21,6 +21,10 @@ signal split_groups_requested(groups: Array)
 signal merge_all_requested(fleet_id: int)
 ## The stance new fleets get was changed ("auto" or a stance).
 signal new_fleet_stance_changed(stance: String)
+## Give the fleet to empire \a empire_id (-1: cancel a gift).
+signal give_requested(fleet_id: int, empire_id: int)
+## Forget sensor ghost \a fleet_id.
+signal forget_requested(fleet_id: int)
 
 ## Type of the drag data ship rows give: {type, fleet_id, ship_ids}.
 const SHIP_DRAG := "fo_ships"
@@ -47,7 +51,11 @@ const MENU := [
 	[5, "FW_SPLIT_SHIPS_ALL_DESIGNS"],
 	[6, "ORDER_FLEET_SCRAP"],
 	[7, "ORDER_CANCEL_FLEET_SCRAP"],
+	[9, "ORDER_CANCEL_GIVE_FLEET"],
+	[10, "FW_ORDER_DISMISS_SENSOR_GHOST"],
 ]
+## Menu ids of "give to empire N" are GIVE_MENU_BASE + N.
+const GIVE_MENU_BASE := 1000
 ## Fleet totals: key, icon, tooltip key.
 const TOTALS := [
 	["count", "icons/sitrep/fleet_arrived.png", "FW_FLEET_COUNT_SUMMARY"],
@@ -68,6 +76,8 @@ const STANCE_MENU_BASE := 100
 var fleet_id := -1
 ## The stance fleets split off this one get ("auto" or a stance).
 var new_fleet_stance := "auto"
+## Empires at peace the fleet can be given to: FOOrders.get_give_targets().
+var give_targets_provider := func(id: int) -> Dictionary: return FOOrders.get_give_targets(id)
 
 var _data := {}
 var _name: LineEdit
@@ -125,7 +135,7 @@ func show_data(data: Dictionary) -> void:
 	_owner.add_theme_color_override("font_color", data.get("owner_color", Color.WHITE))
 	_actions.visible = own
 	_scrap_row.visible = own
-	_menu.visible = own
+	_menu.visible = own or data.get("ghost", false)
 	_fill_totals(fleet_totals(data.get("ships", [])))
 	var destination: String = data.get("destination", "")
 	_route.text = (
@@ -137,6 +147,11 @@ func show_data(data: Dictionary) -> void:
 		if not destination.is_empty()
 		else tr("FLEET_PANEL_STATIONARY")
 	)
+	var blockade: Dictionary = data.get("blockade", {})
+	_route.tooltip_text = ""
+	if blockade.get("blockaded", false):
+		_route.text += "  ·  " + tr("FLEET_PANEL_BLOCKADED")
+		_route.tooltip_text = blockade_text(blockade)
 	var aggression: String = data.get("aggression", "")
 	for stance in _stance_buttons:
 		_stance_buttons[stance].set_pressed_no_signal(stance == aggression)
@@ -224,6 +239,8 @@ static func from_universe(id: int) -> Dictionary:
 	return {
 		"id": id,
 		"own": owner_id >= 0 and owner_id == FOUniverse.get_empire_id(),
+		"ghost": FOOrders.is_sensor_ghost(id),
+		"blockade": fleet.get_blockade(),
 		"in_system": fleet.get_system_id() >= 0,
 		"owner_name":
 		(
@@ -519,11 +536,23 @@ static func split_groups(ships: Array) -> Dictionary:
 	return groups
 
 
+## GG's blockade tooltip for \a blockade (FOFleet.get_blockade()).
+static func blockade_text(blockade: Dictionary) -> String:
+	if blockade.get("monster", false):
+		return TranslationServer.translate("FB_TOOLTIP_BLOCKADE_MONSTER")
+	var exits: PackedStringArray = blockade.get("exits", PackedStringArray())
+	if exits.is_empty():
+		return TranslationServer.translate("FB_TOOLTIP_BLOCKADE_NO_EXIT")
+	return TranslationServer.translate("FB_TOOLTIP_BLOCKADE_WITH_EXIT") + "\n" + "\n".join(exits)
+
+
 ## Menu entries that apply to the fleet shown: MENU ids.
 func menu_actions() -> Array:
 	var actions := []
 	var ships: Array = _data.get("ships", [])
 	if not is_own():
+		if _data.get("ghost", false):
+			actions.push_back(10)
 		return actions
 	if not _data.get("merge_targets", []).is_empty():
 		actions.push_back(0)
@@ -541,6 +570,8 @@ func menu_actions() -> Array:
 		actions.push_back(6)
 	if ships.any(func(s): return s.get("scrapping", false)):
 		actions.push_back(7)
+	if give_targets_provider.call(fleet_id).get("giving_to", -1) >= 0:
+		actions.push_back(9)
 	return actions
 
 
@@ -566,6 +597,10 @@ func run_menu_action(id: int) -> void:
 			for design in groups["designs"].keys().slice(1):
 				per_design.push_back(PackedInt32Array(groups["designs"][design]))
 			split_groups_requested.emit(per_design)
+		9:
+			give_requested.emit(fleet_id, -1)
+		10:
+			forget_requested.emit(fleet_id)
 		6, 7:
 			var scrapping := id == 7
 			var ids := PackedInt32Array()
@@ -582,6 +617,13 @@ func _fill_menu() -> void:
 	for entry in MENU:
 		if entry[0] in actions:
 			popup.add_item(tr(entry[1]), entry[0])
+	# Gifts to empires at peace with something here.
+	if is_own():
+		var give := tr("ORDER_GIVE_FLEET_TO_EMPIRE").trim_suffix("...").trim_suffix("…")
+		for target: Dictionary in give_targets_provider.call(fleet_id).get("targets", []):
+			popup.add_item("%s %s" % [give, target["name"]], GIVE_MENU_BASE + target["id"])
+	if not is_own():
+		return
 	if popup.item_count > 0:
 		popup.add_separator()
 	var stances := PopupMenu.new()
@@ -598,7 +640,9 @@ func _fill_menu() -> void:
 
 
 func _on_menu_id(id: int) -> void:
-	if id >= STANCE_MENU_BASE:
+	if id >= GIVE_MENU_BASE:
+		give_requested.emit(fleet_id, id - GIVE_MENU_BASE)
+	elif id >= STANCE_MENU_BASE:
 		new_fleet_stance = NEW_FLEET_STANCES[id - STANCE_MENU_BASE]
 		new_fleet_stance_changed.emit(new_fleet_stance)
 	else:

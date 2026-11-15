@@ -27,17 +27,17 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] Movement lines for all visible fleets, with ETA markers per turn — M
 - [x] Click fleet icons on the map (in transit too; repeated clicks cycle) (fleets sharing a place are stacked apart, so each is clicked directly) — M
 - [x] Inspect foreign and monster fleets — M
-- [ ] Dismiss sensor ghosts (forget objects no longer seen) — S
+- [x] Dismiss sensor ghosts (forget objects no longer seen) — S
 - [x] Ships tooltip in the top bar (armed, colony, troop, carrier counts) — S
 - [x] Wasted PP: centre on a system wasting PP — S
-- [ ] Map options menu (system circles, empire-coloured lanes, fleet supply lines, ...) — S
-- [ ] Zoom slider; rebindable zoom and pan keys; sitrep panel key — S
-- [ ] System names and circles in their owners' colours — S
+- [x] Map options menu (system circles, empire-coloured lanes, fleet supply lines, ...) — S
+- [x] Zoom slider; rebindable zoom and pan keys; sitrep panel key — S
+- [x] System names and circles in their owners' colours — S
 - [ ] Fleet icons by role and size, selection mark — M
-- [ ] Blockade marker and tooltip — S
-- [ ] System picker drop-down with ◀ ▶ — S
-- [ ] Rename own system or planet — S
-- [ ] Give a planet or fleet to an empire at peace — S
+- [x] Blockade marker and tooltip — S
+- [x] System picker drop-down with ◀ ▶ — S
+- [x] Rename own system or planet — S
+- [x] Give a planet or fleet to an empire at peace — S
 - [ ] Planet status (supply cut, attacked, recently conquered, unhappy) — S
 - [ ] Planet visibility (last seen, stealth against detection strength) — S
 - [ ] System resource summary (PP, RP, IP, stockpile, defence, troops, supply) with breakdowns — M

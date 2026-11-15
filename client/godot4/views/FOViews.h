@@ -35,6 +35,7 @@ public:
     godot::PackedInt32Array get_starlanes() const; ///< IDs of systems connected by known starlanes
     godot::PackedInt32Array get_planet_ids() const;
     godot::PackedInt32Array get_fleet_ids() const;
+    int get_owner_id() const;       ///< ALL_EMPIRES unless one empire owns it
 
 protected:
     static void _bind_methods();
@@ -72,6 +73,9 @@ public:
       * points (move path), turn_ends (where each turn ends), eta (-1 if it
       * can't get there)}. Empty if the move isn't allowed. */
     godot::Dictionary preview_route(int dest_system_id, bool append) const;
+    /** Whether a hostile fleet blockades this one at its system, and the
+      * systems it can still leave to: {blockaded, monster, exits: [names]}. */
+    godot::Dictionary get_blockade() const;
 
 protected:
     static void _bind_methods();

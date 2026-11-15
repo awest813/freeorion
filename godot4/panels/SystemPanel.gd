@@ -8,6 +8,10 @@ extends PanelContainer
 ## data directly (tests, previews). See from_universe() for the layout.
 
 signal close_requested
+## Another system was picked (the picker, or ◀ ▶).
+signal system_requested(system_id: int)
+## An own system was renamed (Enter in its name).
+signal rename_requested(object_id: int, new_name: String)
 ## An own fleet was selected in the list (-1: selection cleared).
 signal fleet_selected(fleet_id: int)
 ## A planet action button was pressed: "colonize", "invade", "annex" or
@@ -24,15 +28,19 @@ signal ships_dropped(fleet_id: int, ship_ids: PackedInt32Array)
 
 const WIDTH := 340
 
+## Systems to pick from: [[id, name]] by name; GameShell sets it.
+var systems_provider: Callable = func() -> Array: return []
 var system_id := -1
 
-var _title: Label
+var _title: LineEdit
 var _subtitle: Label
 var _planets: VBoxContainer
 var _fleets: Label
 var _fleet_list: VBoxContainer
 var _notice: Label
 var _selected_fleet := -1
+var _system_id := -1
+var _picker: MenuButton
 ## Own fleets listed: id -> true (only they take orders).
 var _own_fleets := {}
 
@@ -68,7 +76,11 @@ func show_data(data: Dictionary) -> void:
 		return
 	if was_hidden:
 		FOUi.fade_in(self)
-	_title.text = data.get("name", "")
+	_system_id = data.get("id", -1)
+	if not _title.has_focus():
+		_title.text = data.get("name", "")
+	_title.editable = data.get("own", false)
+	_title.tooltip_text = tr("SYSTEM_PANEL_RENAME") if _title.editable else ""
 	var star_type: String = data.get("star_type", "")
 	_subtitle.text = (
 		tr("OBJ_SYSTEM")
@@ -89,6 +101,28 @@ func show_data(data: Dictionary) -> void:
 	))
 	_notice.visible = false
 	_rebuild_fleet_list(data.get("fleets", []))
+
+
+## The system \a direction (1 or -1) away from the shown one in the
+## systems_provider list, wrapping around.
+func step_system(direction: int) -> void:
+	var systems: Array = systems_provider.call()
+	if systems.is_empty():
+		return
+	var index := -1
+	for i in systems.size():
+		if systems[i][0] == _system_id:
+			index = i
+	index = posmod(index + direction, systems.size()) if index >= 0 else 0
+	system_requested.emit(systems[index][0])
+
+
+func _fill_picker() -> void:
+	var popup := _picker.get_popup()
+	popup.clear()
+	for entry: Array in systems_provider.call():
+		popup.add_item(entry[1], entry[0])
+	popup.max_size = Vector2i(0, 480)
 
 
 func selected_fleet_id() -> int:
@@ -254,6 +288,8 @@ static func from_universe(id: int) -> Dictionary:
 			)
 		)
 	return {
+		"id": id,
+		"own": system.get_owner_id() >= 0 and system.get_owner_id() == empire_id,
 		"fleets": fleets,
 		"name": system.get_name(),
 		"star_type": system.get_star_type(),
@@ -273,9 +309,35 @@ func _build() -> void:
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	titles.add_theme_constant_override("separation", 0)
 	header.add_child(titles)
-	_title = _label("", "TitleLabel")
-	_title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	titles.add_child(_title)
+	var title_row := HBoxContainer.new()
+	titles.add_child(title_row)
+	_title = LineEdit.new()
+	_title.flat = true
+	_title.editable = false
+	_title.add_theme_font_size_override("font_size", FOUi.tokens.font_size_title)
+	# Read-only names (not the player's) read as titles, not as greyed fields.
+	_title.add_theme_color_override("font_uneditable_color", FOUi.tokens.text_primary)
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title.text_submitted.connect(
+		func(text: String):
+			_title.release_focus()
+			if not text.strip_edges().is_empty():
+				rename_requested.emit(_system_id, text.strip_edges())
+	)
+	title_row.add_child(_title)
+	# Pick another system: ◀ ▶ step through them by name, the list jumps.
+	var prev := ScreenKit.small_button("◀", "SYSTEM_PANEL_PREV")
+	prev.pressed.connect(step_system.bind(-1))
+	title_row.add_child(prev)
+	_picker = MenuButton.new()
+	_picker.text = "⌄"
+	_picker.tooltip_text = tr("SYSTEM_PANEL_PICK")
+	_picker.about_to_popup.connect(_fill_picker)
+	_picker.get_popup().id_pressed.connect(system_requested.emit)
+	title_row.add_child(_picker)
+	var next := ScreenKit.small_button("▶", "SYSTEM_PANEL_NEXT")
+	next.pressed.connect(step_system.bind(1))
+	title_row.add_child(next)
 	_subtitle = _label("", "SecondaryLabel")
 	titles.add_child(_subtitle)
 	var close := Button.new()

@@ -142,6 +142,8 @@ func _build() -> void:
 	_title = LineEdit.new()
 	_title.flat = true
 	_title.add_theme_font_size_override("font_size", FOUi.tokens.font_size_title)
+	# Read-only names (not the player's) read as titles, not as greyed fields.
+	_title.add_theme_color_override("font_uneditable_color", FOUi.tokens.text_primary)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.text_submitted.connect(_on_name_submitted)
 	title_row.add_child(_title)

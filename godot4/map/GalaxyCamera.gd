@@ -13,13 +13,14 @@ const KEY_PAN_SPEED_PX := 900.0
 const FIT_MARGIN := 0.08
 const CLICK_SLOP_PX := 4.0
 
+## Fixed keys; the rebindable ones are FOHotkeys' "fo_map_*" actions.
 const ACTIONS := {
-	"map_pan_left": [KEY_A, KEY_LEFT],
-	"map_pan_right": [KEY_D, KEY_RIGHT],
-	"map_pan_up": [KEY_W, KEY_UP],
-	"map_pan_down": [KEY_S, KEY_DOWN],
-	"map_zoom_in": [KEY_EQUAL, KEY_KP_ADD],
-	"map_zoom_out": [KEY_MINUS, KEY_KP_SUBTRACT],
+	"map_pan_left": [KEY_LEFT],
+	"map_pan_right": [KEY_RIGHT],
+	"map_pan_up": [KEY_UP],
+	"map_pan_down": [KEY_DOWN],
+	"map_zoom_in": [KEY_KP_ADD],
+	"map_zoom_out": [KEY_KP_SUBTRACT],
 	"map_home": [KEY_HOME],
 }
 
@@ -131,6 +132,10 @@ func world_to_screen(world_pos: Vector2) -> Vector2:
 func _process(delta: float) -> void:
 	if _keyboard_free():
 		var pan := Input.get_vector("map_pan_left", "map_pan_right", "map_pan_up", "map_pan_down")
+		if pan == Vector2.ZERO and InputMap.has_action("fo_map_pan_left"):
+			pan = Input.get_vector(
+				"fo_map_pan_left", "fo_map_pan_right", "fo_map_pan_up", "fo_map_pan_down"
+			)
 		if pan != Vector2.ZERO:
 			user_moved = true
 			position += pan * KEY_PAN_SPEED_PX * delta / zoom.x
@@ -181,9 +186,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		zoom_at(magnify.factor, magnify.position)
 	elif _keyboard_free():
 		var center := get_viewport_rect().size * 0.5
-		if event.is_action_pressed("map_zoom_in"):
+		if _pressed(event, "map_zoom_in"):
 			zoom_at(KEY_ZOOM_FACTOR, center)
-		elif event.is_action_pressed("map_zoom_out"):
+		elif _pressed(event, "map_zoom_out"):
 			zoom_at(1.0 / KEY_ZOOM_FACTOR, center)
 		elif event.is_action_pressed("map_home") and _home_rect.has_area():
 			fit_rect(_home_rect)
@@ -194,6 +199,15 @@ func _set_zoom_now(z: float) -> void:
 	if _anchored:
 		position = _anchor_world - (_anchor_screen - get_viewport_rect().size * 0.5) / z
 	zoom_changed.emit(z)
+
+
+# The fixed key for \a action or its rebindable FOHotkeys one.
+static func _pressed(event: InputEvent, action: String) -> bool:
+	if event.is_action_pressed(action):
+		return true
+	return (
+		InputMap.has_action("fo_" + action) and event.is_action_pressed("fo_" + action, false, true)
+	)
 
 
 # Keyboard panning must not fire while the player types into a text field.

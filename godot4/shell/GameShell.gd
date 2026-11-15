@@ -26,6 +26,12 @@ var ship_panel: ShipPanel
 var map_scale: MapScale
 var map_mode_picker: OptionButton
 var minimap: MiniMap
+## Zoom by dragging (GG's zoom slider; a map aid, hidden by default).
+var zoom_slider: VSlider
+## The map's right-click options menu.
+var map_menu: MapMenu
+## Turns the side panels' requests into orders.
+var panel_orders: PanelOrders
 var map_modes: MapModes
 var hints: HintCoach
 ## Messages with the other players (and what AIs say).
@@ -56,6 +62,7 @@ var _announced := {}
 
 
 func _init() -> void:
+	panel_orders = PanelOrders.new(self)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Our UI calls tr() on stringtable keys itself. Upstream scenes (MapWnd) set
@@ -199,6 +206,8 @@ func _ready() -> void:
 	mode_and_scale.add_child(map_scale)
 	minimap = MiniMap.new()
 	map_aids.add_child(minimap)
+	zoom_slider = _make_zoom_slider()
+	map_aids.add_child(zoom_slider)
 	var panel_margin := MarginContainer.new()
 	panel_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -225,15 +234,28 @@ func _ready() -> void:
 	column.add_child(planet_panel)
 	fleet_panel = FleetPanel.new()
 	column.add_child(fleet_panel)
-	fleet_panel.rename_requested.connect(_on_fleet_rename)
-	fleet_panel.aggression_requested.connect(_on_fleet_aggression)
-	fleet_panel.split_requested.connect(_on_fleet_split)
-	fleet_panel.merge_requested.connect(_on_fleet_merge)
-	fleet_panel.scrap_requested.connect(_on_fleet_scrap)
+	fleet_panel.rename_requested.connect(panel_orders.on_fleet_rename)
+	fleet_panel.aggression_requested.connect(panel_orders.on_fleet_aggression)
+	fleet_panel.split_requested.connect(panel_orders.on_fleet_split)
+	fleet_panel.merge_requested.connect(panel_orders.on_fleet_merge)
+	fleet_panel.scrap_requested.connect(panel_orders.on_fleet_scrap)
 	fleet_panel.ship_selected.connect(show_ship)
-	fleet_panel.split_groups_requested.connect(_on_fleet_split_groups)
-	fleet_panel.merge_all_requested.connect(_on_fleet_merge_all)
-	fleet_panel.new_fleet_stance_changed.connect(_on_new_fleet_stance)
+	fleet_panel.split_groups_requested.connect(panel_orders.on_fleet_split_groups)
+	fleet_panel.give_requested.connect(panel_orders.on_give)
+	fleet_panel.forget_requested.connect(
+		func(fleet_id: int):
+			if follow_game and FOOrders.forget(fleet_id):
+				fleet_panel.show_data({})
+				map_view.refresh()
+				system_panel.refresh()
+	)
+	planet_panel.give_requested.connect(panel_orders.on_give)
+	planet_panel.rename_requested.connect(panel_orders.on_rename)
+	system_panel.rename_requested.connect(panel_orders.on_rename)
+	system_panel.system_requested.connect(func(id: int): map_view.map.focus_system(id))
+	system_panel.systems_provider = panel_orders.known_systems
+	fleet_panel.merge_all_requested.connect(panel_orders.on_fleet_merge_all)
+	fleet_panel.new_fleet_stance_changed.connect(panel_orders.on_new_fleet_stance)
 	ship_panel = ShipPanel.new()
 	ship_panel.close_requested.connect(ship_panel.show_data.bind({}))
 	ship_panel.link_activated.connect(_on_link_activated)
@@ -247,7 +269,7 @@ func _ready() -> void:
 	system_panel.planet_action_requested.connect(_on_planet_action)
 	system_panel.focus_requested.connect(_on_focus_requested)
 	system_panel.planet_selected.connect(_on_planet_selected)
-	system_panel.ships_dropped.connect(_on_fleet_merge)
+	system_panel.ships_dropped.connect(panel_orders.on_fleet_merge)
 
 	# Messages over the top left of the map, clear of the feed below.
 	chat_window = ChatWindow.new()
@@ -288,11 +310,15 @@ func _ready() -> void:
 	map_view.map.fleets_boxed.connect(map_modes.select_fleets)
 	minimap.map = map_view.map
 	map_view.map.camera.zoom_changed.connect(map_scale.set_zoom)
+	map_view.map.camera.zoom_changed.connect(_on_zoom_changed)
 	map_scale.set_zoom(map_view.map.camera.zoom_level())
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
 		map_view.map.own_empire_id = FOUniverse.get_empire_id()
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
 	map_view.map.fleet_clicked.connect(_on_fleet_clicked)
+	map_menu = MapMenu.new(self)
+	add_child(map_menu)
+	map_view.map.map_context_requested.connect(map_menu.open_at)
 	# Double-click a system or an own planet: production there.
 	map_view.map.system_activated.connect(func(_id): show_screen("production"))
 	system_panel.production_requested.connect(
@@ -316,6 +342,7 @@ func _ready() -> void:
 		if options.exists("ui.map.detection.shown"):
 			map_view.map.show_detection = options.get_value("ui.map.detection.shown")
 		map_modes.load_map_aids(options)
+		map_menu.load_all()
 		options.add_option(OPTION_NEW_FLEET_STANCE, "OPTIONS_DB_FLEET_WND_AGGRESSION", "auto")
 		fleet_panel.new_fleet_stance = str(options.get_value(OPTION_NEW_FLEET_STANCE))
 		if options.exists(MapModes.OPTION_MAP_MODE):
@@ -354,25 +381,28 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
-# Map hotkeys: home, detection ranges, and the navigator's steps.
+# Map hotkeys: home, detection ranges, map modes and aids, the turn
+# reports, and the navigator's steps.
 func _handle_map_key(hotkey: String) -> bool:
-	if hotkey == "home":
-		go_home()
-		return true
-	if hotkey == "detection":
-		set_detection_shown(not map_view.map.show_detection)
-		return true
-	if hotkey == "map_mode":
-		map_modes.cycle_map_mode()
-		return true
-	if MapModes.MAP_AIDS.has(hotkey):
-		map_modes.toggle_map_aid(hotkey)
-		return true
-	var nav := MapNavigator.match_hotkey(hotkey)
-	if nav.is_empty() or not follow_game:
-		return not nav.is_empty()
-	go_to(_navigator.step(nav[0], nav[1]))
-	return true
+	var handled := true
+	match hotkey:
+		"home":
+			go_home()
+		"detection":
+			set_detection_shown(not map_view.map.show_detection)
+		"map_mode":
+			map_modes.cycle_map_mode()
+		"sitrep":
+			feed.set_expanded(not feed.is_expanded())
+		_:
+			if MapModes.MAP_AIDS.has(hotkey):
+				map_modes.toggle_map_aid(hotkey)
+			else:
+				var nav := MapNavigator.match_hotkey(hotkey)
+				handled = not nav.is_empty()
+				if handled and follow_game:
+					go_to(_navigator.step(nav[0], nav[1]))
+	return handled
 
 
 ## Centre on \a target ({system_id, fleet_id, position}): select its system,
@@ -597,6 +627,33 @@ func _show_wasted_pp(system_id: int) -> void:
 	show_screen("production")
 
 
+# A vertical slider zooming the map: its value is the zoom's position
+# between the camera's limits, on a log scale.
+func _make_zoom_slider() -> VSlider:
+	var slider := VSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.001
+	slider.custom_minimum_size.y = 160
+	slider.visible = false
+	slider.tooltip_text = tr("OPTIONS_GALAXY_MAP_ZOOM_SLIDER")
+	slider.value_changed.connect(
+		func(value: float):
+			var camera := map_view.map.camera
+			var zoom := exp(lerpf(log(camera.min_zoom), log(camera.max_zoom), value))
+			if not is_equal_approx(zoom, camera.zoom_level()):
+				camera.zoom_at(zoom / camera.zoom_level(), get_viewport_rect().size * 0.5)
+	)
+	return slider
+
+
+func _on_zoom_changed(zoom: float) -> void:
+	var camera := map_view.map.camera
+	var span := log(camera.max_zoom) - log(camera.min_zoom)
+	if span > 0.0:
+		zoom_slider.set_value_no_signal((log(zoom) - log(camera.min_zoom)) / span)
+
+
 # Back to the map at planet \a planet_id, its details shown.
 func _show_planet_on_map(planet_id: int) -> void:
 	var planet: FOPlanet = FOUniverse.get_planet(planet_id) if follow_game else null
@@ -689,65 +746,6 @@ func _fleet_has_ship(fleet_id: int, ship_id: int) -> bool:
 	return ship != null and ship.get_fleet_id() == fleet_id
 
 
-func _on_fleet_rename(fleet_id: int, new_name: String) -> void:
-	if FOOrders.rename(fleet_id, new_name):
-		_refresh_fleet_views(fleet_id)
-
-
-func _on_fleet_aggression(fleet_id: int, aggression: String) -> void:
-	FOOrders.set_fleet_aggression(fleet_id, aggression)
-	_refresh_fleet_views(fleet_id)
-
-
-func _on_fleet_split(ship_ids: PackedInt32Array) -> void:
-	var new_fleet := FOOrders.split_ships(ship_ids, fleet_panel.new_fleet_stance)
-	_refresh_fleet_views(new_fleet if new_fleet >= 0 else fleet_panel.fleet_id)
-
-
-# Several new fleets at once (split damaged, per ship, per design, ...);
-# the fleet they left stays selected.
-func _on_fleet_split_groups(groups: Array) -> void:
-	var source := fleet_panel.fleet_id
-	for ship_ids: PackedInt32Array in groups:
-		if not ship_ids.is_empty():
-			FOOrders.split_ships(ship_ids, fleet_panel.new_fleet_stance)
-	_refresh_fleet_views(source)
-
-
-# Every other own fleet at the fleet's system joins it.
-func _on_fleet_merge_all(fleet_id: int) -> void:
-	var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
-	var system: FOSystem = FOUniverse.get_system(fleet.get_system_id()) if fleet else null
-	if system == null:
-		return
-	for other_id in system.get_fleet_ids():
-		var other: FOFleet = FOUniverse.get_fleet(other_id)
-		if other and other_id != fleet_id and other.get_owner_id() == fleet.get_owner_id():
-			FOOrders.merge_ships(fleet_id, other.get_ship_ids())
-	_refresh_fleet_views(fleet_id)
-
-
-func _on_new_fleet_stance(stance: String) -> void:
-	var options := Engine.get_singleton("FOOptions") if follow_game else null
-	if options:
-		options.add_option(OPTION_NEW_FLEET_STANCE, "OPTIONS_DB_FLEET_WND_AGGRESSION", "auto")
-		options.set_value(OPTION_NEW_FLEET_STANCE, stance)
-		options.commit()
-
-
-func _on_fleet_merge(dest_fleet_id: int, ship_ids: PackedInt32Array) -> void:
-	if FOOrders.merge_ships(dest_fleet_id, ship_ids):
-		_refresh_fleet_views(dest_fleet_id)
-
-
-func _on_fleet_scrap(ship_ids: PackedInt32Array) -> void:
-	for ship_id in ship_ids:
-		FOPlanetActions.scrap(ship_id)
-	_refresh_fleet_views(fleet_panel.fleet_id)
-	if ship_panel.visible:
-		ship_panel.refresh()
-
-
 # Colonise, invade, annex or bombard (each toggles the order), then show
 # the result.
 func _on_planet_action(planet_id: int, action: String) -> void:
@@ -779,8 +777,8 @@ func _on_focus_requested(planet_id: int, focus: String) -> void:
 	top_bar.refresh_resources()
 
 
-# After a fleet order: re-read the system panel and show \a fleet_id.
-func _refresh_fleet_views(fleet_id: int) -> void:
+## After a fleet order: re-read the system panel and show \a fleet_id.
+func refresh_fleet_views(fleet_id: int) -> void:
 	system_panel.refresh()
 	system_panel.select_fleet(fleet_id)
 	fleet_panel.show_fleet(fleet_id)

@@ -90,6 +90,12 @@ void FOSystem::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_starlanes"), &FOSystem::get_starlanes);
     ClassDB::bind_method(D_METHOD("get_planet_ids"), &FOSystem::get_planet_ids);
     ClassDB::bind_method(D_METHOD("get_fleet_ids"), &FOSystem::get_fleet_ids);
+    ClassDB::bind_method(D_METHOD("get_owner_id"), &FOSystem::get_owner_id);
+}
+
+int FOSystem::get_owner_id() const {
+    const auto* sys = Lookup<System>(m_id);
+    return sys ? sys->Owner() : ALL_EMPIRES;
 }
 
 bool FOSystem::is_valid() const
@@ -154,6 +160,7 @@ void FOFleet::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_aggression"), &FOFleet::get_aggression);
     ClassDB::bind_method(D_METHOD("preview_route", "dest_system_id", "append"), &FOFleet::preview_route,
                          DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("get_blockade"), &FOFleet::get_blockade);
 }
 
 bool FOFleet::is_valid() const
@@ -275,6 +282,30 @@ godot::Dictionary FOFleet::preview_route(int dest_system_id, bool append) const 
     result["points"] = points;
     result["turn_ends"] = turn_ends;
     result["eta"] = never ? -1 : static_cast<int>(eta);
+    return result;
+}
+
+godot::Dictionary FOFleet::get_blockade() const {
+    godot::Dictionary result;
+    result["blockaded"] = false;
+    const auto* fleet = Lookup<Fleet>(m_id);
+    const auto* app = ClientApp::GetApp();
+    if (!fleet || !app)
+        return result;
+    const auto& context = app->GetContext();
+    const auto* system = context.ContextObjects().getRaw<System>(fleet->SystemID());
+    if (!system || !fleet->Blockaded(context))
+        return result;
+    result["blockaded"] = true;
+    result["monster"] = fleet->Unowned();
+    godot::PackedStringArray exits;
+    for (const int target : system->Starlanes()) {
+        if (fleet->BlockadedAtSystem(fleet->SystemID(), target, context))
+            continue;
+        if (const auto* to = context.ContextObjects().getRaw<System>(target))
+            exits.push_back(ToGodot(to->ApparentName(app->EmpireID(), context.ContextUniverse())));
+    }
+    result["exits"] = exits;
     return result;
 }
 
@@ -630,6 +661,9 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     godot::PackedInt32Array fleet_ids;
     godot::PackedVector2Array fleet_positions;
     godot::PackedInt32Array fleet_owner_ids;
+    godot::PackedByteArray fleet_blockaded;
+    godot::PackedByteArray fleet_stale;
+    godot::PackedInt32Array system_owner_ids;
     godot::Array fleet_paths;
     godot::Array fleet_turn_ends;
     godot::PackedInt32Array supply_systems;
@@ -653,6 +687,19 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
             system_ids.push_back(sys->ID());
             system_positions.push_back(Position(*sys));
             system_star_types.push_back(static_cast<int>(sys->GetStarType()));
+        }
+
+        // Each system's owner: the empire owning its planets (the first one
+        // found when several do), for owner-coloured circles and names.
+        for (const auto* sys : objects.allRaw<System>()) {
+            int owner = ALL_EMPIRES;
+            for (const auto* planet : objects.findRaw<const Planet>(sys->PlanetIDs())) {
+                if (planet && !planet->Unowned()) {
+                    owner = planet->Owner();
+                    break;
+                }
+            }
+            system_owner_ids.push_back(owner);
         }
 
         // A lane may be known from one end only, so dedupe on the (lower, higher) index pair.
@@ -692,6 +739,11 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
             }
             fleet_paths.push_back(points);
             fleet_turn_ends.push_back(turn_ends);
+            fleet_blockaded.push_back(fleet->SystemID() != INVALID_OBJECT_ID && fleet->Blockaded(context) ? 1 : 0);
+            // Not seen this turn: drawn as a ghost.
+            const int seen = app->GetUniverse().GetObjectVisibilityTurnByEmpire(fleet->ID(), app->EmpireID());
+            fleet_stale.push_back(!fleet->OwnedBy(app->EmpireID()) && seen != INVALID_GAME_TURN &&
+                                  seen < context.current_turn ? 1 : 0);
         }
 
         // Fields (ion storms, nebulae, ...): their size meter is the radius.
@@ -768,6 +820,9 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["fleet_positions"] = fleet_positions;
     snapshot["fleet_owner_ids"] = fleet_owner_ids;
     snapshot["fleet_paths"] = fleet_paths;
+    snapshot["fleet_blockaded"] = fleet_blockaded;
+    snapshot["fleet_stale"] = fleet_stale;
+    snapshot["system_owner_ids"] = system_owner_ids;
     snapshot["fleet_turn_ends"] = fleet_turn_ends;
     snapshot["supply_systems"] = supply_systems;
     snapshot["supply_system_owners"] = supply_system_owners;

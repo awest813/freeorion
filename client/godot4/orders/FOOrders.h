@@ -27,8 +27,6 @@ public:
       * "aggressive". Returns false if refused. */
     static bool set_fleet_aggression(int fleet_id, const godot::String& aggression);
 
-    /** Move \a ship_ids (all in one fleet) into a new fleet with the same
-      * stance. Returns the new fleet's ID, or -1 if refused. */
     /** New fleet with \a ship_ids; its stance is \a aggression ("passive",
         "defensive", "obstructive", "aggressive"), "auto" (aggressive if a
         ship can do damage, else defensive, as GG's Auto) or "" (that of the
@@ -45,6 +43,19 @@ public:
     static int get_order_count();
     /** Drop every order given this turn; the server sends the turn again. */
     static bool revert_all();
+
+    /** Whether \a object_id is a sensor ghost: not the player's, and not
+        seen this turn (GG's "dismiss sensor ghost"). */
+    static bool is_sensor_ghost(int object_id);
+    /** Forget sensor ghost \a object_id (a fleet; a lone ship's fleet). */
+    static bool forget(int object_id);
+    /** Empires at peace with the player that have something at the own
+        planet's or idle fleet's system, which it can be given to:
+        [{id, name, color}]; and whether it is being given already. */
+    static godot::Dictionary get_give_targets(int object_id);
+    /** Give own \a object_id to empire \a recipient at the turn's end; -1
+        cancels a gift ordered this turn. */
+    static bool give_to_empire(int object_id, int recipient);
 
 protected:
     static void _bind_methods();

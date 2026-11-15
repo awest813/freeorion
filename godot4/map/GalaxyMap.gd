@@ -23,6 +23,8 @@ signal system_activated(system_id: int)
 signal fleet_clicked(fleet_id: int)
 ## Right-click (not drag) on a system, e.g. to order the active fleet there.
 signal system_context_requested(system_id: int)
+## Right-click (not drag) on empty space: the map's options menu.
+signal map_context_requested(screen_pos: Vector2)
 ## A field (no system under the cursor) was clicked: its type, for the Pedia.
 signal field_activated(field_type: String)
 
@@ -62,6 +64,34 @@ var show_scale_circle := false:
 var own_empire_id := -2
 ## The fleets: markers, movement lines, the route preview.
 var fleets: FleetLayer
+## The map options (GG's map menu): owner-coloured system circles, fields,
+## background stars, supply.
+var show_system_circles := true:
+	set(value):
+		show_system_circles = value
+		if is_node_ready():
+			_overlay.queue_redraw()
+var show_fields := true:
+	set(value):
+		show_fields = value
+		if is_node_ready():
+			_field_layer.visible = value
+var show_starfield := true:
+	set(value):
+		show_starfield = value
+		if is_node_ready():
+			_starfield.queue_redraw()
+var show_supply := true:
+	set(value):
+		show_supply = value
+		if is_node_ready():
+			_supply_group.visible = value
+## Supplied lanes as bands in the supplier's colour.
+var show_supply_lanes := true:
+	set(value):
+		show_supply_lanes = value
+		if is_node_ready():
+			_lane_layer.queue_redraw()
 var show_detection := false:
 	set(value):
 		show_detection = value
@@ -81,6 +111,8 @@ var _boxing := false
 ## Field under a left press away from systems: opened on release unless the
 ## press became a box.
 var _pressed_field := -1
+## Per system: its owner's colour (alpha 0 for none).
+var _owner_colors := PackedColorArray()
 var _supply_lanes := PackedInt32Array()
 var _supply_lane_colors := PackedColorArray()
 var _supply_systems := PackedInt32Array()
@@ -187,6 +219,15 @@ func load_from_universe() -> void:
 		if not color_by_owner.has(owner_id):
 			color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
 		colors.push_back(color_by_owner[owner_id])
+	var owner_colors := PackedColorArray()
+	for owner_id in snapshot.get("system_owner_ids", PackedInt32Array()):
+		if owner_id < 0:
+			owner_colors.push_back(Color(0, 0, 0, 0))
+			continue
+		if not color_by_owner.has(owner_id):
+			color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
+		owner_colors.push_back(color_by_owner[owner_id])
+	snapshot["system_owner_colors"] = owner_colors
 	for kind in ["supply_lane", "supply_system"]:
 		var kind_colors := PackedColorArray()
 		for owner_id in snapshot.get(kind + "_owners", PackedInt32Array()):
@@ -220,6 +261,7 @@ func set_snapshot(
 	_supply_systems = snapshot.get("supply_systems", PackedInt32Array())
 	_supply_system_colors = snapshot.get("supply_system_colors", PackedColorArray())
 	_names = names
+	_owner_colors = snapshot.get("system_owner_colors", PackedColorArray())
 
 	_index_by_id.clear()
 	for i in _system_ids.size():
@@ -446,7 +488,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			var system_id := pick_system(camera.screen_to_world(button.position))
 			if system_id != NO_SYSTEM:
 				system_context_requested.emit(system_id)
-				get_viewport().set_input_as_handled()
+			else:
+				map_context_requested.emit(button.position)
+			get_viewport().set_input_as_handled()
 
 
 func _on_zoom_changed(zoom_level: float) -> void:
@@ -475,40 +519,20 @@ func _draw_starfield(layer: CanvasItem) -> void:
 	var size := Vector2i(get_viewport_rect().size)
 	if size.x <= 0 or size.y <= 0:
 		return
+	if not show_starfield:
+		layer.draw_rect(Rect2(Vector2.ZERO, Vector2(size)), MapStyle.SPACE_COLOR)
+		return
 	if _starfield_texture == null or _starfield_texture.get_size() != Vector2(size):
-		_starfield_texture = _bake_starfield(size)
+		_starfield_texture = MapStyle.bake_starfield(size)
 	layer.draw_texture(_starfield_texture, Vector2.ZERO)
-
-
-# Opaque screen-space backdrop (space colour plus static stars) baked into one
-# texture per viewport size, so the whole background is a single quad.
-# Deterministic so screenshots are stable.
-static func _bake_starfield(size: Vector2i) -> ImageTexture:
-	var image := Image.create(size.x, size.y, false, Image.FORMAT_RGB8)
-	image.fill(MapStyle.SPACE_COLOR)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7919
-	var count := int(size.x * size.y / MapStyle.BACKGROUND_PX_PER_STAR)
-	for i in count:
-		var shade := rng.randf_range(0.25, 0.7)
-		var star := Color(shade, shade, shade * 1.1)
-		var color := MapStyle.SPACE_COLOR.lerp(star, rng.randf_range(0.4, 0.9))
-		var x := rng.randi_range(0, size.x - 2)
-		var y := rng.randi_range(0, size.y - 2)
-		image.set_pixel(x, y, color)
-		if rng.randf() < 0.25:
-			# A few brighter, two-pixel stars.
-			var halo := MapStyle.SPACE_COLOR.lerp(color, 0.5)
-			image.set_pixel(x + 1, y, halo)
-			image.set_pixel(x, y + 1, halo)
-	return ImageTexture.create_from_image(image)
 
 
 func _draw_lanes(layer: CanvasItem) -> void:
 	if _lanes.is_empty():
 		return
 	var view := visible_world_rect()
-	_draw_supply(layer, view)
+	if show_supply_lanes:
+		_draw_supply(layer, view)
 	var points := PackedVector2Array()
 	for i in range(0, _lanes.size() - 1, 2):
 		var a := _positions[_lanes[i]]
@@ -594,6 +618,8 @@ func _draw_overlay(layer: CanvasItem) -> void:
 	var px := 1.0 / camera.zoom_level()
 	var view := visible_world_rect()
 	_draw_unexplored_rings(layer, px, view)
+	if show_system_circles:
+		_draw_owner_circles(layer, px, view)
 	_draw_highlights(layer, px, view)
 	_draw_route(layer, px)
 	_draw_box(layer, px)
@@ -640,6 +666,14 @@ func _draw_route(layer: CanvasItem, px: float) -> void:
 	layer.draw_circle(_route[_route.size() - 1], 4.0 * px, accent)
 
 
+# Owned systems ringed in their owner's colour (GG's system circles).
+func _draw_owner_circles(layer: CanvasItem, px: float, view: Rect2) -> void:
+	var radius := MapStyle.UNEXPLORED_RING_PX * 1.4 * px
+	for i in mini(_positions.size(), _owner_colors.size()):
+		if _owner_colors[i].a > 0.0 and view.has_point(_positions[i]):
+			layer.draw_arc(_positions[i], radius, 0, TAU, 24, _owner_colors[i], 2.0 * px, true)
+
+
 func _draw_unexplored_rings(layer: CanvasItem, px: float, view: Rect2) -> void:
 	var radius := MapStyle.UNEXPLORED_RING_PX * px
 	for i in _positions.size():
@@ -670,7 +704,7 @@ func _draw_labels(layer: CanvasItem) -> void:
 	var text_color: Color = FOUi.tokens.text_secondary if FOUi.tokens else Color(0.8, 0.8, 0.8)
 	var size := MapStyle.LABEL_FONT_SIZE
 	var screen := Rect2(Vector2.ZERO, get_viewport_rect().size)
-	var placed := _LabelGrid.new()
+	var placed := LabelGrid.new()
 	_draw_route_chip(layer, placed)
 	_draw_preview_chip(layer, placed)
 	_draw_hover_chip(layer, placed)
@@ -686,19 +720,17 @@ func _draw_labels(layer: CanvasItem) -> void:
 		var rect := Rect2(top_left, Vector2(width, size * 1.25))
 		if not placed.try_place(rect.grow(MapStyle.LABEL_PADDING_PX)):
 			continue
+		# Owned systems' names in their owner's colour, lightened to read.
+		var color := text_color
+		if i < _owner_colors.size() and _owner_colors[i].a > 0.0:
+			color = _owner_colors[i].lerp(Color.WHITE, 0.35)
 		layer.draw_string(
-			_label_font,
-			(top_left + Vector2(0, size)).round(),
-			_names[i],
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1,
-			size,
-			text_color
+			_label_font, (top_left + Vector2(0, size)).round(), _names[i], 0, -1, size, color
 		)
 
 
 # ETA (or other route text) next to the end of the planned route.
-func _draw_route_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
+func _draw_route_chip(layer: CanvasItem, placed: LabelGrid) -> void:
 	if _route.size() < 2 or _route_label.is_empty():
 		return
 	var tokens: FOTokens = FOUi.tokens
@@ -722,7 +754,7 @@ func _draw_route_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
 
 
 # ETA of the route a fleet would take, beside its end.
-func _draw_preview_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
+func _draw_preview_chip(layer: CanvasItem, placed: LabelGrid) -> void:
 	var points := fleets.preview_points()
 	if points.size() < 2 or fleets.preview_label().is_empty():
 		return
@@ -734,7 +766,7 @@ func _draw_preview_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
 
 # The hovered system always gets its name, as a chip that also reserves its
 # space so regular labels avoid it.
-func _draw_hover_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
+func _draw_hover_chip(layer: CanvasItem, placed: LabelGrid) -> void:
 	if _hovered == NO_SYSTEM or _hovered >= _names.size() or _names[_hovered].is_empty():
 		return
 	var tokens: FOTokens = FOUi.tokens
@@ -763,7 +795,7 @@ func _draw_hover_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
 
 
 # Name of the field under the cursor, just below it.
-func _draw_field_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
+func _draw_field_chip(layer: CanvasItem, placed: LabelGrid) -> void:
 	if _hovered != NO_SYSTEM or _hovered_field < 0 or _hovered_field >= _field_types.size():
 		return
 	var text := TranslationServer.translate(_field_types[_hovered_field])
@@ -772,7 +804,7 @@ func _draw_field_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
 
 
 # A text chip centred horizontally on \a at (its top edge).
-func _draw_chip(layer: CanvasItem, placed: _LabelGrid, text: String, at: Vector2) -> void:
+func _draw_chip(layer: CanvasItem, placed: LabelGrid, text: String, at: Vector2) -> void:
 	var tokens: FOTokens = FOUi.tokens
 	var size := MapStyle.LABEL_FONT_SIZE
 	var width := _label_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
@@ -833,31 +865,6 @@ func _rebuild_labels() -> void:
 		_label_order.push_back(_selected)
 	_label_order.append_array(PackedInt32Array(explored))
 	_label_order.append_array(PackedInt32Array(unexplored))
-
-
-## Screen-space occupancy grid for greedy label placement.
-class _LabelGrid:
-	const CELL := 64.0
-	var _cells := {}
-
-	func try_place(rect: Rect2) -> bool:
-		var keys := _keys(rect)
-		for key in keys:
-			for other: Rect2 in _cells.get(key, []):
-				if other.intersects(rect):
-					return false
-		for key in keys:
-			if not _cells.has(key):
-				_cells[key] = []
-			_cells[key].push_back(rect)
-		return true
-
-	func _keys(rect: Rect2) -> Array[Vector2i]:
-		var keys: Array[Vector2i] = []
-		for cx in range(floori(rect.position.x / CELL), floori(rect.end.x / CELL) + 1):
-			for cy in range(floori(rect.position.y / CELL), floori(rect.end.y / CELL) + 1):
-				keys.push_back(Vector2i(cx, cy))
-		return keys
 
 
 func _typical_spacing() -> float:
