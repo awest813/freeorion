@@ -14,6 +14,7 @@ var system_panel: SystemPanel
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
+var pedia_screen: PediaScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
 
@@ -54,7 +55,11 @@ func _ready() -> void:
 	screens.add_child(body)
 	production_screen = ProductionScreen.new()
 	research_screen = ResearchScreen.new()
-	for screen in [production_screen, research_screen]:
+	pedia_screen = PediaScreen.new()
+	pedia_screen.link_activated.connect(_on_link_activated)
+	research_screen.pedia_requested.connect(open_pedia)
+	production_screen.pedia_requested.connect(open_pedia)
+	for screen in [production_screen, research_screen, pedia_screen]:
 		screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		screen.visible = false
 		screen.close_requested.connect(show_screen.bind(""))
@@ -109,6 +114,7 @@ func show_screen(screen_name: String) -> void:
 	top_bar.set_active_screen(screen_name)
 	production_screen.visible = screen_name == "production"
 	research_screen.visible = screen_name == "research"
+	pedia_screen.visible = screen_name == "pedia"
 	if screen_name == "production" and follow_game:
 		production_screen.refresh()
 		# Build at the selected system's own planet, if there is one.
@@ -129,7 +135,15 @@ func _screen_node(screen_name: String) -> Control:
 			return production_screen
 		"research":
 			return research_screen
+		"pedia":
+			return pedia_screen
 	return null
+
+
+## Show the Pedia article \a kind / \a article_name.
+func open_pedia(kind: String, article_name: String) -> void:
+	show_screen("pedia")
+	pedia_screen.open(kind, article_name)
 
 
 # Frame the galaxy below the top bar; refit while the player hasn't moved.
@@ -188,10 +202,15 @@ static func eta_text(eta: int) -> String:
 	return TranslationServer.translate("MAP_ROUTE_ETA").replace("%1%", str(eta))
 
 
-# Links in sitreps: objects on the map select (and centre on) their system.
+# Links in sitreps and the Pedia: content opens its Pedia article; objects on
+# the map select (and centre on) their system and return to the map.
 func _on_link_activated(kind: String, arg: String) -> void:
+	if PediaScreen.is_article_kind(kind):
+		open_pedia(kind, arg)
+		return
 	if not follow_game or not arg.is_valid_int():
 		return
+	show_screen("")
 	var system_id := -1
 	match kind:
 		"system":

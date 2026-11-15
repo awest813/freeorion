@@ -21,6 +21,7 @@ func before_turn() -> void:
 	await _check_galaxy_map()
 	_check_production()
 	_check_research()
+	_check_pedia()
 
 	_test.assert_null(FOUniverse.get_system(-1), "No view for an invalid system ID")
 	_test.assert_null(FOUniverse.get_fleet(-1), "No view for an invalid fleet ID")
@@ -197,6 +198,27 @@ func _check_research() -> void:
 	_test.add_child_autofree(screen)
 	screen.refresh()
 	_test.assert_gt(screen._catalog.get_child_count(), 0, "Screen lists real techs")
+
+
+# Pedia: the index covers every kind and each kind's first entry resolves to
+# an article with translated text.
+func _check_pedia() -> void:
+	var index := FOPedia.get_index()
+	_test.assert_gt(index.size(), 300, "Pedia index covers the content")
+	var first_by_kind := {}
+	for entry: Dictionary in index:
+		if not first_by_kind.has(entry["kind"]):
+			first_by_kind[entry["kind"]] = entry["name"]
+	for kind in PediaScreen.ARTICLE_KINDS:
+		_test.assert_true(first_by_kind.has(kind), "Index has %s entries" % kind)
+		if not first_by_kind.has(kind):
+			continue
+		var article := FOPedia.get_article(kind, first_by_kind[kind])
+		_test.assert_false(article.is_empty(), "Article for %s %s" % [kind, first_by_kind[kind]])
+		_test.assert_false(article.get("text", "").is_empty(), "%s has text" % kind)
+	var algo := FOPedia.get_article("tech", "LRN_ALGO_ELEGANCE")
+	_test.assert_gt(algo["facts"].size(), 1, "Tech facts")
+	_test.assert_gt(algo["links"].size(), 0, "Tech links to unlocks")
 
 
 func _check_snapshot() -> void:

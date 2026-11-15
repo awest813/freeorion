@@ -63,15 +63,15 @@ func test_category_and_search():
 
 
 func test_queued_techs_cannot_be_added_again():
-	var row := screen._catalog.get_child(0)
-	var add: Button = row.find_children("*", "Button", true, false)[0]
+	var add := _button_in(screen._catalog.get_child(0), tr("RESEARCH_QUEUED"))
+	assert_not_null(add)
 	assert_true(add.disabled)
 	assert_eq(add.text, tr("RESEARCH_QUEUED"))
 
 
 func test_orders():
 	var robotics := _row_for(tr("PRO_ROBOTIC_PROD"))
-	robotics.find_children("*", "Button", true, false)[0].pressed.emit()
+	_button_in(robotics, tr("PRODUCTION_ADD")).pressed.emit()
 	_button_in(screen._queue_list.get_child(1), "▲").pressed.emit()
 	_button_in(screen._queue_list.get_child(0), "✕").pressed.emit()
 	assert_eq(
@@ -82,6 +82,12 @@ func test_orders():
 			["remove", "LRN_ALGO_ELEGANCE"],
 		]
 	)
+
+
+func test_info_button_requests_pedia():
+	watch_signals(screen)
+	_button_in(_row_for(tr("PRO_ROBOTIC_PROD")), "?").pressed.emit()
+	assert_signal_emitted_with_parameters(screen, "pedia_requested", ["tech", "PRO_ROBOTIC_PROD"])
 
 
 func _catalog_names() -> Array:

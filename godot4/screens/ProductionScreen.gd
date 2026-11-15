@@ -6,6 +6,7 @@ extends PanelContainer
 ## default; tests set a fake before calling refresh()).
 
 signal close_requested
+signal pedia_requested(kind: String, article_name: String)
 
 const FILTERS := ["all", "building", "ship"]
 
@@ -208,6 +209,11 @@ func _catalog_row(item: Dictionary) -> Control:
 		"%2%", str(item.get("turns", 0))
 	)
 	text.add_child(ScreenKit.label(cost, "SmallLabel"))
+	if item.get("build_type") == "building":
+		var info := ScreenKit.small_button("?", "PEDIA_OPEN")
+		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		info.pressed.connect(pedia_requested.emit.bind("buildingtype", item.get("name", "")))
+		row.add_child(info)
 	var add := Button.new()
 	add.text = tr("PRODUCTION_ADD")
 	add.size_flags_vertical = Control.SIZE_SHRINK_CENTER

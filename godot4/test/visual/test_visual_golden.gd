@@ -58,6 +58,17 @@ func test_research_screen():
 	await _check_scene(screen, "research_screen", func(s): s.refresh())
 
 
+func test_pedia_screen():
+	var screen := PediaScreen.new()
+	screen.source = preload("res://test/unit/fake_pedia_source.gd").new()
+	await _check_scene(screen, "pedia_screen", _fill_pedia)
+
+
+func _fill_pedia(screen: PediaScreen) -> void:
+	screen.open("tech", "LRN_ALGO_ELEGANCE")
+	screen.search("Brain")
+
+
 func _fill_shell(shell: GameShell) -> void:
 	_fill_galaxy(shell.map_view)
 	shell.top_bar.set_state("Empire Blue", Color("#3d9bff"), 12, false)

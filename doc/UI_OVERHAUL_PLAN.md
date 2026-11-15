@@ -444,3 +444,24 @@ Done since the starter tickets:
 2. Fleet panel details: ships, split and merge, aggression.
 3. Pedia links from the feed.
 4. Ctrl+click to append waypoints.
+
+### 2026-11-15 (later still): production, research, Pedia
+
+**Screens**
+- **Production:** queue, catalogue, location, filters and search.
+- **Research:** queue and tech list. Adding a tech also queues its missing prerequisites.
+- **Pedia:** articles for every content kind, search, browsing by kind, and back/forward history.
+- **Navigation:** Production, Research and Pedia sit in the top bar on F2, F3 and F1. One screen shows at a time, and Esc returns to the map.
+- **Pedia links:** content links in the event feed, articles and the "?" buttons open the Pedia. Map-object links return to the map.
+
+**Bridge**
+- `FOProduction`, `FOResearch` and `FOPedia`.
+- `FreeOrionNode::InitTurnState`: the system graph and resource pools are recomputed every turn.
+- Calls into content evaluation catch exceptions, because a C++ exception reaching Godot aborts the process.
+
+**Next**
+1. Fleet details: ships, split and merge, aggression.
+2. Government (policies).
+3. Ship designer.
+4. Options screen.
+5. Galaxy setup and save/load.

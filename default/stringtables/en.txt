@@ -2040,6 +2040,84 @@ adds prerequisites
 RESEARCH_QUEUED
 Queued
 
+PEDIA_SEARCH
+Search the Pedia…
+
+PEDIA_EMPTY
+Search for a topic, or follow a link from the map, the turn events or the research and production screens.
+
+PEDIA_NO_RESULTS
+No articles found.
+
+PEDIA_ALL_TOPICS
+All topics
+
+PEDIA_BACK
+Back
+
+PEDIA_FORWARD
+Forward
+
+PEDIA_OPEN
+Open in the Pedia
+
+PEDIA_LINKS_PREREQUISITES
+Requires
+
+PEDIA_LINKS_UNLOCKS
+Unlocks
+
+PEDIA_FACT_CATEGORY
+Category
+
+PEDIA_FACT_COST
+Cost
+
+PEDIA_FACT_TIME
+Turns
+
+PEDIA_FACT_CAPACITY
+Capacity
+
+PEDIA_FACT_STRUCTURE
+Structure
+
+PEDIA_FACT_SPEED
+Speed
+
+PEDIA_FACT_FUEL
+Fuel
+
+PEDIA_FACT_ADOPTION_COST
+Adoption cost
+
+PEDIA_KIND_TECH
+Technology
+
+PEDIA_KIND_BUILDINGTYPE
+Building
+
+PEDIA_KIND_SPECIES
+Species
+
+PEDIA_KIND_SPECIAL
+Special
+
+PEDIA_KIND_SHIPPART
+Ship part
+
+PEDIA_KIND_SHIPHULL
+Ship hull
+
+PEDIA_KIND_FIELDTYPE
+Field
+
+PEDIA_KIND_POLICY
+Policy
+
+PEDIA_KIND_ENCYCLOPEDIA
+Article
+
 OPTIONS_DB_UI_TITLE_FONT
 Sets UI title font resource file.
 

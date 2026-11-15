@@ -13,6 +13,7 @@ const END_TURN_KEY := KEY_ENTER
 const SCREENS := [
 	["production", "MAP_BTN_PRODUCTION", KEY_F2],
 	["research", "MAP_BTN_RESEARCH", KEY_F3],
+	["pedia", "MAP_BTN_PEDIA", KEY_F1],
 ]
 
 var follow_game := true

@@ -6,6 +6,7 @@ extends PanelContainer
 ## through `source` (ResearchSource by default; tests set a fake).
 
 signal close_requested
+signal pedia_requested(kind: String, article_name: String)
 
 ## Availability filters: researchable now, everything not yet researched,
 ## and researched.
@@ -198,6 +199,10 @@ func _catalog_row(tech: Dictionary) -> Control:
 	if status == "partial" or status == "unresearchable":
 		detail += " · " + tr("RESEARCH_NEEDS_PREREQS")
 	text.add_child(ScreenKit.label(detail, "SmallLabel"))
+	var info := ScreenKit.small_button("?", "PEDIA_OPEN")
+	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	info.pressed.connect(pedia_requested.emit.bind("tech", tech_name))
+	row.add_child(info)
 	if status != "complete":
 		var add := Button.new()
 		var queued: bool = tech.get("in_queue", false)
