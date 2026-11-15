@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 7 | Map modes, combat replay, moderator tools, onboarding, translations, scaled and localised goldens, TSan, packaging, CI, cut-over cleanup |
+| P3 | 7 | Moderator tools (after multiplayer), translations, TSan, packaging, CI, cut-over cleanup, art pipeline |
 
 ## P0: blocks a normal game
 
@@ -123,7 +123,7 @@ Closed:
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
-| Moderator tools | `ModeratorActionsWnd` | M | |
+| Moderator tools | `ModeratorActionsWnd` | M | Needs multiplayer first (P1): a moderator joins a hosted game as a moderator player. |
 | Translations of the fork's new strings | `default/stringtables/*.txt` | S | New keys exist in English only; other languages fall back to English. |
 | TSan job | Plan §7.1 | S | Build the bridge with `-fsanitize=thread` and run the integration test with libtsan preloaded into Godot. |
 | Packaging | `CMakeLists.txt`, `packaging/` | M | The Godot client runs from the source tree only; installers and the desktop entry still ship the GG client. |
