@@ -62,7 +62,7 @@ func test_real_stringtable_entries_parse_cleanly():
 	add_child_autofree(label)
 	for sample in [
 		"<i>Increases</i> industry by <rgba 0 255 0 255>+%1%</rgba>.",
-		'<img src = "%4%"> %1% at <planet %2%>%3%</planet>',
+		'<img src = "icons/meter/pop.png"> %1% at <planet %2%>%3%</planet>',
 	]:
 		label.text = FORichText.to_bbcode(sample)
 		assert_false(label.get_parsed_text().contains("<"), "No raw tags left: %s" % sample)
