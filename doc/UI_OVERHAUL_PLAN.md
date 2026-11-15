@@ -270,6 +270,9 @@ Order of work, following the gameplay loop:
 
 ## 6. Parity checklist (gates the cut-over)
 
+The feature-level list of what is still missing, by priority, is in
+[`UI_GAP_LIST.md`](UI_GAP_LIST.md).
+
 Track this as a GitHub project. Each GG window maps to one Godot 4 owner scene.
 
 | GG unit | Godot 4 target | Phase |
