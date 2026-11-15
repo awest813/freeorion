@@ -4,3 +4,17 @@ Godot 4.4 and up based rewrite of the GiGi client, tries to be pixel precise as 
 
 See `client/godot4/` for C++ GDExtension code.
 
+
+## Fork direction
+
+This fork redesigns the Godot 4 client instead of reproducing GiGi pixel for pixel.
+The plan is in [`doc/UI_OVERHAUL_PLAN.md`](../doc/UI_OVERHAUL_PLAN.md). In short:
+
+- **Desktop-first.** Windows, macOS and Linux, 1280×720 minimum, mouse and keyboard first.
+- **GL Compatibility renderer only.** Every shader must work under it.
+- **Godot version** is pinned in [`.godot-version`](.godot-version) and read by CI.
+- **Keep upstream merges cheap:**
+  - New work lives in `shell/`, `ui/`, `map/`, `screens/` and `panels/`.
+  - Upstream's root-level scenes (`IntroScreen`, `MapWnd`, `CUI*`, ...) are not edited.
+  - The app starts from `shell/Shell.tscn` (`run/main_scene`).
+  - Changes to `client/godot4/` stay minimal and generic.
