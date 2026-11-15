@@ -36,6 +36,8 @@ const RESOURCES := [
 	["ships", "icons/fleet/big-head-warship.png", "objects", "TOPBAR_SHIPS"],
 	["detection", "icons/meter/detection.png", "", "TOPBAR_DETECTION"],
 ]
+## The phase in which the server waits for players' orders.
+const WAITING_PHASE := "TURN_PROGRESS_PHASE_WAITING"
 ## Unspent PP or RP above this counts as wasted.
 const WASTE_EPSILON := 0.05
 
@@ -48,6 +50,9 @@ var _end_turn: Button
 var _screen_buttons := {}
 var _resource_chips := {}
 var _waiting := false
+var _turn_number := 0
+var _phase := ""
+var _phase_text := ""
 
 
 func _init() -> void:
@@ -62,6 +67,7 @@ func _ready() -> void:
 		return
 	GlobalFreeOrionNode.start_game.connect(_on_start_game)
 	GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
+	GlobalFreeOrionNode.turn_progress.connect(set_phase)
 	_refresh_from_game()
 
 
@@ -70,10 +76,51 @@ func set_state(empire_name: String, color: Color, turn: int, waiting: bool) -> v
 	_empire.text = empire_name
 	_swatch.color = color
 	_swatch.visible = not empire_name.is_empty()
-	_turn.text = tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(turn)) if turn >= 1 else ""
+	_turn_number = turn
+	if not waiting:
+		_phase = ""
+		_phase_text = ""
 	_waiting = waiting
-	_end_turn.disabled = waiting or turn < 1
-	_end_turn.text = tr("TOPBAR_WAITING") if waiting else tr("TOPBAR_END_TURN")
+	_update_turn_controls()
+
+
+## While waiting for the turn: the server's processing phase (a
+## TURN_PROGRESS_* key and its text). The turn can be revised only while the
+## server still waits for players.
+func set_phase(phase: String, text: String) -> void:
+	if not _waiting:
+		return
+	_phase = phase
+	_phase_text = text
+	_update_turn_controls()
+
+
+## True while an ended turn can still be taken back.
+func can_revise() -> bool:
+	return _waiting and (_phase.is_empty() or _phase == WAITING_PHASE)
+
+
+func _update_turn_controls() -> void:
+	var turn_text := (
+		tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(_turn_number)) if _turn_number >= 1 else ""
+	)
+	if _waiting and not _phase_text.is_empty():
+		turn_text += "  ·  " + _phase_text
+	_turn.text = turn_text
+	if _waiting:
+		_end_turn.text = (
+			tr("MAP_BTN_TURN_UNREADY").replace("%1%", str(_turn_number))
+			if can_revise()
+			else tr("TOPBAR_WAITING")
+		)
+		_end_turn.tooltip_text = tr("TOPBAR_REVISE_TIP") if can_revise() else ""
+		_end_turn.disabled = not can_revise()
+		_end_turn.theme_type_variation = "GhostButton"
+	else:
+		_end_turn.text = tr("TOPBAR_END_TURN")
+		_end_turn.tooltip_text = tr("MAP_BTN_TURN_TOOLTIP_DESC_SP")
+		_end_turn.disabled = _turn_number < 1
+		_end_turn.theme_type_variation = "PrimaryButton"
 
 
 ## Show the empire's resources (FOUniverse.get_empire_resources()).
@@ -221,6 +268,13 @@ func _build() -> void:
 
 func _on_end_turn_pressed() -> void:
 	if _waiting:
+		# Take the turn back to change orders.
+		if not can_revise():
+			return
+		_waiting = false
+		_refresh_from_game()
+		if follow_game and is_instance_valid(GlobalFreeOrionNode):
+			GlobalFreeOrionNode.revise_turn()
 		return
 	_waiting = true
 	_refresh_from_game()
@@ -240,7 +294,7 @@ func _on_turn_update() -> void:
 
 func _refresh_from_game() -> void:
 	if not follow_game or not is_instance_valid(GlobalFreeOrionNode):
-		set_state(_empire.text, _swatch.color, 0, _waiting)
+		set_state(_empire.text, _swatch.color, _turn_number, _waiting)
 		return
 	var empire_id: int = FOUniverse.get_empire_id()
 	set_resources(FOUniverse.get_empire_resources())

@@ -30,6 +30,7 @@ func _ready() -> void:
 	GlobalFreeOrionNode.game_ended.connect(_on_game_ended)
 	GlobalFreeOrionNode.game_aborted.connect(_on_game_aborted)
 	GlobalFreeOrionNode.server_error.connect(_on_server_error)
+	GlobalFreeOrionNode.turn_progress.connect(_on_turn_progress)
 	GlobalFreeOrionNode.start_network_thread()
 	GlobalFreeOrionNode.start_parsing_thread()
 
@@ -165,6 +166,12 @@ func _on_game_ended() -> void:
 	if not _notice.is_empty():
 		FODialog.open_on(self, tr("GAME_ABORTED_TITLE"), _notice, [[tr("OK"), "PrimaryButton"]])
 		_notice = ""
+
+
+# While a game is generated or loaded, the title says what the server does.
+func _on_turn_progress(_phase: String, text: String) -> void:
+	if not game and is_instance_valid(title) and not title._menu.visible:
+		title.set_busy(text)
 
 
 # The server ended the game or went away: back to the title, saying why.

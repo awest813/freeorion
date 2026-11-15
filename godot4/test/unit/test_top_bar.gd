@@ -42,8 +42,30 @@ func test_end_turn_waits_until_next_turn():
 	bar.set_state("Empire Blue", Color.BLUE, 3, false)
 	bar._end_turn.pressed.emit()
 	assert_true(bar.is_waiting())
-	assert_true(bar._end_turn.disabled, "Can't end the turn twice")
+	assert_eq(bar._end_turn.text, tr("MAP_BTN_TURN_UNREADY").replace("%1%", "3"))
+	assert_false(bar._end_turn.disabled, "Can be revised while the server waits")
+	bar.set_phase("TURN_PROGRESS_PHASE_COMBAT", "Resolving Combat")
+	assert_true(bar._end_turn.disabled, "Too late once processing started")
 	assert_eq(bar._end_turn.text, tr("TOPBAR_WAITING"))
+	assert_string_contains(bar._turn.text, "Resolving Combat")
+	bar.set_state("Empire Blue", Color.BLUE, 4, false)
+	assert_false(bar._turn.text.contains("Resolving Combat"), "Phase cleared on the new turn")
+
+
+func test_revise_takes_the_turn_back():
+	bar.set_state("Empire Blue", Color.BLUE, 3, false)
+	bar._end_turn.pressed.emit()
+	bar.set_phase("TURN_PROGRESS_PHASE_WAITING", "Waiting for Other Players")
+	assert_true(bar.can_revise())
+	bar._end_turn.pressed.emit()
+	assert_false(bar.is_waiting())
+	assert_eq(bar._end_turn.text, tr("TOPBAR_END_TURN"))
+
+
+func test_phases_are_ignored_outside_waiting():
+	bar.set_state("Empire Blue", Color.BLUE, 3, false)
+	bar.set_phase("TURN_PROGRESS_PHASE_COMBAT", "Resolving Combat")
+	assert_false(bar._turn.text.contains("Resolving Combat"))
 
 
 func test_ctrl_enter_is_the_shortcut():

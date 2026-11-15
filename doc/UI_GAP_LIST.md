@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 23 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
+| P2 | 21 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
 | P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -71,6 +71,10 @@ Closed on 2026-11-15:
 
 ## P2: parity
 
+Closed:
+- **Turn progress:** while you wait, the top bar shows what the server is doing ("Resolving Combat", ...). So does the title while a game is generated or loaded.
+- **Revise an ended turn:** the End turn button becomes "Revise N" until the server starts processing.
+
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Tech tree graph | `TechTreeWnd`, `TechTreeLayout`, `TechTreeArcs` | L | The fork has the list view only. |
@@ -88,8 +92,6 @@ Closed on 2026-11-15:
 | Sitrep history and filters | `SitRepPanel` prev/next turn, type filters, snooze | S | The feed shows the current turn only. |
 | Graphs | `ui.map.graphs`, `GraphControl` | M | Empire statistics over time. |
 | Pedia extras | `EncyclopediaDetailPanel` | M | Graphs, the planet suitability table, "show on map". |
-| Turn progress | `TURN_PROGRESS` phases | S | "Processing orders", "combat", … instead of "Waiting…". |
-| Revoke an ended turn | `MAP_BTN_TURN_REVOKE` | S | |
 | Turn readiness check | Plan, phase 4 item 7 | M | Idle fleets, empty queues, unspent points before ending the turn. |
 | Hotkey rebinding | `OptionsWnd` hotkeys page | M | Fork shortcuts are fixed in code. |
 | Sound and music | `UI/Sound.cpp`, `PlaySound` calls | M | Fork screens are silent; no music. Volume options belong in Options. |

@@ -1968,6 +1968,9 @@ End turn
 TOPBAR_WAITING
 Waiting…
 
+TOPBAR_REVISE_TIP
+Take the turn back to change orders. Possible until the server starts processing it.
+
 PANEL_CLOSE
 Close
 
