@@ -10,15 +10,20 @@ BOOST_AUTO_TEST_SUITE(TestOptionValidators);
 // std::string_view (as OptionsDB::Validate and Option::SetFromString do) must
 // still apply their constraints.
 
+// Called through ValidatorBase, as OptionsDB does: the derived classes hide
+// the base string_view overload from direct calls.
+
 BOOST_AUTO_TEST_CASE(RangedValidatorChecksStringView) {
-    const RangedValidator<int> validator(10, 20);
+    const RangedValidator<int> ranged(10, 20);
+    const ValidatorBase& validator = ranged;
     BOOST_CHECK_NO_THROW(validator.Validate(std::string_view{"15"}));
     BOOST_CHECK_THROW(validator.Validate(std::string_view{"3"}), std::exception);
     BOOST_CHECK_THROW(validator.Validate(std::string_view{"21"}), std::exception);
 }
 
 BOOST_AUTO_TEST_CASE(DiscreteValidatorChecksStringView) {
-    const DiscreteValidator<std::string> validator(std::vector<std::string>{"auto", "manual"});
+    const DiscreteValidator<std::string> discrete(std::vector<std::string>{"auto", "manual"});
+    const ValidatorBase& validator = discrete;
     BOOST_CHECK_NO_THROW(validator.Validate(std::string_view{"auto"}));
     BOOST_CHECK_THROW(validator.Validate(std::string_view{"other"}), std::exception);
 }
@@ -35,7 +40,7 @@ BOOST_AUTO_TEST_CASE(OutOfRangeConfigValueIsIgnored) {
     XMLDoc doc;
     XMLElement test_elem{"test"};
     XMLElement validators_elem{"validators"};
-    XMLElement config_elem{"config", "3"};
+    XMLElement config_elem{"config", std::string{"3"}};
     validators_elem.AddChild(std::move(config_elem));
     test_elem.AddChild(std::move(validators_elem));
     doc.root_node.AddChild(std::move(test_elem));
