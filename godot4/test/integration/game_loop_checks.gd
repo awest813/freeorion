@@ -18,6 +18,7 @@ func before_turn() -> void:
 	_test.assert_gt(empire_id, -1, "Player controls an empire")
 
 	_check_snapshot()
+	await _check_galaxy_map()
 
 	_test.assert_null(FOUniverse.get_system(-1), "No view for an invalid system ID")
 	_test.assert_null(FOUniverse.get_fleet(-1), "No view for an invalid fleet ID")
@@ -55,6 +56,18 @@ func after_turn() -> void:
 	_test.assert_not_null(fleet, "Fleet still known after the turn")
 	if fleet:
 		_test.assert_ne(fleet.get_position(), _start_position, "Fleet moved during the turn")
+
+
+func _check_galaxy_map() -> void:
+	var view: GalaxyMapView = preload("res://map/GalaxyMapView.tscn").instantiate()
+	view.follow_game = false
+	_test.add_child_autofree(view)
+	await _test.wait_process_frames(2)
+	view.refresh()
+	_test.assert_eq(
+		view.map.system_count(), FOUniverse.get_system_ids().size(), "Map shows known systems"
+	)
+	_test.assert_true(view.map.bounds.has_area(), "Map has galaxy bounds")
 
 
 func _check_snapshot() -> void:

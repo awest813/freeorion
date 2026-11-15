@@ -71,9 +71,16 @@ func _apply_scale() -> void:
 
 
 func _on_node_added(node: Node) -> void:
-	# A new current scene: let its _ready() run, then restore our scale.
+	# A new current scene: let its _ready() run, then restore our scale and
+	# add fork features to upstream scenes.
 	if node.get_parent() == get_tree().root:
 		_apply_scale.call_deferred()
+		_adapt_scene.call_deferred(node)
+
+
+func _adapt_scene(scene: Node) -> void:
+	if is_instance_valid(scene) and scene.is_inside_tree():
+		UpstreamAdapters.adapt(scene)
 
 
 func _read_options() -> void:

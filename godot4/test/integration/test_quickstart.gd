@@ -45,7 +45,7 @@ func test_quickstart():
 	assert_signal_emitted(signaler, "started_game", "Start game")
 
 	var game_loop_checks = preload("res://test/integration/game_loop_checks.gd").new(self)
-	game_loop_checks.before_turn()
+	await game_loop_checks.before_turn()
 
 	GlobalFreeOrionNode.turn_update.connect(_on_freeorion_turn_update)
 
