@@ -148,3 +148,26 @@ func test_drag_ships():
 	assert_true(panel._can_drop_on_split(Vector2.ZERO, one))
 	panel._drop_on_split(Vector2.ZERO, one)
 	assert_signal_emitted_with_parameters(panel, "split_requested", [[71]])
+
+
+func test_other_empires_fleets_are_read_only():
+	var foreign := SAMPLE.duplicate(true)
+	foreign["own"] = false
+	foreign["owner_name"] = "Empire Red"
+	foreign["owner_color"] = Color.RED
+	panel.show_data(foreign)
+	assert_false(panel.is_own())
+	assert_false(panel._name.editable)
+	assert_true(panel._owner.visible)
+	assert_eq(panel._owner.text, "Empire Red")
+	assert_false(panel._actions.visible, "no split or merge")
+	assert_false(panel._scrap_row.visible, "no scrapping")
+	for stance in panel._stance_buttons:
+		assert_true(panel._stance_buttons[stance].disabled)
+	var picks := panel._ships.find_children("*", "CheckBox", true, false).filter(
+		func(c): return not c.get_parent().is_queued_for_deletion()
+	)
+	assert_eq(picks.size(), 0, "ships can't be picked")
+	panel.show_data(SAMPLE)
+	assert_true(panel._name.editable, "own fleets are editable again")
+	assert_false(panel._owner.visible)

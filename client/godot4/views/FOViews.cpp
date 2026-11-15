@@ -20,6 +20,7 @@
 #include "../../../universe/Field.h"
 #include "../../../universe/FieldType.h"
 #include "../../../universe/Fleet.h"
+#include "../../../universe/Pathfinder.h"
 #include "../../../universe/Planet.h"
 #include "../../../universe/Ship.h"
 #include "../../../universe/ShipDesign.h"
@@ -151,6 +152,8 @@ void FOFleet::_bind_methods() {
     ClassDB::bind_method(D_METHOD("is_passive"), &FOFleet::is_passive);
     ClassDB::bind_method(D_METHOD("get_eta"), &FOFleet::get_eta);
     ClassDB::bind_method(D_METHOD("get_aggression"), &FOFleet::get_aggression);
+    ClassDB::bind_method(D_METHOD("preview_route", "dest_system_id", "append"), &FOFleet::preview_route,
+                         DEFVAL(false));
 }
 
 bool FOFleet::is_valid() const
@@ -215,6 +218,64 @@ bool FOFleet::is_aggressive() const {
 bool FOFleet::is_passive() const {
     const auto* fleet = Lookup<Fleet>(m_id);
     return fleet && fleet->Passive();
+}
+
+namespace {
+    // A move path as points, and the points where turns end.
+    void PathPoints(const std::vector<MovePathNode>& path, godot::PackedVector2Array& points,
+                    godot::PackedVector2Array& turn_ends)
+    {
+        for (const auto& node : path) {
+            const godot::Vector2 at{static_cast<float>(node.x), static_cast<float>(node.y)};
+            if (points.is_empty() || points[points.size() - 1] != at)
+                points.push_back(at);
+            if (node.turn_end)
+                turn_ends.push_back(at);
+        }
+    }
+}
+
+godot::Dictionary FOFleet::preview_route(int dest_system_id, bool append) const {
+    godot::Dictionary result;
+    const auto* fleet = Lookup<Fleet>(m_id);
+    auto* app = ClientApp::GetApp();
+    if (!fleet || !app)
+        return result;
+    const auto& context = app->GetContext();
+    // Checked first, as Check logs an error for each (and this runs on hover).
+    if (!fleet->OwnedBy(app->EmpireID()) || !context.ContextObjects().getRaw<System>(dest_system_id))
+        return result;
+    if (!FleetMoveOrder::Check(app->EmpireID(), m_id, dest_system_id, append, context))
+        return result;
+    // As FleetMoveOrder builds the route.
+    int start = fleet->SystemID();
+    if (start == INVALID_OBJECT_ID)
+        start = fleet->NextSystemID();
+    const auto& current = fleet->TravelRoute();
+    if (append && !current.empty())
+        start = current.back();
+    auto path = context.ContextUniverse().GetPathfinder().ShortestPath(start, dest_system_id, app->EmpireID()).first;
+    if (path.empty())
+        return result;
+    if (path.front() == fleet->SystemID())
+        path.erase(path.begin());
+    std::vector<int> route;
+    if (append)
+        route.assign(current.begin(), current.end());
+    for (const int id : path)
+        if (route.empty() || route.back() != id)
+            route.push_back(id);
+    const auto move_path = fleet->MovePath(route, false, context);
+    godot::PackedVector2Array points, turn_ends;
+    points.push_back(Position(*fleet));
+    PathPoints(move_path, points, turn_ends);
+    const auto eta = fleet->ETA(move_path).first;
+    const bool never = eta == Fleet::ETA_NEVER || eta == Fleet::ETA_UNKNOWN || eta == Fleet::ETA_OUT_OF_RANGE;
+    result["systems"] = ToPacked(route);
+    result["points"] = points;
+    result["turn_ends"] = turn_ends;
+    result["eta"] = never ? -1 : static_cast<int>(eta);
+    return result;
 }
 
 int FOFleet::get_eta() const {
@@ -539,6 +600,8 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     godot::PackedInt32Array fleet_ids;
     godot::PackedVector2Array fleet_positions;
     godot::PackedInt32Array fleet_owner_ids;
+    godot::Array fleet_paths;
+    godot::Array fleet_turn_ends;
     godot::PackedInt32Array supply_systems;
     godot::PackedInt32Array supply_system_owners;
     godot::PackedInt32Array supply_lanes;
@@ -580,14 +643,28 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
             }
         }
 
+        // Fleets, and the paths of those under way (each turn's end marked).
+        const auto& destroyed = app->GetUniverse().EmpireKnownDestroyedObjectIDs(app->EmpireID());
+        const auto& context = app->GetContext();
         for (const auto* fleet : objects.allRaw<Fleet>()) {
+            if (destroyed.contains(fleet->ID()) || fleet->Empty())
+                continue;
             fleet_ids.push_back(fleet->ID());
             fleet_positions.push_back(Position(*fleet));
             fleet_owner_ids.push_back(fleet->Owner());
+            godot::PackedVector2Array points, turn_ends;
+            const int destination = fleet->FinalDestinationID();
+            if (destination != INVALID_OBJECT_ID && destination != fleet->SystemID() &&
+                !fleet->TravelRoute().empty())
+            {
+                points.push_back(Position(*fleet));
+                PathPoints(fleet->MovePath(false, context), points, turn_ends);
+            }
+            fleet_paths.push_back(points);
+            fleet_turn_ends.push_back(turn_ends);
         }
 
         // Fields (ion storms, nebulae, ...): their size meter is the radius.
-        const auto& destroyed = app->GetUniverse().EmpireKnownDestroyedObjectIDs(app->EmpireID());
         for (const auto* field : objects.allRaw<Field>()) {
             if (destroyed.contains(field->ID()))
                 continue;
@@ -660,6 +737,8 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["fleet_ids"] = fleet_ids;
     snapshot["fleet_positions"] = fleet_positions;
     snapshot["fleet_owner_ids"] = fleet_owner_ids;
+    snapshot["fleet_paths"] = fleet_paths;
+    snapshot["fleet_turn_ends"] = fleet_turn_ends;
     snapshot["supply_systems"] = supply_systems;
     snapshot["supply_system_owners"] = supply_system_owners;
     snapshot["supply_lanes"] = supply_lanes;

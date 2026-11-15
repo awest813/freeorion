@@ -17,6 +17,8 @@ signal snapshot_changed
 signal system_clicked(system_id: int)
 ## A box was dragged from empty space: \a fleet_ids are the fleets inside.
 signal fleets_boxed(fleet_ids: PackedInt32Array)
+## A fleet's marker was clicked.
+signal fleet_clicked(fleet_id: int)
 ## Right-click (not drag) on a system, e.g. to order the active fleet there.
 signal system_context_requested(system_id: int)
 ## A field (no system under the cursor) was clicked: its type, for the Pedia.
@@ -56,6 +58,8 @@ var show_scale_circle := false:
 			_overlay.queue_redraw()
 ## Only this empire's fleets are box-selected (-2: any).
 var own_empire_id := -2
+## The fleets: markers, movement lines, the route preview.
+var fleets: FleetLayer
 var show_detection := false:
 	set(value):
 		show_detection = value
@@ -68,11 +72,6 @@ var _positions := PackedVector2Array()
 var _star_types := PackedInt32Array()
 var _names := PackedStringArray()
 var _lanes := PackedInt32Array()
-var _fleet_positions := PackedVector2Array()
-var _fleet_ids := PackedInt32Array()
-var _fleet_owners := PackedInt32Array()
-## Fleets marked as selected together (box selection): id -> true.
-var _marked_fleets := {}
 ## Box selection: where the press started (screen), and whether it's a box.
 var _box_from := Vector2.INF
 var _box_to := Vector2.ZERO
@@ -80,8 +79,6 @@ var _boxing := false
 ## Field under a left press away from systems: opened on release unless the
 ## press became a box.
 var _pressed_field := -1
-var _fleet_colors := PackedColorArray()
-var _fleet_stack := PackedInt32Array()
 var _supply_lanes := PackedInt32Array()
 var _supply_lane_colors := PackedColorArray()
 var _supply_systems := PackedInt32Array()
@@ -161,6 +158,11 @@ func _ready() -> void:
 	_mode_layer.map = self
 	add_child(_mode_layer)
 	move_child(_mode_layer, _lane_layer.get_index() + 1)
+	# Fleets above the overlay (selection, routes).
+	fleets = FleetLayer.new()
+	fleets.map = self
+	add_child(fleets)
+	move_child(fleets, _overlay.get_index() + 1)
 	_overlay.draw_callback = _draw_overlay
 	_starfield.draw_callback = _draw_starfield
 	_label_layer.draw_callback = _draw_labels
@@ -202,9 +204,7 @@ func set_snapshot(
 	_positions = snapshot.get("system_positions", PackedVector2Array())
 	_star_types = snapshot.get("system_star_types", PackedInt32Array())
 	_lanes = snapshot.get("lanes", PackedInt32Array())
-	_fleet_positions = snapshot.get("fleet_positions", PackedVector2Array())
-	_fleet_ids = snapshot.get("fleet_ids", PackedInt32Array())
-	_fleet_owners = snapshot.get("fleet_owner_ids", PackedInt32Array())
+	fleets.set_fleets(snapshot, fleet_colors)
 	_field_ids = snapshot.get("field_ids", PackedInt32Array())
 	_field_positions = snapshot.get("field_positions", PackedVector2Array())
 	_field_radii = snapshot.get("field_radii", PackedFloat32Array())
@@ -218,7 +218,6 @@ func set_snapshot(
 	_supply_systems = snapshot.get("supply_systems", PackedInt32Array())
 	_supply_system_colors = snapshot.get("supply_system_colors", PackedColorArray())
 	_names = names
-	_fleet_colors = fleet_colors
 
 	_index_by_id.clear()
 	for i in _system_ids.size():
@@ -228,7 +227,6 @@ func set_snapshot(
 
 	_rebuild_bounds()
 	_rebuild_grid()
-	_rebuild_fleet_stacks()
 	_rebuild_stars()
 	_rebuild_labels()
 	if not _has_framed and bounds.has_area():
@@ -270,22 +268,12 @@ func set_highlighted(system_ids: PackedInt32Array) -> void:
 ## Fleets whose position lies in world rectangle \a rect, optionally only
 ## those of empire \a owner_id.
 func fleets_in_rect(rect: Rect2, owner_id := -2) -> PackedInt32Array:
-	var result := PackedInt32Array()
-	for i in mini(_fleet_ids.size(), _fleet_positions.size()):
-		if not rect.abs().grow(0.001).has_point(_fleet_positions[i]):
-			continue
-		if owner_id != -2 and (i >= _fleet_owners.size() or _fleet_owners[i] != owner_id):
-			continue
-		result.push_back(_fleet_ids[i])
-	return result
+	return fleets.fleets_in_rect(rect, owner_id)
 
 
 ## Ring the markers of \a fleet_ids (fleets selected together).
 func set_marked_fleets(fleet_ids: PackedInt32Array) -> void:
-	_marked_fleets.clear()
-	for fleet_id in fleet_ids:
-		_marked_fleets[fleet_id] = true
-	_overlay.queue_redraw()
+	fleets.set_marked(fleet_ids)
 
 
 func is_highlighted(system_id: int) -> bool:
@@ -429,6 +417,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		var button := event as InputEventMouseButton
 		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
 			var world := camera.screen_to_world(button.position)
+			# A fleet marker beside a star wins over the star.
+			var fleet_id := fleets.pick(world, 1.0 / camera.zoom_level())
+			if fleet_id >= 0:
+				fleet_clicked.emit(fleet_id)
+				get_viewport().set_input_as_handled()
+				return
 			var system_id := pick_system(world)
 			# Away from systems a press may become a selection box; if it
 			# doesn't, a field there opens on release.
@@ -463,6 +457,7 @@ func _on_view_changed() -> void:
 	_supply_area.queue_redraw()
 	_lane_layer.queue_redraw()
 	_overlay.queue_redraw()
+	fleets.queue_redraw()
 	_label_layer.queue_redraw()
 
 
@@ -597,7 +592,6 @@ func _draw_overlay(layer: CanvasItem) -> void:
 	_draw_unexplored_rings(layer, px, view)
 	_draw_highlights(layer, px, view)
 	_draw_route(layer, px)
-	_draw_fleets(layer, px, view)
 	_draw_box(layer, px)
 	var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
 	var ring := MapStyle.SELECTION_RING_PX * px
@@ -662,27 +656,6 @@ func _draw_box(layer: CanvasItem, px: float) -> void:
 	layer.draw_rect(rect, accent, false, 1.5 * px)
 
 
-func _draw_fleets(layer: CanvasItem, px: float, view: Rect2) -> void:
-	var size := MapStyle.FLEET_PX * px
-	var tip := Vector2(size, 0)
-	var top := Vector2(-size * 0.6, -size * 0.6)
-	var bottom := Vector2(-size * 0.6, size * 0.6)
-	for i in _fleet_positions.size():
-		if not view.has_point(_fleet_positions[i]):
-			continue
-		# Fleets at the same spot are stacked to the upper right of the star.
-		var origin := _fleet_positions[i] + Vector2(12.0, -10.0 + 9.0 * _fleet_stack[i]) * px
-		var color: Color = _fleet_colors[i] if i < _fleet_colors.size() else Color.WHITE
-		if i < _fleet_ids.size() and _marked_fleets.has(_fleet_ids[i]):
-			var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
-			layer.draw_arc(origin, size * 1.1, 0, TAU, 20, accent, 1.5 * px, true)
-		layer.draw_primitive(
-			PackedVector2Array([origin + tip, origin + top, origin + bottom]),
-			PackedColorArray([color, color, color]),
-			PackedVector2Array()
-		)
-
-
 func _draw_labels(layer: CanvasItem) -> void:
 	if _label_font == null or _names.is_empty():
 		return
@@ -695,6 +668,7 @@ func _draw_labels(layer: CanvasItem) -> void:
 	var screen := Rect2(Vector2.ZERO, get_viewport_rect().size)
 	var placed := _LabelGrid.new()
 	_draw_route_chip(layer, placed)
+	_draw_preview_chip(layer, placed)
 	_draw_hover_chip(layer, placed)
 	_draw_field_chip(layer, placed)
 	for i in _label_order:
@@ -740,6 +714,17 @@ func _draw_route_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
 		-1,
 		size,
 		tokens.text_on_accent
+	)
+
+
+# ETA of the route a fleet would take, beside its end.
+func _draw_preview_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
+	var points := fleets.preview_points()
+	if points.size() < 2 or fleets.preview_label().is_empty():
+		return
+	var at := camera.world_to_screen(points[points.size() - 1])
+	_draw_chip(
+		layer, placed, fleets.preview_label(), at + Vector2(0, -MapStyle.LABEL_FONT_SIZE * 2.4)
 	)
 
 
@@ -896,16 +881,6 @@ func _rebuild_grid() -> void:
 		var members: PackedInt32Array = _grid[cell]
 		members.push_back(i)
 		_grid[cell] = members
-
-
-func _rebuild_fleet_stacks() -> void:
-	_fleet_stack.resize(_fleet_positions.size())
-	var count_at := {}
-	for i in _fleet_positions.size():
-		var key := Vector2i(roundi(_fleet_positions[i].x), roundi(_fleet_positions[i].y))
-		var n: int = count_at.get(key, 0)
-		_fleet_stack[i] = n
-		count_at[key] = n + 1
 
 
 func _rebuild_stars() -> void:

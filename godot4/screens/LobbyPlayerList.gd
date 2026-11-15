@@ -297,7 +297,7 @@ func _color_picker(player: Dictionary, editable: bool) -> OptionButton:
 	if not current in all:
 		all.push_back(current)
 	for color in all:
-		picker.add_icon_item(swatch(color), "")
+		picker.add_icon_item(FOArt.swatch(color), "")
 		picker.set_item_metadata(picker.item_count - 1, color)
 		if color == current:
 			picker.select(picker.item_count - 1)
@@ -350,7 +350,7 @@ func _add_load_game_cells(row: HBoxContainer, player: Dictionary, editable: bool
 		if empire_id != current and not empire_id in free:
 			continue
 		picker.add_icon_item(
-			swatch(empire.get("color", Color.WHITE)), empire.get("empire_name", "")
+			FOArt.swatch(empire.get("color", Color.WHITE)), empire.get("empire_name", "")
 		)
 		picker.set_item_metadata(picker.item_count - 1, empire_id)
 		if empire_id == current:
@@ -372,7 +372,7 @@ func _empire_row(empire: Dictionary) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", FOUi.tokens.space_2)
 	var icon := TextureRect.new()
-	icon.texture = swatch(empire.get("color", Color.WHITE))
+	icon.texture = FOArt.swatch(empire.get("color", Color.WHITE))
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 	icon.custom_minimum_size.x = 110
 	row.add_child(icon)
@@ -395,11 +395,3 @@ func _empire_row(empire: Dictionary) -> HBoxContainer:
 		add.pressed.connect(_add_ai_for.bind(empire))
 		row.add_child(add)
 	return row
-
-
-## A small square of \a color for pickers.
-static func swatch(color: Color) -> ImageTexture:
-	var size := 16
-	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
-	image.fill(color)
-	return ImageTexture.create_from_image(image)

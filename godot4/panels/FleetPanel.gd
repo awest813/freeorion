@@ -1,7 +1,8 @@
 class_name FleetPanel
 extends PanelContainer
-## Details of one own fleet: name (editable), destination, stance, ships
-## (design, structure, roles) and split/merge. It doesn't order anything
+## Details of one fleet: name (editable), destination, stance, ships
+## (design, structure, roles) and split/merge. Other empires' and monster
+## fleets are shown read-only, with their owner. It doesn't order anything
 ## itself: it emits requests that GameShell turns into FOOrders and then
 ## refreshes the panel. show_fleet(id) reads the game; show_data(dict) takes
 ## the from_universe() layout directly (tests, previews).
@@ -35,6 +36,9 @@ var fleet_id := -1
 var _data := {}
 var _name: LineEdit
 var _route: Label
+var _owner: Label
+var _actions: HBoxContainer
+var _scrap_row: HBoxContainer
 var _stance_buttons := {}
 var _ships: VBoxContainer
 var _ships_scroll: ScrollContainer
@@ -54,7 +58,7 @@ func _init() -> void:
 	_build()
 
 
-## Show own fleet \a id from the client universe; -1 hides the panel.
+## Show fleet \a id from the client universe; -1 hides the panel.
 func show_fleet(id: int) -> void:
 	fleet_id = id
 	show_data(from_universe(id) if id >= 0 else {})
@@ -75,6 +79,14 @@ func show_data(data: Dictionary) -> void:
 		FOUi.fade_in(self)
 	if not _name.has_focus():
 		_name.text = data.get("name", "")
+	var own := is_own()
+	_name.editable = own
+	_name.tooltip_text = tr("FLEET_PANEL_RENAME") if own else ""
+	_owner.text = data.get("owner_name", "")
+	_owner.visible = not own and not _owner.text.is_empty()
+	_owner.add_theme_color_override("font_color", data.get("owner_color", Color.WHITE))
+	_actions.visible = own
+	_scrap_row.visible = own
 	var destination: String = data.get("destination", "")
 	_route.text = (
 		(
@@ -88,6 +100,7 @@ func show_data(data: Dictionary) -> void:
 	var aggression: String = data.get("aggression", "")
 	for stance in _stance_buttons:
 		_stance_buttons[stance].set_pressed_no_signal(stance == aggression)
+		_stance_buttons[stance].disabled = not own
 	var ship_ids := {}
 	ScreenKit.clear(_ships)
 	for ship: Dictionary in data.get("ships", []):
@@ -118,11 +131,16 @@ func _fit_ship_list() -> void:
 	_ships_scroll.custom_minimum_size.y = height
 
 
+## Whether the fleet shown is the player's own (else it's read-only).
+func is_own() -> bool:
+	return _data.get("own", true)
+
+
 func selected_ship_ids() -> PackedInt32Array:
 	return PackedInt32Array(_selected.keys())
 
 
-## Panel data for own fleet \a id from the client universe ({} if unknown).
+## Panel data for fleet \a id from the client universe ({} if unknown).
 static func from_universe(id: int) -> Dictionary:
 	var fleet: FOFleet = FOUniverse.get_fleet(id)
 	if fleet == null:
@@ -160,8 +178,17 @@ static func from_universe(id: int) -> Dictionary:
 			var other: FOFleet = FOUniverse.get_fleet(other_id)
 			if other and other_id != id and other.get_owner_id() == fleet.get_owner_id():
 				merge_targets.push_back({"id": other_id, "name": other.get_name()})
+	var owner_id := fleet.get_owner_id()
 	return {
 		"id": id,
+		"own": owner_id >= 0 and owner_id == FOUniverse.get_empire_id(),
+		"owner_name":
+		(
+			FOUniverse.get_empire_name(owner_id)
+			if owner_id >= 0
+			else TranslationServer.translate("MONSTERS")
+		),
+		"owner_color": FOUniverse.get_empire_color(owner_id),
 		"name": fleet.get_name(),
 		"aggression": fleet.get_aggression(),
 		"destination": destination,
@@ -178,6 +205,9 @@ func _build() -> void:
 	_name.tooltip_text = tr("FLEET_PANEL_RENAME")
 	_name.text_submitted.connect(_on_name_submitted)
 	box.add_child(_name)
+	_owner = ScreenKit.label("", "SmallLabel")
+	_owner.visible = false
+	box.add_child(_owner)
 	_route = ScreenKit.label("", "SecondaryLabel")
 	box.add_child(_route)
 
@@ -207,6 +237,7 @@ func _build() -> void:
 	box.add_child(_ships_scroll)
 
 	var actions := HBoxContainer.new()
+	_actions = actions
 	box.add_child(actions)
 	_split = Button.new()
 	_split.text = tr("FLEET_PANEL_SPLIT")
@@ -226,6 +257,7 @@ func _build() -> void:
 	actions.add_child(_merge)
 	# Scrapping on its own row, away from the everyday actions.
 	var scrap_row := HBoxContainer.new()
+	_scrap_row = scrap_row
 	scrap_row.alignment = BoxContainer.ALIGNMENT_END
 	box.add_child(scrap_row)
 	_scrap = Button.new()
@@ -239,12 +271,13 @@ func _ship_row(ship: Dictionary) -> Control:
 	# Drag a ship (or the ticked ships, if it is one) onto another fleet to
 	# move them there, or onto Split to make a new fleet.
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
-	row.set_drag_forwarding(ship_drag_data.bind(ship["id"]), Callable(), Callable())
-	var pick := CheckBox.new()
-	pick.button_pressed = _selected.has(ship["id"])
-	pick.tooltip_text = tr("FLEET_PANEL_SELECT_SHIP")
-	pick.toggled.connect(_on_ship_toggled.bind(ship["id"]))
-	row.add_child(pick)
+	if is_own():
+		row.set_drag_forwarding(ship_drag_data.bind(ship["id"]), Callable(), Callable())
+		var pick := CheckBox.new()
+		pick.button_pressed = _selected.has(ship["id"])
+		pick.tooltip_text = tr("FLEET_PANEL_SELECT_SHIP")
+		pick.toggled.connect(_on_ship_toggled.bind(ship["id"]))
+		row.add_child(pick)
 	row.add_child(ScreenKit.icon(ship.get("icon", ""), FOUi.tokens.icon))
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL

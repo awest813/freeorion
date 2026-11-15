@@ -31,6 +31,8 @@ var _fleets: Label
 var _fleet_list: VBoxContainer
 var _notice: Label
 var _selected_fleet := -1
+## Own fleets listed: id -> true (only they take orders).
+var _own_fleets := {}
 
 
 func _init() -> void:
@@ -91,7 +93,7 @@ func selected_fleet_id() -> int:
 	return _selected_fleet
 
 
-## Select one of the listed own fleets (-1 clears), emitting fleet_selected.
+## Select one of the listed fleets (-1 clears), emitting fleet_selected.
 func select_fleet(fleet_id: int) -> void:
 	if fleet_id == _selected_fleet:
 		return
@@ -112,6 +114,7 @@ func _rebuild_fleet_list(fleets: Array) -> void:
 	for child in _fleet_list.get_children():
 		child.queue_free()
 	var still_listed := false
+	_own_fleets.clear()
 	for fleet: Dictionary in fleets:
 		var ships: int = fleet.get("ships", 0)
 		var line_key := (
@@ -121,29 +124,26 @@ func _rebuild_fleet_list(fleets: Array) -> void:
 		var destination: String = fleet.get("destination", "")
 		if not destination.is_empty():
 			line += "  " + tr("SYSTEM_PANEL_FLEET_DESTINATION").replace("%1%", destination)
+		# Every fleet can be selected; only own ones take ships dropped on them.
+		var button := Button.new()
+		button.text = line
+		button.toggle_mode = true
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		button.set_meta("fleet_id", fleet["id"])
+		button.button_pressed = fleet["id"] == _selected_fleet
+		button.toggled.connect(_on_fleet_toggled.bind(fleet["id"]))
 		if fleet.get("own", false):
-			var button := Button.new()
-			button.text = line
-			button.toggle_mode = true
-			button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			button.set_meta("fleet_id", fleet["id"])
-			button.button_pressed = fleet["id"] == _selected_fleet
-			button.toggled.connect(_on_fleet_toggled.bind(fleet["id"]))
+			_own_fleets[fleet["id"]] = true
 			button.set_drag_forwarding(
 				Callable(), can_drop_ships.bind(fleet["id"]), drop_ships.bind(fleet["id"])
 			)
-			_fleet_list.add_child(button)
-			still_listed = still_listed or fleet["id"] == _selected_fleet
 		else:
-			var row := HBoxContainer.new()
-			var swatch := ColorRect.new()
-			swatch.color = fleet.get("owner_color", Color.WHITE)
-			swatch.custom_minimum_size = Vector2(FOUi.tokens.space_2, FOUi.tokens.space_2) * 1.5
-			swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			row.add_child(swatch)
-			row.add_child(_label(line, "SecondaryLabel"))
-			_fleet_list.add_child(row)
+			button.theme_type_variation = "GhostButton"
+			button.icon = FOArt.swatch(fleet.get("owner_color", Color.WHITE), 10)
+			button.tooltip_text = fleet.get("owner_name", "")
+		_fleet_list.add_child(button)
+		still_listed = still_listed or fleet["id"] == _selected_fleet
 	if _selected_fleet != -1 and not still_listed:
 		_selected_fleet = -1
 		fleet_selected.emit(-1)
@@ -166,7 +166,7 @@ func _on_fleet_toggled(pressed: bool, fleet_id: int) -> void:
 
 
 func _update_hint() -> void:
-	if _selected_fleet != -1 and not _notice.visible:
+	if _own_fleets.has(_selected_fleet) and not _notice.visible:
 		show_notice(tr("SYSTEM_PANEL_MOVE_HINT"))
 
 
@@ -224,6 +224,12 @@ static func from_universe(id: int) -> Dictionary:
 					"ships": fleet.get_ship_ids().size(),
 					"own": own,
 					"owner_color": FOUniverse.get_empire_color(fleet.get_owner_id()),
+					"owner_name":
+					(
+						FOUniverse.get_empire_name(fleet.get_owner_id())
+						if fleet.get_owner_id() >= 0
+						else TranslationServer.translate("MONSTERS")
+					),
 					"destination": destination,
 				}
 			)

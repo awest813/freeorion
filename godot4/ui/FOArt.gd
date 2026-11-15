@@ -40,3 +40,11 @@ static func _icon(relative_path: String) -> Texture2D:
 	var texture: Texture2D = load(path) if ResourceLoader.exists(path) else null
 	_cache[relative_path] = texture
 	return texture
+
+
+## A small square of \a color (\a size pixels), e.g. for an owner in a
+## list or picker.
+static func swatch(color: Color, size := 16) -> ImageTexture:
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	image.fill(color)
+	return ImageTexture.create_from_image(image)

@@ -99,8 +99,10 @@ func test_own_fleets_are_selectable():
 	panel.show_data(SAMPLE)
 	await wait_process_frames(1)
 	var buttons := panel._fleet_list.find_children("*", "Button", true, false)
-	assert_eq(buttons.size(), 2, "Only own fleets are buttons")
+	assert_eq(buttons.size(), 3, "Every fleet can be picked")
 	assert_string_contains(buttons[1].text, "Mu Arae", "Destination shown")
+	assert_eq(buttons[2].theme_type_variation, "GhostButton", "Others' fleets look apart")
+	assert_not_null(buttons[2].icon, "with their owner's colour")
 	watch_signals(panel)
 	buttons[0].button_pressed = true
 	assert_signal_emitted_with_parameters(panel, "fleet_selected", [7])
@@ -109,6 +111,10 @@ func test_own_fleets_are_selectable():
 	buttons[1].button_pressed = true
 	assert_eq(panel.selected_fleet_id(), 8, "Single selection")
 	assert_false(buttons[0].button_pressed)
+	panel.show_notice("")
+	buttons[2].button_pressed = true
+	assert_eq(panel.selected_fleet_id(), SAMPLE["fleets"][2]["id"], "Monsters can be inspected")
+	assert_false(panel._notice.visible, "No move hint for fleets you can't order")
 
 
 func test_selection_survives_refresh_until_fleet_leaves():

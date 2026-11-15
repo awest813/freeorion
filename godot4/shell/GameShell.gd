@@ -268,6 +268,8 @@ func _ready() -> void:
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
 		map_view.map.own_empire_id = FOUniverse.get_empire_id()
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
+	map_view.map.fleet_clicked.connect(_on_fleet_clicked)
+	map_view.map.system_hovered.connect(_on_system_hovered)
 	map_view.map.field_activated.connect(
 		func(field_type: String): open_pedia("fieldtype", field_type)
 	)
@@ -532,7 +534,7 @@ func _on_system_context_requested(system_id: int) -> void:
 	if map_modes.has_fleet_selection() and follow_game:
 		map_modes.move_selected_fleets(system_id)
 		return
-	var fleet_id := system_panel.selected_fleet_id()
+	var fleet_id := _active_fleet()
 	if fleet_id < 0 or not follow_game:
 		return
 	# With Shift, the move is a waypoint after the fleet's current route.
@@ -543,7 +545,49 @@ func _on_system_context_requested(system_id: int) -> void:
 	system_panel.refresh()
 	if fleet_panel.visible:
 		fleet_panel.refresh()
+	map_view.map.fleets.set_preview(PackedVector2Array(), PackedVector2Array())
 	_show_route(fleet_id)
+
+
+# The own fleet orders go to: the one in the fleet panel (also between
+# systems), else the one picked in the system panel; -1 for none.
+func _active_fleet() -> int:
+	if fleet_panel.visible and fleet_panel.fleet_id >= 0:
+		return fleet_panel.fleet_id if fleet_panel.is_own() else -1
+	return system_panel.selected_fleet_id()
+
+
+# A fleet marker on the map: select that fleet where it is.
+func _on_fleet_clicked(fleet_id: int) -> void:
+	var fleet: FOFleet = FOUniverse.get_fleet(fleet_id) if follow_game else null
+	if fleet == null:
+		return
+	map_modes.clear_fleet_selection()
+	# Select it in place; the camera stays where the player put it.
+	var system_id := fleet.get_system_id()
+	map_view.map.select_system(system_id if system_id >= 0 else GalaxyMap.NO_SYSTEM)
+	if system_id >= 0:
+		system_panel.select_fleet(fleet_id)
+	else:
+		_on_fleet_selected(fleet_id)
+
+
+# With an own fleet active, hovering a system shows the route it would take
+# there and when it would arrive (Shift: after its current route).
+func _on_system_hovered(system_id: int) -> void:
+	var fleets := map_view.map.fleets
+	var fleet_id := _active_fleet() if follow_game else -1
+	var fleet: FOFleet = FOUniverse.get_fleet(fleet_id) if fleet_id >= 0 else null
+	if fleet == null or system_id < 0 or system_id == fleet.get_system_id():
+		fleets.set_preview(PackedVector2Array(), PackedVector2Array())
+		return
+	var preview: Dictionary = fleet.preview_route(system_id, Input.is_key_pressed(KEY_SHIFT))
+	var eta: int = preview.get("eta", -1)
+	fleets.set_preview(
+		preview.get("points", PackedVector2Array()),
+		preview.get("turn_ends", PackedVector2Array()),
+		eta_text(eta) if not preview.is_empty() else ""
+	)
 
 
 # A planet's details replace a fleet's, and the other way round.
@@ -568,6 +612,8 @@ func _on_fleet_selected(fleet_id: int) -> void:
 	if fleet_id < 0 or ship_panel.visible and not _fleet_has_ship(fleet_id, ship_panel.ship_id):
 		ship_panel.show_data({})
 	_show_route(fleet_id)
+	map_view.map.fleets.selected_fleet = fleet_id
+	map_view.map.fleets.set_preview(PackedVector2Array(), PackedVector2Array())
 	if follow_game:
 		fleet_panel.show_fleet(fleet_id)
 	elif fleet_id < 0:

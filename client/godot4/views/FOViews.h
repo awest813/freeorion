@@ -67,6 +67,11 @@ public:
     int get_eta() const;
     /** "passive", "defensive", "obstructive" or "aggressive". */
     godot::String get_aggression() const;
+    /** Where the fleet would go if ordered to \a dest_system_id (after its
+      * current route if \a append), without ordering it: {systems (route),
+      * points (move path), turn_ends (where each turn ends), eta (-1 if it
+      * can't get there)}. Empty if the move isn't allowed. */
+    godot::Dictionary preview_route(int dest_system_id, bool append) const;
 
 protected:
     static void _bind_methods();

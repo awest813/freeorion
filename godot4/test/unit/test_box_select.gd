@@ -62,7 +62,7 @@ func test_fleets_in_rect_and_ownership():
 func test_box_selects_own_fleets_and_esc_clears():
 	_drag(Vector2(-200, -150), Vector2(400, 150))
 	assert_eq(shell.map_modes.selected_fleets, PackedInt32Array([10, 11]), "Not the other empire's")
-	assert_true(shell.map_view.map._marked_fleets.has(10))
+	assert_true(shell.map_view.map.fleets._marked.has(10))
 	assert_true(shell.map_modes.banner.visible)
 	assert_string_contains(shell.map_modes.banner_text(), "2")
 	var escape := InputEventAction.new()

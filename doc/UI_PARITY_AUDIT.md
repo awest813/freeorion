@@ -23,10 +23,10 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [ ] Auto end-turn toggle — S
 - [ ] Auto-explore for fleets — M
 - [ ] Double-click a system or planet: production there — S
-- [ ] Route and ETA preview when hovering a system with a fleet selected — S
-- [ ] Movement lines for all visible fleets, with ETA markers per turn — M
-- [ ] Click fleet icons on the map (in transit too; repeated clicks cycle) — M
-- [ ] Inspect foreign and monster fleets — M
+- [x] Route and ETA preview when hovering a system with a fleet selected — S
+- [x] Movement lines for all visible fleets, with ETA markers per turn — M
+- [x] Click fleet icons on the map (in transit too; repeated clicks cycle) (fleets sharing a place are stacked apart, so each is clicked directly) — M
+- [x] Inspect foreign and monster fleets — M
 - [ ] Dismiss sensor ghosts (forget objects no longer seen) — S
 - [ ] Ships tooltip in the top bar (armed, colony, troop, carrier counts) — S
 - [ ] Wasted PP: centre on a system wasting PP — S
