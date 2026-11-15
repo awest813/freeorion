@@ -14,7 +14,7 @@ FreeOrion currently has **three** client UI stacks:
 | Godot 3 (GDNative) | `godot/`, `client/godot/` | Dead end. GDNative doesn't exist in Godot 4. Still built in Ubuntu, Docker, and Android CI. |
 | Godot 4 (GDExtension) | `godot4/`, `client/godot4/` | Active since late Oct 2026, one main contributor. About 230 lines of GDScript and 919 lines of C++, roughly 2% of the GG feature surface. Its stated goal is to be "pixel precise" with GG. |
 
-**Recommendation:** do the overhaul **in the Godot 4 client**, not in GG. Change the Godot 4 port's goal from "pixel-precise clone of GG" to "**design-system-first rebuild that keeps GG's gameplay feature set**". GG gets maintenance only (crash fixes and a few cheap wins) until Godot 4 reaches parity, then it is retired.
+**Decision (§3):** do the overhaul **in the Godot 4 client, in this fork**, desktop-first, on the **GL Compatibility** renderer. In this fork, the Godot 4 client's goal changes from "pixel-precise clone of GG" to "**design-system-first rebuild that keeps GG's gameplay feature set**". GG gets maintenance only (crash fixes and a few cheap wins) until Godot 4 reaches parity, then it is retired.
 
 A redesign of the GG stack would mean rewriting its renderer (GL 2 fixed-function, `GL_QUADS`, a 72-DPI glyph atlas without shaping or fallback), adding a layout engine to about 1,000 manual `MoveTo`/`Resize` calls, and adding DPI scaling, focus navigation, and touch. Godot 4 already provides all of that: Theme, Containers, HarfBuzz shaping, font fallback, MSDF fonts, `content_scale_factor`, focus neighbours, gamepad and touch input, shaders, MultiMesh, and Android export. The project is already moving there.
 
@@ -102,21 +102,21 @@ A redesign of the GG stack would mean rewriting its renderer (GL 2 fixed-functio
 
 ---
 
-## 3. Strategic decisions (need owner sign-off)
+## 3. Strategic decisions (resolved 2026-11-15)
 
-1. **Where the overhaul lives:** Godot 4 (recommended) or GG.
-   - GG would need a renderer rewrite before any visual work could start.
-   - Godot 4 already has momentum and an Android target.
-2. **Fidelity goal:** "pixel-precise GG clone" (the current upstream intent, per `godot4/README.md`) or "modern design system with GG feature parity" (recommended).
-   - This is the biggest fork-vs-upstream question. If the work is meant to go upstream, it has to be agreed with the Godot 4 maintainer first.
-   - Otherwise this fork diverges in the `godot4/` scene and theme layer while still sharing the `client/godot4/` bridge.
-   - A middle path is to keep a "Classic" theme that reproduces GG's look as just one theme.
-3. **Platform priority:** desktop-first with mobile-capable layouts (recommended), or mobile-first.
-   - Upstream work is currently Android-first.
-   - A 4X game's information density favours desktop, but every layout should be built from Containers so a compact or touch variant is possible.
-4. **Renderer tier:** keep **GL Compatibility** as the baseline (it runs on Android and old GPUs) and design every shader to work in it.
-   - Forward+/Mobile could be offered later as an opt-in "high quality" tier on desktop.
-5. **Galaxy map dimension:** **2D top-down** (recommended, because universe positions are 2D and it is cheap on mobile and in the Compatibility renderer), with 3D used only inside sub-viewports (planet spheres, hull previews).
+1. **Where the overhaul lives: Godot 4.** GG is frozen to maintenance only.
+2. **Fork, not upstream.** This fork redesigns the client rather than following upstream's "pixel-precise GG clone" goal.
+   - **Merge discipline:** keep tracking upstream `master`. The `client/godot4/` bridge stays generic and close to upstream so their bridge work keeps merging cleanly. Bridge additions are written so they could be offered upstream later.
+   - **Isolation:** all redesign work lives in *new* directories (`godot4/ui/`, `godot4/shell/`, `godot4/map/`, `godot4/screens/`, `godot4/panels/`). Upstream's root-level scenes (`IntroScreen.tscn`, `MapWnd.tscn`, `CUI*`) are replaced by pointing `run/main_scene` at our shell, not by editing them. This keeps merge conflicts confined to `project.godot`.
+   - **No "Classic" theme.** Upstream's GG-matching StyleBoxes remain in the tree for their scenes, but we don't maintain a GG look-alike.
+   - **Rebase cadence:** merge upstream at least every two weeks, and run the screenshot and GUT suites on each merge.
+3. **Desktop-first.** Windows, macOS, and Linux are the design targets.
+   - Minimum supported window size is 1280×720. Mouse and keyboard are primary, and gamepad is a stretch goal.
+   - **Touch and Android are out of scope** for design. Upstream's Android CI keeps building because it arrives with merges, but layouts, budgets, and interaction design don't target it.
+4. **Renderer: GL Compatibility only** (OpenGL 3.3 desktop / GLES3). There is no Forward+ tier.
+   - Every effect (bloom, glow, territory fields, planet impostors) is done with `canvas_item` and `spatial` shaders that are valid under Compatibility.
+   - This keeps integrated-GPU laptops and older Macs fully supported.
+5. **Galaxy map dimension: 2D top-down.** Universe positions are 2D, and 2D is the cheapest path under the Compatibility renderer. 3D is used only inside sub-viewports (planet spheres, hull previews).
    - The Godot 3 3D map added camera complexity without adding gameplay information.
 
 ---
@@ -129,7 +129,7 @@ A redesign of the GG stack would mean rewriting its renderer (GL 2 fixed-functio
 4. **Every colour-coded meaning has a second channel:** an icon, shape, pattern, or label. Colourblind palettes are themes, not afterthoughts.
 5. **Keyboard and gamepad reachable.** Every interactive control participates in focus navigation, and hotkeys remain rebindable.
 6. **The bridge is a product.** The GDExtension API is typed, documented, thread-safe, and tested, because every screen depends on it.
-7. **Performance budgets are tests.** For example, the map holds 60 fps with 500 systems and 2,000 fleets on a mid-range desktop, and 30 fps on a reference Android device.
+7. **Performance budgets are tests.** For example, the map holds 60 fps with 500 systems and 2,000 fleets on a mid-range desktop, and 30 fps on a reference integrated-GPU laptop.
 
 ---
 
@@ -139,10 +139,15 @@ The phases are ordered by dependency. Phases 3–5 overlap heavily once Phase 1 
 
 ### Phase 0: Foundations and housekeeping (≈2–3 weeks)
 
-- **Decisions:** settle the open questions in §3 and write the result into `godot4/README.md`.
-- **Godot version:** pin **one** Godot version for CI, project, and API (today it is 4.4.1, 4.7.2, and 4.4). Recommend the newest stable release that the Android export is validated on.
-- **Retire Godot 3:** remove the Godot 3 builds from the Ubuntu, Docker, and Android CI (`_build-ubuntu.yml`, `_build-docker.yml`, `_build-android.yml`). Delete `godot/` and `client/godot/`, or move them to an archive tag.
-- **Export presets:** add Windows and macOS export presets, so every platform CI builds can also produce a playable export.
+- **Decisions:** record the §3 decisions (fork, desktop-first, GL Compatibility) in `godot4/README.md`, under a "Fork direction" section so upstream merges don't clobber it.
+- **Fork scaffolding:**
+  - Create the new directory skeleton (`ui/`, `shell/`, `map/`, `screens/`, `panels/`) and an empty `shell/Shell.tscn`.
+  - Switch `run/main_scene` to the shell, leaving upstream's scenes untouched.
+  - Document the upstream-merge procedure in `doc/`.
+- **Godot version:** pin **one** Godot version for desktop CI, the project, and the API (today it is 4.4.1, 4.7.2, and 4.4). Use the newest stable release that runs the GUT suite on all three desktop OSes. Leave upstream's Android workflow alone.
+- **Retire Godot 3:** remove the Godot 3 builds from the Ubuntu, Docker, and Android CI (`_build-ubuntu.yml`, `_build-docker.yml`, `_build-android.yml`). Delete `godot/` and `client/godot/`, or move them to an archive tag. Expect a small merge conflict if upstream later touches these files.
+- **Export presets:** add Windows and macOS export presets next to the existing Linux one, so all three desktop platforms produce playable exports in CI.
+- **Renderer setting:** set `rendering_method="gl_compatibility"` explicitly for the desktop override (it already is), and add a CI assertion that no shader uses Forward+-only features. The simplest assertion is that the headless Compatibility run loads every scene without shader errors.
 - **Screenshot tests:** add a CI job that boots Godot headless (or under xvfb with `--rendering-driver opengl3`) and captures golden screenshots of each scene. This becomes the visual-regression net.
 - **GG quick wins**, each a small change that helps today's players:
   - Add `SDL_WINDOW_ALLOW_HIGHDPI` and drawable-size handling, or at least a documented `ui.font.size` recommendation.
@@ -165,10 +170,11 @@ The phases are ordered by dependency. Phases 3–5 overlap heavily once Phase 1 
 ### Phase 2: Design system (≈3–4 weeks, can overlap Phase 1)
 
 - **Tokens:** `godot4/ui/tokens.tres` defines the colour palette (surface, raised, overlay, accent, text-primary, text-secondary, positive, negative, warning, info), a spacing scale (4/8/12/16/24/32), radii, elevation, a type scale, icon sizes, and motion durations.
-- **Theme:** `godot4/ui/theme/fo_default.tres`, generated from the tokens by a small editor script so themes stay consistent. Ship three themes:
+- **Theme:** `godot4/ui/theme/fo_default.tres`, generated from the tokens by a small editor script so themes stay consistent. Ship two themes:
   - **Default**, the new look.
-  - **Classic**, which reproduces today's GG look using the existing `StyleBoxFlat`s, for upstream continuity.
   - **High-contrast.**
+
+  There is no GG-matching "Classic" theme (fork decision, §3).
 - **Colourblind support:** empire colour palettes for deuteranopia, protanopia, and tritanopia, with per-empire shape or glyph markers on the map.
 - **Typography:**
   - Use MSDF fonts so text stays crisp at any scale.
@@ -201,8 +207,8 @@ Build it as a `Node2D` with `Camera2D` and smooth zoom (continuous, with easing,
 - Hover previews, click to select, and right-click for a context menu (move here, colonise, invade, set rally point).
 - Box-select fleets, drag a route with a preview path and ETA, and shift-click to add waypoints.
 - Minimap.
-- Keyboard pan and zoom, and gamepad cursor (stretch goal).
-- Touch: pinch zoom, two-finger pan, long press for the context menu.
+- Keyboard pan and zoom, middle-drag pan, edge-scroll (an option), and gamepad cursor (stretch goal).
+- Touch is out of scope (desktop-first, §3).
 
 **Map modes**, a one-key toggle replacing scattered toggles: political, supply, detection, resource (industry/research heat), and threat.
 
@@ -249,8 +255,8 @@ Order of work, following the gameplay loop:
 - **Motion:** a 120–200 ms motion language (panel slide, hover lift, notification enter and exit) with a "reduce motion" option.
 - **Audio:** re-map the 21 UI sounds through an `AudioBus` with UI, music, and combat sliders. Commission or source CC-BY-SA music, since only one track exists today.
 - **Art pipeline:**
-  - VRAM-compressed imports (ETC2/ASTC on Android, BPTC/S3TC on desktop).
-  - Downscale `hulls_design` and `fields` per platform. Together they are 59 MB, and saving there matters for the APK.
+  - VRAM-compressed imports (S3TC/BPTC for desktop; under Compatibility, check that BPTC falls back cleanly on GPUs without it).
+  - Downscale `hulls_design` and `fields`. Together they are 59 MB of 2K PNGs, which matters for VRAM on integrated GPUs (see the budget in §7.2).
   - Delete or archive the ~297 unreferenced icons after verification.
   - Add an `ATTRIBUTION.yaml` per asset folder to meet CC-BY-SA requirements beyond `credits.xml`.
 - **Remaster passes:** priority is stars and halos, planet textures (1K/2K plus normal maps), and fleet glyphs (vector).
@@ -301,12 +307,15 @@ Track this as a GitHub project. Each GG window maps to one Godot 4 owner scene.
 
 ### 7.2 Performance budgets (initial)
 
-| Scenario | Desktop (mid GPU) | Android (reference device) |
+All figures are measured with the GL Compatibility renderer.
+
+| Scenario | Desktop (mid discrete GPU) | Low-end desktop (integrated GPU, e.g. Intel UHD 620) |
 |---|---|---|
-| Map, 500 systems / 2k fleets, panning | 60 fps (≤16.6 ms) | 30 fps |
-| Turn-update → map refreshed | ≤150 ms | ≤400 ms |
-| Open any screen | ≤100 ms | ≤250 ms |
-| APK size | — | ≤ current GG-free APK + 10% |
+| Map, 500 systems / 2k fleets, panning | 60 fps (≤16.6 ms) | 30 fps (≤33 ms) |
+| Map, 1000 systems, panning | 60 fps | 30 fps |
+| Turn-update → map refreshed | ≤150 ms | ≤300 ms |
+| Open any screen | ≤100 ms | ≤200 ms |
+| VRAM, full game loaded | ≤1 GB | ≤512 MB |
 
 ### 7.3 Conventions and lint
 
@@ -334,24 +343,25 @@ Track this as a GitHub project. Each GG window maps to one Godot 4 owner scene.
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| Upstream wants a pixel-precise port, so the fork diverges | High | High | Decide in Phase 0. Keep the bridge (`client/godot4/`) upstreamable and generic. Isolate the redesign in theme and scenes. Ship a "Classic" theme. |
+| Fork drift: upstream merges conflict with the redesign | High | Med | Keep the redesign in new directories and leave upstream's scenes unedited. Keep the bridge (`client/godot4/`) generic. Merge upstream at least every two weeks, gated by CI. Offer bridge additions upstream to shrink the diff. |
+| Upstream changes the bridge in ways that clash with our API | Med | Med | Wrap our views and orders in separate source files (`client/godot4/views/`, `orders/`) and touch `FreeOrionNode.cpp` minimally. |
 | Bridge threading bugs (crashes, corrupt state) | Med | High | Main-thread message handling (Phase 1.1), a TSan CI job, and ID-based views instead of raw pointers. |
 | Parity takes far longer than estimated (61k LOC of UI) | High | Med | Gate on the parity checklist, not dates. Keep GG shippable until then. Port by gameplay loop so a playable vertical slice exists early (end of Phase 3 plus the first two Phase 4 items). |
-| GL Compatibility limits visual ambition | Med | Low | Design shaders for Compatibility first. An optional Forward+ tier adds bloom and glow on desktop. |
+| GL Compatibility limits visual ambition (no built-in glow, SSAO, or compute) | Med | Low | Fake bloom with additive halo sprites and a single-pass blur on a `BackBufferCopy`. Put the visual budget into 2D shaders (territory, lanes, impostors), which Compatibility handles well. |
 | Art replacement blocked by licence or sourcing | Med | Med | Everything must be CC-BY-SA-compatible. Prioritise procedural and shader visuals (territory, lanes, stars, planet impostors), which need little new art. Add per-folder attribution files. |
 | Godot version churn (4.4 → 4.7 in CI already) | Med | Med | Pin one version (Phase 0), and upgrade deliberately with the screenshot suite as the safety net. |
-| Players attached to the GG UI | Med | Med | Classic theme, a floating-window mode option, and public preview builds with a feedback channel before the cut-over. |
+| Players attached to the GG UI | Med | Med | A floating-window mode option, and public preview builds with a feedback channel before the cut-over. GG stays buildable for one release afterwards. |
 
 ---
 
 ## 9. Suggested first ten tickets
 
-1. Decide and document §3 in `godot4/README.md`.
-2. Pin the Godot version across all CI and the project; remove the Godot 3 CI jobs.
+1. Document the fork direction (§3) in `godot4/README.md`, create the `ui/`/`shell/`/`map/`/`screens/`/`panels/` skeleton, and point `run/main_scene` at `shell/Shell.tscn`.
+2. Pin the Godot version across desktop CI and the project; remove the Godot 3 CI jobs; add Windows and macOS export presets.
 3. Bridge: move `HandleMessage` to the main thread (`client/godot4/FreeOrionNode.cpp` network thread → queue → `_process`).
 4. Bridge: `FOSystem`, `FOFleet`, and `FOPlanet` read-only views, plus `get_map_snapshot()` packed arrays, with GUT tests.
 5. Bridge: `issue_fleet_move` and `rescind_order`, with a GUT test (move a fleet, end the turn, assert its position).
-6. Design tokens resource, a theme generator script, and Default and Classic themes; migrate the existing 11 StyleBoxes into the Classic theme.
+6. Design tokens resource, a theme generator script, and the Default and High-contrast themes.
 7. Continuous `ui.scale` with OS DPI detection; replace the fixed steps in `IntroScreen.gd`.
 8. Galaxy map MVP: starfield, stars via MultiMesh, lanes via ArrayMesh, camera with smooth zoom, and system picking.
 9. Golden-screenshot CI job (IntroScreen and map MVP).
