@@ -15,6 +15,8 @@ signal fleet_selected(fleet_id: int)
 signal planet_action_requested(planet_id: int, action: String)
 ## A new focus was picked for an own planet.
 signal focus_requested(planet_id: int, focus: String)
+## A planet's name was clicked: show its details.
+signal planet_selected(planet_id: int)
 
 const WIDTH := 340
 
@@ -281,9 +283,16 @@ func _planet_row(planet: Dictionary) -> Control:
 		swatch.custom_minimum_size = Vector2(FOUi.tokens.space_2, FOUi.tokens.space_2) * 1.5
 		swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		name_line.add_child(swatch)
-	var planet_name := _label(planet.get("name", ""))
+	# The name opens the planet's details.
+	var planet_name := LinkButton.new()
+	planet_name.text = planet.get("name", "")
+	planet_name.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+	planet_name.tooltip_text = tr("SYSTEM_PANEL_PLANET_DETAILS")
 	planet_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	planet_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	planet_name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	planet_name.add_theme_color_override("font_color", FOUi.tokens.text_primary)
+	planet_name.add_theme_color_override("font_hover_color", FOUi.tokens.accent_hover)
+	planet_name.pressed.connect(planet_selected.emit.bind(planet.get("id", -1)))
 	name_line.add_child(planet_name)
 	var focus: String = planet.get("focus", "")
 	if not focus.is_empty():

@@ -58,6 +58,19 @@ func _open_menu(shell: GameShell) -> void:
 	shell.game_menu.open("Empire Blue  ·  " + tr("MAP_BTN_TURN_UPDATE").replace("%1%", "12"))
 
 
+func test_planet_panel():
+	# In a row, as in the game's side column: the panel's own width.
+	var host := HBoxContainer.new()
+	var panel := PlanetPanel.new()
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	host.add_child(panel)
+	await _check_scene(
+		host,
+		"planet_panel",
+		func(_h): panel.show_data(preload("res://test/unit/test_planet_panel.gd").SAMPLE)
+	)
+
+
 func test_production_screen():
 	var screen := ProductionScreen.new()
 	screen.source = preload("res://test/unit/fake_production_source.gd").new()

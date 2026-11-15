@@ -20,12 +20,13 @@ combat reports and the objects list. Nothing blocks a normal
 single-player game any more. The planet actions (colonise, invade, annex,
 focus, scrap) were the last P0 gap. The resources, autosave and the game's end states (victory,
 defeat, server errors) are in as well. So are supply ranges and fields on
-the map. Next come planet detail with meter breakdowns, and diplomacy.
+the map. Planet detail is in; next come meter breakdowns (why
+a meter has its value) and diplomacy.
 
 | Priority | Open items | Main ones |
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
-| P1 | 7 | Planet detail; meter tooltips; bombard; diplomacy; species, colour and rules in setup; multiplayer |
+| P1 | 6 | Meter breakdown tooltips; bombard; diplomacy; species, colour and rules in setup; multiplayer |
 | P2 | 23 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
 | P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
@@ -49,13 +50,13 @@ Closed on 2026-11-15:
 - **Lost server:** if the server dies, the client returns to the title.
 - **Victory and defeat:** announced in a dialog, once each.
 - **Supply on the map:** each empire's supplied area as one even tint, and its supplied lanes as bands, in the empire's colour.
+- **Planet detail:** click a planet's name for its meters (now, next turn's change, target), buildings (own ones can be scrapped) and specials, all linked to the Pedia. The side column scrolls when the panels don't fit.
 - **Fields (ion storms, nebulae, ...):** drawn with their art at their real radius. Their names and effects on hover are still missing (P2).
 
 ### Map and panels
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
-| Planet detail | `SidePanel` population, resource, military, buildings and specials panels | M | Meters with their targets (industry, research, influence, stability, supply, defence, shield, troops), buildings (with scrapping) and specials. The panel shows population and focus only. |
 | Meter breakdown tooltips | `UI/MeterBrowseWnd.cpp`, `ShipDesignBrowseWnd`, `IconTextBrowseWnd` | L | Why a meter has its value (each effect's contribution). FreeOrion's main teaching tool. |
 | Bombard | `SidePanel.cpp` `ClickBombard` | S | Rarely used but part of the planet actions. |
 

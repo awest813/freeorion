@@ -2223,6 +2223,9 @@ The selected fleet can't move to that system.
 SYSTEM_PANEL_ACTION_REFUSED
 That order isn't possible right now.
 
+SYSTEM_PANEL_PLANET_DETAILS
+Show the planet's details
+
 FLEET_PANEL_STATIONARY
 Not moving
 
@@ -2246,6 +2249,29 @@ Check to include this ship when splitting.
 
 FLEET_PANEL_SCRAPPING
 scrapped at the next turn
+
+PLANET_PANEL_BUILDINGS
+Buildings
+
+PLANET_PANEL_SPECIALS
+Specials
+
+PLANET_PANEL_TARGET
+Target or maximum this meter grows towards
+
+# %1% meter name, %2% this turn, %3% next turn, %4% target or maximum.
+PLANET_PANEL_METER_TIP
+%1%: %2% now, %3% next turn, moving towards %4%.
+
+PLANET_PANEL_SCRAP
+Scrap
+
+PLANET_PANEL_CANCEL_SCRAP
+Keep
+
+# %1% capacity of the special.
+PLANET_PANEL_CAPACITY
+Capacity %1%
 
 FLEET_PANEL_ARMED
 armed

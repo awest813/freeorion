@@ -16,6 +16,7 @@ var map_view: GalaxyMapView
 var top_bar: TopBar
 var system_panel: SystemPanel
 var fleet_panel: FleetPanel
+var planet_panel: PlanetPanel
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
@@ -30,6 +31,8 @@ var combat_screen: CombatScreen
 var objects_screen: ObjectsScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
+
+var _side_scroll: ScrollContainer
 
 ## Newest combat the player has seen in the combat screen.
 var _seen_combat_id := -1
@@ -134,11 +137,25 @@ func _ready() -> void:
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
 		panel_margin.add_theme_constant_override(side, _gap())
 	body.add_child(panel_margin)
+	# The panels scroll when they're taller than the screen. The scroll area
+	# is only as tall as the panels, so the map below them stays clickable.
+	_side_scroll = ScrollContainer.new()
+	_side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_side_scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_side_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel_margin.add_child(_side_scroll)
 	var column := VBoxContainer.new()
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel_margin.add_child(column)
+	_side_scroll.add_child(column)
+	column.minimum_size_changed.connect(_fit_side_column)
+	panel_margin.resized.connect(_fit_side_column)
 	system_panel = SystemPanel.new()
 	column.add_child(system_panel)
+	planet_panel = PlanetPanel.new()
+	planet_panel.close_requested.connect(planet_panel.show_data.bind({}))
+	planet_panel.link_activated.connect(_on_link_activated)
+	planet_panel.scrap_requested.connect(_on_building_scrap)
+	column.add_child(planet_panel)
 	fleet_panel = FleetPanel.new()
 	column.add_child(fleet_panel)
 	fleet_panel.rename_requested.connect(_on_fleet_rename)
@@ -148,6 +165,7 @@ func _ready() -> void:
 	fleet_panel.scrap_requested.connect(_on_fleet_scrap)
 	system_panel.planet_action_requested.connect(_on_planet_action)
 	system_panel.focus_requested.connect(_on_focus_requested)
+	system_panel.planet_selected.connect(_on_planet_selected)
 
 	# The menu covers everything, the top bar included.
 	game_menu = GameMenu.new()
@@ -156,6 +174,9 @@ func _ready() -> void:
 	game_menu.leave_requested.connect(func(action: String): leave_requested.emit(action, ""))
 	add_child(game_menu)
 
+	# Panels pass the mouse wheel on to the scroll area around them.
+	for panel in [system_panel, planet_panel, fleet_panel]:
+		panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	top_bar.resized.connect(_update_frame_margins)
 
 	map_view.system_selected.connect(_on_system_selected)
@@ -274,6 +295,14 @@ func open_pedia(kind: String, article_name: String) -> void:
 	pedia_screen.open(kind, article_name)
 
 
+# The side column's scroll area: as tall as its panels, at most the space
+# below the top bar.
+func _fit_side_column() -> void:
+	var column: Control = _side_scroll.get_child(0)
+	var room := _side_scroll.get_parent_control().size.y - 2 * _gap()
+	_side_scroll.custom_minimum_size.y = minf(column.get_combined_minimum_size().y, maxf(room, 0.0))
+
+
 # Frame the galaxy below the top bar; refit while the player hasn't moved.
 func _update_frame_margins() -> void:
 	var camera := map_view.map.camera
@@ -284,6 +313,7 @@ func _update_frame_margins() -> void:
 
 func _on_system_selected(system_id: int) -> void:
 	system_panel.select_fleet(-1)
+	planet_panel.show_data({})
 	if follow_game:
 		system_panel.show_system(system_id)
 
@@ -300,7 +330,22 @@ func _on_system_context_requested(system_id: int) -> void:
 	_show_route(fleet_id)
 
 
+# A planet's details replace a fleet's, and the other way round.
+func _on_planet_selected(planet_id: int) -> void:
+	system_panel.select_fleet(-1)
+	if follow_game:
+		planet_panel.show_planet(planet_id)
+
+
+func _on_building_scrap(building_id: int) -> void:
+	if follow_game:
+		FOPlanetActions.scrap(building_id)
+		planet_panel.refresh()
+
+
 func _on_fleet_selected(fleet_id: int) -> void:
+	if fleet_id >= 0:
+		planet_panel.show_data({})
 	_show_route(fleet_id)
 	if follow_game:
 		fleet_panel.show_fleet(fleet_id)
@@ -357,6 +402,8 @@ func _on_focus_requested(planet_id: int, focus: String) -> void:
 	if follow_game and not FOPlanetActions.set_focus(planet_id, focus):
 		system_panel.show_notice(tr("SYSTEM_PANEL_ACTION_REFUSED"))
 	system_panel.refresh()
+	if planet_panel.visible:
+		planet_panel.refresh()
 	top_bar.refresh_resources()
 
 
@@ -424,6 +471,8 @@ func _on_turn_update() -> void:
 	system_panel.refresh()
 	if fleet_panel.visible:
 		fleet_panel.refresh()
+	if planet_panel.visible:
+		planet_panel.refresh()
 	if production_screen.visible:
 		production_screen.refresh()
 	if research_screen.visible:
