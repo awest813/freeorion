@@ -55,3 +55,12 @@ func test_watch_emits_option_changed():
 	await wait_process_frames(2)
 	assert_signal_emitted_with_parameters(options, "option_changed", ["test.fo-options.string"])
 	options.set_value("test.fo-options.string", "alpha")
+
+
+func test_enum_options_set_by_name():
+	var before: String = options.get_value("setup.galaxy.shape")
+	assert_true(options.set_value("setup.galaxy.shape", "RING"), "Known shape")
+	assert_eq(options.get_value("setup.galaxy.shape"), "RING")
+	assert_false(options.set_value("setup.galaxy.shape", "TRIANGLE"), "Unknown shape refused")
+	assert_eq(options.get_value("setup.galaxy.shape"), "RING", "Unchanged after refusal")
+	options.set_value("setup.galaxy.shape", before)

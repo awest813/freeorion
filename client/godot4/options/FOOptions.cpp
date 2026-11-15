@@ -8,6 +8,7 @@
 #include "../../../util/Directories.h"
 #include "../../../util/Logger.h"
 #include "../../../util/OptionsDB.h"
+#include "../../../util/XMLDoc.h"
 
 namespace {
     std::string ToStd(const godot::String& s)
@@ -58,6 +59,31 @@ namespace {
             ErrorLogger() << "FOOptions: reading option " << name << " failed: " << e.what();
         }
         return {};
+    }
+}
+
+namespace {
+    // Options of other types (enums such as setup.galaxy.shape) take their
+    // value as a string. OptionsDB only parses strings privately, so go
+    // through SetFromXML, which validates and fires the change signals.
+    bool SetFromString(const std::string& option, const std::string& value) {
+        auto& db = GetOptionsDB();
+        db.Validate(option, value); // throws if not allowed
+        XMLDoc doc;
+        XMLElement* parent = &doc.root_node;
+        std::string_view rest{option};
+        while (true) {
+            const auto dot = rest.find('.');
+            const bool last = dot == std::string_view::npos;
+            XMLElement element{std::string{last ? rest : rest.substr(0, dot)}, last ? value : std::string{}};
+            parent->AddChild(std::move(element));
+            if (last)
+                break;
+            parent = &parent->Child(std::string{rest.substr(0, dot)});
+            rest.remove_prefix(dot + 1);
+        }
+        db.SetFromXML(doc);
+        return db.GetValueString(option) == value;
     }
 }
 
@@ -115,9 +141,10 @@ bool FOOptions::set_value(const godot::String& name, const godot::Variant& value
     try {
         switch (TypeOf(option)) {
         case OptionType::Missing:
-        case OptionType::Other:
-            ErrorLogger() << "FOOptions::set_value: unknown or unsupported option " << option;
+            ErrorLogger() << "FOOptions::set_value: unknown option " << option;
             return false;
+        case OptionType::Other:
+            return SetFromString(option, ToStd(godot::String(value)));
         case OptionType::Bool:
             db.Set<bool>(option, static_cast<bool>(value));
             return true;
