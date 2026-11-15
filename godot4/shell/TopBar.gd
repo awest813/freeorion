@@ -9,6 +9,9 @@ extends PanelContainer
 signal screen_requested(screen_name: String)
 ## The Menu button was pressed (Esc on the map does the same, in GameShell).
 signal menu_requested
+## End turn was pressed but TurnReadiness found \a issues; end_turn() ends it
+## anyway.
+signal readiness_issues(issues: Array)
 
 ## Ctrl+Enter ends the turn, as a keyboard path to the primary action.
 const END_TURN_KEY := KEY_ENTER
@@ -42,6 +45,8 @@ const WAITING_PHASE := "TURN_PROGRESS_PHASE_WAITING"
 const WASTE_EPSILON := 0.05
 
 var follow_game := true
+## Returns TurnReadiness.check()'s warnings; the game's by default.
+var readiness_provider: Callable = _game_readiness
 
 var _swatch: ColorRect
 var _empire: Label
@@ -276,6 +281,23 @@ func _on_end_turn_pressed() -> void:
 		_refresh_from_game()
 		if follow_game and is_instance_valid(GlobalFreeOrionNode):
 			GlobalFreeOrionNode.revise_turn()
+		return
+	var issues: Array = readiness_provider.call()
+	if not issues.is_empty():
+		readiness_issues.emit(issues)
+		return
+	end_turn()
+
+
+func _game_readiness() -> Array:
+	if not follow_game or not is_instance_valid(GlobalFreeOrionNode) or not TurnReadiness.enabled():
+		return []
+	return TurnReadiness.check(TurnReadiness.gather())
+
+
+## End the turn without checking first.
+func end_turn() -> void:
+	if _waiting:
 		return
 	_waiting = true
 	_refresh_from_game()

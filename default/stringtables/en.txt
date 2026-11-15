@@ -1980,6 +1980,49 @@ Take the turn back to change orders. Possible until the server starts processing
 OPTIONS_DB_UI_MAP_DETECTION_SHOWN
 Show the detection ranges of your planets and ships on the map (Ctrl+D)
 
+OPTIONS_DB_UI_TURN_READINESS_CHECK
+Before a turn ends, point out unspent points and ships still waiting for orders
+
+# Before ending a turn: the dialog and each kind of warning.
+READINESS_TITLE
+Before ending the turn
+
+READINESS_MESSAGE
+Some things may still need your attention. Pick one to go there.
+
+READINESS_END_TURN
+End turn anyway
+
+READINESS_BACK
+Back to the game
+
+READINESS_DONT_ASK
+Don't check before ending turns
+
+# %1% PP
+READINESS_PP
+%1% PP are not used by the production queue.
+
+# %1% PP
+READINESS_PP_EMPTY
+The production queue is empty: %1% PP go unused.
+
+# %1% RP
+READINESS_RP
+%1% RP are not used by the research queue.
+
+# %1% RP
+READINESS_RP_EMPTY
+The research queue is empty: %1% RP go unused.
+
+# %1% fleet name, %2% system name
+READINESS_COLONY_SHIPS
+%1% at %2% carries colony ships but has no orders.
+
+# %1% fleet name, %2% system name
+READINESS_NEW_FLEET
+%1% at %2% is new and has no orders.
+
 PANEL_CLOSE
 Close
 

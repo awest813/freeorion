@@ -47,6 +47,12 @@ func set_content(title: String, message: String, choices: Array) -> void:
 		_row.get_child(0).call_deferred("grab_focus")
 
 
+## Put \a control between the message and the buttons (a list, a check box).
+func add_content(control: Control) -> void:
+	_row.get_parent().add_child(control)
+	_row.get_parent().move_child(control, _row.get_index())
+
+
 ## Close the dialog and run the action of button \a index.
 func choose(index: int) -> void:
 	var action: Callable = buttons[index][2] if buttons[index].size() > 2 else Callable()

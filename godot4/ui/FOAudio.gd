@@ -57,6 +57,12 @@ func _ready() -> void:
 
 # Release the streams on the way out, or they outlive the audio server.
 func _exit_tree() -> void:
+	stop_all()
+
+
+## Stop and drop every sound. The audio server frees playbacks on its next
+## mix, so quit a few frames later (Shell.quit()) or they leak at exit.
+func stop_all() -> void:
 	for player: AudioStreamPlayer in [_music] + _effects:
 		player.stop()
 		player.stream = null

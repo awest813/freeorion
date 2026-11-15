@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 9 | Tech tree graph; where to build; ship detail; graphs; turn readiness; hotkey rebinding |
+| P2 | 8 | Tech tree graph; where to build; ship detail; graphs; hotkey rebinding |
 | P3 | 17 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -93,6 +93,7 @@ Closed:
   - Stats show the change from the design you started from, green when better.
   - Still open: saving designs to disk between games, and renaming in the UI (the bridge can rename).
 - **Sound and music:** the game's music plays in a loop; buttons click and sound on hover; new turns, ending a turn and dialogs have their sounds. Options has a Sound section to turn music and effects on or off and set their volumes (the GG client's `audio.*` options).
+- **Turn readiness check:** End turn first lists what may have been forgotten: unspent PP or RP (saying so when a queue is empty), fleets with colony ships but no orders, and new fleets without orders. Each entry goes to its screen or fleet; "End turn anyway" ends it. The check can be turned off in the dialog or in Options (`ui.turn.readiness.check`).
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
@@ -102,7 +103,6 @@ Closed:
 | Drag ships between fleets | `FleetWnd` | M | Split and merge exist; drag-and-drop doesn't. |
 | Graphs | `ui.map.graphs`, `GraphControl` | M | Empire statistics over time. |
 | Pedia extras | `EncyclopediaDetailPanel` | M | Graphs, the planet suitability table, "show on map". |
-| Turn readiness check | Plan, phase 4 item 7 | M | Idle fleets, empty queues, unspent points before ending the turn. |
 | Hotkey rebinding | `OptionsWnd` hotkeys page | M | Fork shortcuts are fixed in code. |
 
 ## P3: polish and cut-over

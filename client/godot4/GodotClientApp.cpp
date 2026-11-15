@@ -40,6 +40,7 @@ namespace {
         db.Add("save.auto.turn.interval",        UserStringNop("OPTIONS_DB_AUTOSAVE_TURNS"),                    1,     RangedValidator<int>(1, 50));
         db.Add("save.auto.file.limit",           UserStringNop("OPTIONS_DB_AUTOSAVE_LIMIT"),                    10,    RangedValidator<int>(1, 10000));
         db.Add("ui.map.detection.shown",         UserStringNop("OPTIONS_DB_UI_MAP_DETECTION_SHOWN"),            false, Validator<bool>());
+        db.Add("ui.turn.readiness.check",        UserStringNop("OPTIONS_DB_UI_TURN_READINESS_CHECK"),           true,  Validator<bool>());
         db.Add("save.auto.initial.enabled",      UserStringNop("OPTIONS_DB_AUTOSAVE_GALAXY_CREATION"),          true,  Validator<bool>());
     }
     bool temp_bool = RegisterOptions(&AddOptions);

@@ -121,14 +121,21 @@ namespace {
                 row["moving"] = fleet->SystemID() == INVALID_OBJECT_ID;
                 row["aggression"] = ToGodot(AggressionName(fleet->Aggression()));
                 float structure = 0.0f, max_structure = 0.0f;
+                int colony_ships = 0;
                 for (const auto* ship : objects.findRaw<Ship>(fleet->ShipIDs())) {
                     if (!ship)
                         continue;
                     structure += MeterValue(*ship, MeterType::METER_STRUCTURE);
                     max_structure += MeterValue(*ship, MeterType::METER_MAX_STRUCTURE);
+                    if (ship->CanColonize(universe, context.species))
+                        ++colony_ships;
                 }
                 row["structure"] = structure;
                 row["max_structure"] = max_structure;
+                // Colony and outpost ships, and turns since the fleet was formed
+                // (0 for ships built or split off this turn).
+                row["colony_ships"] = colony_ships;
+                row["age"] = fleet->AgeInTurns(context.current_turn);
                 rows.push_back(row);
             }
             return rows;

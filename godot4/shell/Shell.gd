@@ -4,6 +4,9 @@ extends Control
 ## Starts the bridge's networking and content parsing, as upstream's
 ## IntroScreen did, and honours --quickstart.
 
+## Time for the audio server to free stopped sounds before quitting.
+const AUDIO_STOP_SECONDS := 0.1
+
 var title: TitleScreen
 var setup: GalaxySetupScreen
 var options: OptionsScreen
@@ -42,7 +45,17 @@ func _notification(what: int) -> void:
 	if game and _leaving.is_empty():
 		leave_game("exit")
 	elif _leaving.is_empty() or _leaving[0] != "exit":
-		get_tree().quit()
+		quit()
+
+
+## Quit the application once the sounds have stopped: the audio server
+## frees them on a later mix, else they leak at exit.
+func quit() -> void:
+	var audio := get_node_or_null("/root/FOAudio")
+	if audio:
+		audio.stop_all()
+		await get_tree().create_timer(AUDIO_STOP_SECONDS).timeout
+	get_tree().quit()
 
 
 ## End the running game, then \a action: "title", "exit", or "load" the
@@ -170,7 +183,7 @@ func _on_game_ended() -> void:
 	_leaving = []
 	match action:
 		"exit":
-			get_tree().quit()
+			quit()
 		"load":
 			if saves.source.load_game(path):
 				title.set_busy(tr("TITLE_LOADING_GAME"))

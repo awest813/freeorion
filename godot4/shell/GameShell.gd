@@ -117,6 +117,7 @@ func _ready() -> void:
 		screens.add_child(screen)
 	top_bar.screen_requested.connect(show_screen)
 	top_bar.menu_requested.connect(open_menu)
+	top_bar.readiness_issues.connect(show_readiness)
 	var feed_margin := MarginContainer.new()
 	feed_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
@@ -563,6 +564,53 @@ func check_game_over(resources: Dictionary, silently := false) -> void:
 				tr("GAME_OVER_DEFEAT"),
 				[quit, [tr("GAME_OVER_KEEP_WATCHING"), "GhostButton"]]
 			)
+
+
+## Before the turn ends: list \a issues (TurnReadiness.check()), each going
+## to its screen or map target, with End turn anyway and Back.
+func show_readiness(issues: Array) -> FODialog:
+	var dialog := (
+		FODialog
+		. open_on(
+			self,
+			tr("READINESS_TITLE"),
+			tr("READINESS_MESSAGE"),
+			[
+				[tr("READINESS_END_TURN"), "GhostButton", top_bar.end_turn],
+				[tr("READINESS_BACK"), "PrimaryButton"],
+			]
+		)
+	)
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", FOUi.tokens.space_1)
+	for issue: Dictionary in issues:
+		var link := LinkButton.new()
+		link.text = issue["text"]
+		link.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		link.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+		link.pressed.connect(
+			func():
+				dialog.choose(1)
+				if issue.has("screen"):
+					show_screen(issue["screen"])
+				else:
+					show_screen("")
+					go_to(issue["target"])
+		)
+		list.add_child(link)
+	dialog.add_content(list)
+	var dont_ask := CheckBox.new()
+	dont_ask.text = tr("READINESS_DONT_ASK")
+	dont_ask.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	dont_ask.toggled.connect(
+		func(pressed: bool):
+			if Engine.has_singleton("FOOptions"):
+				var options := Engine.get_singleton("FOOptions")
+				options.set_value(TurnReadiness.OPTION, not pressed)
+				options.commit()
+	)
+	dialog.add_content(dont_ask)
+	return dialog
 
 
 func _on_server_error(message: String, _fatal: bool) -> void:
