@@ -13,7 +13,7 @@ signal menu_requested
 ## Ctrl+Enter ends the turn, as a keyboard path to the primary action.
 const END_TURN_KEY := KEY_ENTER
 ## Screen buttons: name, label key, shortcut.
-## Save (F5) is in the in-game menu.
+## Save (F5) and Options (F10) are in the in-game menu.
 const SCREENS := [
 	["production", "MAP_BTN_PRODUCTION", KEY_F2],
 	["research", "MAP_BTN_RESEARCH", KEY_F3],
@@ -21,8 +21,8 @@ const SCREENS := [
 	["design", "DESIGNER_TAB", KEY_F6],
 	["objects", "MAP_BTN_OBJECTS", KEY_F8],
 	["combat", "COMBAT_TAB", KEY_F7],
+	["empires", "EMPIRES_TAB", KEY_F9],
 	["pedia", "MAP_BTN_PEDIA", KEY_F1],
-	["options", "OPTIONS_TITLE", KEY_F10],
 ]
 
 ## Resource chips: key in get_empire_resources(), icon, screen to open,

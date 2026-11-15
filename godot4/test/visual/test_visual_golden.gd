@@ -71,6 +71,12 @@ func test_planet_panel():
 	)
 
 
+func test_empires_screen():
+	var screen := EmpiresScreen.new()
+	screen.source = preload("res://test/unit/fake_diplomacy_source.gd").new()
+	await _check_scene(screen, "empires_screen", func(s): s.refresh())
+
+
 func test_production_screen():
 	var screen := ProductionScreen.new()
 	screen.source = preload("res://test/unit/fake_production_source.gd").new()

@@ -2095,6 +2095,69 @@ Detection strength: you see objects whose stealth is lower.
 COMBAT_TAB
 Combat
 
+EMPIRES_TAB
+Empires
+
+EMPIRES_TITLE
+Empires and diplomacy
+
+DIPLOMACY_YOU
+Your empire
+
+DIPLOMACY_ELIMINATED
+Eliminated
+
+DIPLOMACY_STATUS_WAR
+At war
+
+DIPLOMACY_STATUS_PEACE
+At peace
+
+DIPLOMACY_STATUS_ALLIED
+Allied
+
+DIPLOMACY_INCOMING_PEACE
+Proposes peace
+
+DIPLOMACY_INCOMING_ALLIES
+Proposes an alliance
+
+DIPLOMACY_OUTGOING_PEACE
+You proposed peace
+
+DIPLOMACY_OUTGOING_ALLIES
+You proposed an alliance
+
+DIPLOMACY_PROPOSE_PEACE
+Propose peace
+
+DIPLOMACY_ACCEPT_PEACE
+Accept peace
+
+DIPLOMACY_PROPOSE_ALLIANCE
+Propose alliance
+
+DIPLOMACY_ACCEPT_ALLIANCE
+Accept alliance
+
+DIPLOMACY_REJECT
+Reject
+
+DIPLOMACY_CANCEL
+Withdraw proposal
+
+DIPLOMACY_END_ALLIANCE
+End alliance
+
+DIPLOMACY_DECLARE_WAR
+Declare war
+
+DIPLOMACY_SENT
+Sent. Other empires answer as their turn is processed.
+
+DIPLOMACY_REFUSED
+The game rules don't allow that.
+
 COMBAT_REPORTS_EMPTY
 No combats involving your empire yet.
 

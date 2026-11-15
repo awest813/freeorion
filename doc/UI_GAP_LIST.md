@@ -20,13 +20,13 @@ combat reports and the objects list. Nothing blocks a normal
 single-player game any more. The planet actions (colonise, invade, annex,
 focus, scrap) were the last P0 gap. The resources, autosave and the game's end states (victory,
 defeat, server errors) are in as well. So are supply ranges and fields on
-the map. Planet detail is in; next come meter breakdowns (why
-a meter has its value) and diplomacy.
+the map. Planet detail is in; so is diplomacy; next come meter
+breakdowns (why a meter has its value) and game rules in setup.
 
 | Priority | Open items | Main ones |
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
-| P1 | 4 | Meter breakdown tooltips; diplomacy; game rules in setup; multiplayer |
+| P1 | 3 | Meter breakdown tooltips; game rules in setup; multiplayer |
 | P2 | 23 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
 | P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
@@ -53,6 +53,7 @@ Closed on 2026-11-15:
 - **Planet detail:** click a planet's name for its meters (now, next turn's change, target), buildings (own ones can be scrapped) and specials, all linked to the Pedia. The side column scrolls when the panels don't fit.
 - **Species and colour in galaxy setup:** a species picker with icons (and Random) and a row of colour swatches, saved to the existing setup options.
 - **Bombard:** in the planet actions, with ships chosen by their bombard tags as in `SidePanel`. Covered by unit tests only so far; no bombard-capable ships early in a game.
+- **Diplomacy:** an Empires screen (F9) lists every empire with your standing (war, peace, allied) and proposals waiting either way. It offers the GG player list's actions: propose, accept or reject peace or alliance, withdraw, declare war, end an alliance. The top bar counts proposals made to you. Options moved to the in-game menu (F10 still opens it).
 - **Fields (ion storms, nebulae, ...):** drawn with their art at their real radius. Their names and effects on hover are still missing (P2).
 
 ### Map and panels
@@ -65,7 +66,6 @@ Closed on 2026-11-15:
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
-| Diplomacy | `PlayerListWnd`, `DIPLO_MESSAGE`, `DIPLOMATIC_STATUS` | M | AIs propose peace and alliances even in single player; the client can neither see nor answer them. Includes an empires list. |
 | Game rules in galaxy setup | `GalaxySetupWnd` rules tab | M | Generated from the rules' metadata, like the options screen. |
 | Multiplayer | `ServerConnectWnd`, `MultiplayerLobbyWnd`, `PasswordEnterWnd`, `ChatWnd` | L | Connect, host, lobby (players, AIs, colours, ready), passwords, chat, and the lobby, auth, chat, status and timeout messages. |
 

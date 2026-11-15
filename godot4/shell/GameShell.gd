@@ -9,6 +9,8 @@ extends Control
 signal leave_requested(action: String, path: String)
 
 const GALAXY_MAP_VIEW := preload("res://map/GalaxyMapView.tscn")
+## Keys for screens opened from the in-game menu rather than the top bar.
+const MENU_KEYS := {KEY_F5: "save", KEY_F10: "options"}
 
 ## Set false before adding to the tree to feed map and panel directly (tests).
 var follow_game := true
@@ -29,6 +31,7 @@ var game_menu: GameMenu
 var designer_screen: DesignerScreen
 var combat_screen: CombatScreen
 var objects_screen: ObjectsScreen
+var empires_screen: EmpiresScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
 
@@ -82,6 +85,7 @@ func _ready() -> void:
 	designer_screen = DesignerScreen.new()
 	combat_screen = CombatScreen.new()
 	combat_screen.link_activated.connect(_on_link_activated)
+	empires_screen = EmpiresScreen.new()
 	objects_screen = ObjectsScreen.new()
 	objects_screen.link_activated.connect(_on_link_activated)
 	save_screen = SaveLoadScreen.new()
@@ -100,6 +104,7 @@ func _ready() -> void:
 		designer_screen,
 		objects_screen,
 		combat_screen,
+		empires_screen,
 		pedia_screen,
 		options_screen,
 		save_screen,
@@ -188,6 +193,7 @@ func _ready() -> void:
 		GlobalFreeOrionNode.save_completed.connect(_on_save_completed)
 		GlobalFreeOrionNode.combat_logs_updated.connect(_on_combat_logs_updated)
 		GlobalFreeOrionNode.server_error.connect(_on_server_error)
+		GlobalFreeOrionNode.diplomacy_changed.connect(_on_diplomacy_changed)
 		# A loaded game that was already won or lost isn't announced again.
 		check_game_over(FOUniverse.get_empire_resources(), true)
 
@@ -195,8 +201,9 @@ func _ready() -> void:
 # Esc on the map: clear the selection first, then open the menu. Screens and
 # the menu handle their own Esc before it gets here.
 func _unhandled_key_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_F5:
-		show_screen("save")
+	# Screens without a top-bar button keep their keys.
+	if event is InputEventKey and event.pressed and event.keycode in MENU_KEYS:
+		show_screen(MENU_KEYS[event.keycode])
 		get_viewport().set_input_as_handled()
 		return
 	if not event.is_action_pressed("ui_cancel") or not active_screen.is_empty():
@@ -257,6 +264,7 @@ func _screens() -> Dictionary:
 		"design": designer_screen,
 		"objects": objects_screen,
 		"combat": combat_screen,
+		"empires": empires_screen,
 		"pedia": pedia_screen,
 		"options": options_screen,
 		"save": save_screen,
@@ -469,8 +477,16 @@ func _on_server_error(message: String, _fatal: bool) -> void:
 	FODialog.open_on(self, tr("SERVER_ERROR_TITLE"), message, [[tr("OK"), "PrimaryButton"]])
 
 
+# Proposals from other empires: count them on the Empires button.
+func _on_diplomacy_changed() -> void:
+	top_bar.set_badge("empires", FODiplomacy.get_incoming_count())
+	if empires_screen.visible:
+		empires_screen.refresh()
+
+
 func _on_turn_update() -> void:
 	check_game_over(FOUniverse.get_empire_resources())
+	_on_diplomacy_changed()
 	system_panel.refresh()
 	if fleet_panel.visible:
 		fleet_panel.refresh()
