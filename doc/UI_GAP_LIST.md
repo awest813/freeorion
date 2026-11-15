@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 12 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P3 | 11 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -94,7 +94,7 @@ Closed:
   - Yours can be put aside (production stops offering them; kept with the save, as in the GG client), brought back, or deleted.
   - Premade designs can be added to your empire.
   - Stats show the change from the design you started from, green when better.
-  - Still open: saving designs to disk between games, and renaming in the UI (the bridge can rename).
+  - Saving designs between games and renaming came later (P3).
 - **Sound and music:** the game's music plays in a loop; buttons click and sound on hover; new turns, ending a turn and dialogs have their sounds. Options has a Sound section to turn music and effects on or off and set their volumes (the GG client's `audio.*` options).
 - **Turn readiness check:** End turn first lists what may have been forgotten: unspent PP or RP (saying so when a queue is empty), fleets with colony ships but no orders, and new fleets without orders. Each entry goes to its screen or fleet; "End turn anyway" ends it. The check can be turned off in the dialog or in Options (`ui.turn.readiness.check`).
 - **Ship detail:** a ship's name in the fleet panel opens its details below: design, hull and species (linked to the Pedia), damage, fighters shot down, fighters, troops and colonists as the GG ship rows show them, its meters with next turn's change, maximum and effect breakdown, and its parts with their capacities. Ship links in turn events select the fleet and open the ship.
@@ -114,12 +114,12 @@ Closed:
 - **Box-select fleets:** dragging from empty map space (fields included) draws a box; your fleets inside are selected together and ringed. Right-click a system sends them all (Shift appends), "Merge into one" joins them when they share a system, Esc or Clear ends the selection. Fields now open their Pedia article on release, so a drag can start over one.
 - **Minimap, scale legend and circle:** at the bottom of the map, a scale bar of a round distance follows the zoom and a minimap shows the galaxy with the visible part framed (click or drag to move there). Alt+C draws a circle of the scale's length around the selected system. Ctrl+L, Alt+C and Ctrl+M toggle them (rebindable), remembered in the GG client's `ui.map.scale.*.shown` options and `ui.map.minimap.shown`. Placing production, box selection and these aids now live in `MapModes`, out of GameShell.
 - **Objects list:** filter presets per kind (populated or outpost planets, moving or idle fleets, damaged ships); grouping by location, owner, species, fleet, design or building type with totals per group; a column chooser on right-clicking a title, with optional columns (planet type, size, shield; colony ships), remembered in `ui.objects.columns`; and a row menu to show the object on the map, open its species or building in the Pedia, or build at an own planet.
+- **Designs kept between games, renaming:** your designs' ⋯ menu can keep a design for later games (written to `<user data>/shipdesigns` in the GG client's format, so both clients share them), rename it (designs your empire made) or put it aside. The Saved list adds a kept design to the empire or deletes it, and new games start with the kept designs, following `resource.shipdesign.saved.enabled`. New designs now get a UUID, as in the GG designer. The design lists use a picker instead of tabs and the part filter no longer widens its column, so the designer fits at 1280 px.
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
 | Map modes (political, supply, detection, resources, threat) | Plan, phase 3 | L | |
 | Combat replay and charts | `CombatReport/GraphicalSummary`, plan phase 5 | L | |
-| Designs saved to disk, renaming designs | `DesignWnd` `SavedDesignsManager` | M | Keep designs between games as files; a rename box in the designer. |
 | Moderator tools | `ModeratorActionsWnd` | M | |
 | Onboarding hints | Plan, phase 5 | M | |
 | Translations of the fork's new strings | `default/stringtables/*.txt` | S | New keys exist in English only; other languages fall back to English. |

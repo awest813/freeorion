@@ -1,7 +1,9 @@
 #include "FODesigner.h"
 
+#include <fstream>
 #include <boost/optional.hpp>
 #include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "../../ClientApp.h"
@@ -10,6 +12,8 @@
 #include "../../../universe/ShipHull.h"
 #include "../../../universe/ShipPart.h"
 #include "../../../universe/Universe.h"
+#include "../../../parse/Parse.h"
+#include "../../../util/Directories.h"
 #include "../../../util/Logger.h"
 #include "../../../util/Order.h"
 #include "../../../util/OrderSet.h"
@@ -45,6 +49,45 @@ namespace {
         }
     }
 
+    // Where and how the GG client keeps saved designs (UI/DesignWnd.cpp).
+    constexpr std::string_view DESIGN_FILENAME_PREFIX = "ShipDesign-";
+    constexpr std::string_view DESIGN_FILENAME_EXTENSION = ".focs.txt";
+
+    std::filesystem::path SavedDesignsDir() { return GetUserDataDir() / "shipdesigns/"; }
+
+    std::filesystem::path SavedDesignPath(const boost::uuids::uuid& uuid) {
+        return SavedDesignsDir() / (std::string{DESIGN_FILENAME_PREFIX} + boost::uuids::to_string(uuid) +
+                                    std::string{DESIGN_FILENAME_EXTENSION});
+    }
+
+    // The saved designs, parsed afresh: uuid -> (design, file).
+    auto SavedDesigns() {
+        std::decay_t<decltype(std::get<1>(LoadShipDesignsAndManifestOrderFromParseResults(
+            std::declval<PredefinedShipDesignManager::ParsedShipDesignsType&>())))> designs;
+        std::vector<boost::uuids::uuid> ordering;
+        std::error_code ec;
+        if (!std::filesystem::exists(SavedDesignsDir(), ec))
+            return std::pair{std::move(designs), ordering};
+        try {
+            auto parsed = parse::ship_designs(SavedDesignsDir());
+            auto [inconsistent, loaded, order] = LoadShipDesignsAndManifestOrderFromParseResults(parsed);
+            designs = std::move(loaded);
+            ordering = std::move(order);
+            // Designs the manifest doesn't list yet (it may not exist): after
+            // the listed ones, by name.
+            std::vector<std::pair<std::string, boost::uuids::uuid>> rest;
+            for (const auto& [uuid, design_and_path] : designs)
+                if (std::find(ordering.begin(), ordering.end(), uuid) == ordering.end())
+                    rest.emplace_back(design_and_path.first->Name(true), uuid);
+            std::sort(rest.begin(), rest.end());
+            for (const auto& name_and_uuid : rest)
+                ordering.push_back(name_and_uuid.second);
+        } catch (const std::exception& e) {
+            ErrorLogger() << "FODesigner: reading saved designs: " << e.what();
+        }
+        return std::pair{std::move(designs), ordering};
+    }
+
     Empire* PlayerEmpire() {
         auto* app = ClientApp::GetApp();
         return app ? app->GetEmpire(app->EmpireID()) : nullptr;
@@ -63,6 +106,10 @@ void FODesigner::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("delete_design", "design_id"), &FODesigner::delete_design);
     ClassDB::bind_static_method(cls, D_METHOD("rename_design", "design_id", "new_name"), &FODesigner::rename_design);
     ClassDB::bind_static_method(cls, D_METHOD("add_premade", "design_id"), &FODesigner::add_premade);
+    ClassDB::bind_static_method(cls, D_METHOD("save_design", "design_id"), &FODesigner::save_design);
+    ClassDB::bind_static_method(cls, D_METHOD("add_saved", "uuid"), &FODesigner::add_saved);
+    ClassDB::bind_static_method(cls, D_METHOD("delete_saved", "uuid"), &FODesigner::delete_saved);
+    ClassDB::bind_static_method(cls, D_METHOD("add_all_saved"), &FODesigner::add_all_saved);
 }
 
 godot::Array FODesigner::get_hulls() {
@@ -168,8 +215,11 @@ int FODesigner::create(const godot::String& name, const godot::String& hull,
         !ShipDesignOrder::CheckNew(empire->EmpireID(), design_name, "", hull_name, part_names, context))
     { return -1; }
     try {
+        // A UUID of its own, as the GG designer gives: saved designs are
+        // told apart by it.
         const ShipDesign design(boost::none, design_name, "", app->CurrentTurn(), empire->EmpireID(),
-                                hull_name, std::move(part_names), "", "");
+                                hull_name, std::move(part_names), "", "", false,
+                                ShipDesign::Monster::NOTMONSTER, boost::uuids::random_generator()());
         const auto order = app->Orders().IssueOrder<ShipDesignOrder>(context, empire->EmpireID(), design);
         return order ? order->DesignID() : -1;
     } catch (const std::exception& e) {
@@ -194,6 +244,8 @@ godot::Array FODesigner::get_designs(const godot::String& kind) {
         entry["hull"] = ToGodot(design->Hull());
         entry["parts"] = ToPacked(design->Parts());
         entry["producible"] = empire->ShipDesignAvailable(*design);
+        // Only designs the empire made itself can be renamed.
+        entry["renamable"] = design->DesignedByEmpire() == empire->EmpireID();
         result.push_back(entry);
     };
     if (kind == "empire") {
@@ -209,6 +261,21 @@ godot::Array FODesigner::get_designs(const godot::String& kind) {
     } else if (kind == "monster") {
         for (const auto* design : GetPredefinedShipDesignManager().GetOrderedMonsterDesigns())
             add(design);
+    } else if (kind == "saved") {
+        auto [designs, ordering] = SavedDesigns();
+        for (const auto& uuid : ordering) {
+            const auto it = designs.find(uuid);
+            if (it == designs.end())
+                continue;
+            add(it->second.first.get());
+            godot::Dictionary entry = result.back();
+            entry["uuid"] = ToGodot(boost::uuids::to_string(uuid));
+            // Already one of the empire's designs?
+            entry["added"] = false;
+            for (const int id : empire->ShipDesigns())
+                if (const auto* own = universe.GetShipDesign(id); own && own->UUID() == uuid)
+                    entry["added"] = true;
+        }
     }
     return result;
 }
@@ -302,4 +369,72 @@ int FODesigner::add_premade(int design_id) {
         ErrorLogger() << "FODesigner::add_premade: " << e.what();
     }
     return -1;
+}
+
+bool FODesigner::save_design(int design_id) {
+    const auto* app = ClientApp::GetApp();
+    const auto* design = app ? app->GetUniverse().GetShipDesign(design_id) : nullptr;
+    if (!design)
+        return false;
+    try {
+        std::error_code ec;
+        std::filesystem::create_directories(SavedDesignsDir(), ec);
+        // Designs made before they had UUIDs get one for the file.
+        auto copy{*design};
+        if (copy.UUID().is_nil())
+            copy.SetUUID(boost::uuids::random_generator()());
+        std::ofstream file(SavedDesignPath(copy.UUID()));
+        if (!file)
+            return false;
+        file << copy.Dump();
+        return static_cast<bool>(file);
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FODesigner::save_design: " << e.what();
+    }
+    return false;
+}
+
+int FODesigner::add_saved(const godot::String& uuid_text) {
+    auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    if (!app || !empire)
+        return -1;
+    auto [designs, ordering] = SavedDesigns();
+    for (const auto& [uuid, design_and_path] : designs) {
+        if (ToGodot(boost::uuids::to_string(uuid)) != uuid_text)
+            continue;
+        // Added already: that design.
+        for (const int id : empire->ShipDesigns())
+            if (const auto* own = app->GetUniverse().GetShipDesign(id); own && own->UUID() == uuid)
+                return id;
+        try {
+            auto order = app->Orders().IssueOrder<ShipDesignOrder>(
+                app->GetContext(), empire->EmpireID(), *design_and_path.first);
+            return order ? order->DesignID() : -1;
+        } catch (const std::exception& e) {
+            ErrorLogger() << "FODesigner::add_saved: " << e.what();
+        }
+        return -1;
+    }
+    return -1;
+}
+
+bool FODesigner::delete_saved(const godot::String& uuid_text) {
+    auto [designs, ordering] = SavedDesigns();
+    for (const auto& [uuid, design_and_path] : designs) {
+        if (ToGodot(boost::uuids::to_string(uuid)) != uuid_text)
+            continue;
+        std::error_code ec;
+        return std::filesystem::remove(design_and_path.second, ec);
+    }
+    return false;
+}
+
+int FODesigner::add_all_saved() {
+    int added = 0;
+    auto [designs, ordering] = SavedDesigns();
+    for (const auto& uuid : ordering)
+        if (add_saved(ToGodot(boost::uuids::to_string(uuid))) >= 0)
+            ++added;
+    return added;
 }

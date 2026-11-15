@@ -12,6 +12,9 @@ extends PanelContainer
 
 signal close_requested
 
+## Own designs' menu.
+enum DesignAction { RENAME, KEEP, ASIDE, DELETE }
+
 const SLOT_SIZE := 56
 ## Design lists: kind for get_designs(), tab label key.
 const DESIGN_KINDS := [
@@ -19,6 +22,7 @@ const DESIGN_KINDS := [
 	["obsolete", "DESIGNER_KIND_OBSOLETE"],
 	["premade", "DESIGNER_KIND_PREMADE"],
 	["monster", "DESIGNER_KIND_MONSTER"],
+	["saved", "DESIGNER_KIND_SAVED"],
 ]
 ## Stats where less is better (their changes are coloured the other way).
 const LOWER_IS_BETTER := ["cost", "turns"]
@@ -48,7 +52,7 @@ var _parts: Array = []
 var _status: Label
 var _hull_list: VBoxContainer
 var _design_list: VBoxContainer
-var _design_tabs: TabBar
+var _design_kind: OptionButton
 var _compare_label: Label
 ## The design started from, to compare against: {name, stats} or {}.
 var _baseline := {}
@@ -172,12 +176,12 @@ func _build() -> void:
 	_hull_list = ScreenKit.list()
 	left.add_child(ScreenKit.scrolling(_hull_list))
 	left.add_child(ScreenKit.label(tr("DESIGNER_DESIGNS"), "TitleLabel"))
-	_design_tabs = TabBar.new()
-	_design_tabs.clip_tabs = false
+	# Which designs: a picker rather than tabs, to keep the column narrow.
+	_design_kind = OptionButton.new()
 	for kind in DESIGN_KINDS:
-		_design_tabs.add_tab(tr(kind[1]))
-	_design_tabs.tab_changed.connect(func(_t): _rebuild_design_list())
-	left.add_child(_design_tabs)
+		_design_kind.add_item(tr(kind[1]))
+	_design_kind.item_selected.connect(func(_i): _rebuild_design_list())
+	left.add_child(_design_kind)
 	_design_list = ScreenKit.list()
 	left.add_child(ScreenKit.scrolling(_design_list))
 
@@ -230,6 +234,9 @@ func _build() -> void:
 	columns.add_child(right)
 	right.add_child(ScreenKit.label(tr("DESIGN_WND_PART_PALETTE_TITLE"), "TitleLabel"))
 	_part_class = OptionButton.new()
+	# The longest class name must not widen the column past the screen.
+	_part_class.fit_to_longest_item = false
+	_part_class.clip_text = true
 	_part_class.item_selected.connect(func(_i): _rebuild_part_list())
 	right.add_child(_part_class)
 	_fits_only = CheckBox.new()
@@ -270,12 +277,54 @@ func _rebuild_hull_list() -> void:
 
 func _rebuild_design_list() -> void:
 	ScreenKit.clear(_design_list)
-	var kind: String = DESIGN_KINDS[_design_tabs.current_tab][0]
+	var kind: String = DESIGN_KINDS[maxi(_design_kind.selected, 0)][0]
 	var designs: Array = source.get_designs(kind)
 	for design: Dictionary in designs:
 		_design_list.add_child(_design_row(design, kind))
 	if designs.is_empty():
 		_design_list.add_child(ScreenKit.label(tr("DESIGNER_NO_DESIGNS"), "SecondaryLabel"))
+
+
+## List designs of \a kind (a DESIGN_KINDS name: "empire", "saved", ...).
+func show_design_kind(kind: String) -> void:
+	for i in DESIGN_KINDS.size():
+		if DESIGN_KINDS[i][0] == kind:
+			_design_kind.select(i)
+	_rebuild_design_list()
+
+
+# Own designs' actions, in one menu to leave room for the name.
+func _design_menu(design: Dictionary) -> MenuButton:
+	var id: int = design.get("id", -1)
+	var menu := MenuButton.new()
+	menu.text = "⋯"
+	menu.tooltip_text = tr("DESIGNER_ACTIONS")
+	menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var popup := menu.get_popup()
+	popup.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	if design.get("renamable", false):
+		popup.add_item(tr("DESIGNER_RENAME"), DesignAction.RENAME)
+	popup.add_item(tr("DESIGNER_SAVE_TO_DISK"), DesignAction.KEEP)
+	popup.add_item(tr("DESIGNER_OBSOLETE"), DesignAction.ASIDE)
+	popup.add_separator()
+	popup.add_item(tr("DESIGNER_DELETE"), DesignAction.DELETE)
+	popup.id_pressed.connect(
+		func(action: int):
+			match action:
+				DesignAction.RENAME:
+					open_rename(design)
+				DesignAction.KEEP:
+					var ok: bool = source.save_design(id)
+					_status.text = (
+						tr("DESIGNER_SAVED_TO_DISK" if ok else "DESIGNER_REFUSED")
+						. replace("%1%", design.get("name", ""))
+					)
+				DesignAction.ASIDE:
+					_design_order(source.set_obsolete(id, true))
+				DesignAction.DELETE:
+					confirm_delete(design)
+	)
+	return menu
 
 
 # A design: click to start from it; actions for the list it's in.
@@ -288,10 +337,7 @@ func _design_row(design: Dictionary, kind: String) -> Control:
 	var id: int = design.get("id", -1)
 	match kind:
 		"empire":
-			var aside := ScreenKit.small_button("⊘", "DESIGNER_OBSOLETE")
-			aside.pressed.connect(func(): _design_order(source.set_obsolete(id, true)))
-			row.add_child(aside)
-			row.add_child(_delete_button(design))
+			row.add_child(_design_menu(design))
 		"obsolete":
 			var back := ScreenKit.small_button("↺", "DESIGNER_RESTORE")
 			back.pressed.connect(func(): _design_order(source.set_obsolete(id, false)))
@@ -301,28 +347,59 @@ func _design_row(design: Dictionary, kind: String) -> Control:
 			var add := ScreenKit.small_button("+", "DESIGNER_ADD_PREMADE")
 			add.pressed.connect(func(): _design_order(source.add_premade(id) >= 0))
 			row.add_child(add)
+		"saved":
+			var uuid: String = design.get("uuid", "")
+			var added: bool = design.get("added", false)
+			var add := ScreenKit.small_button(
+				"✓" if added else "+",
+				"DESIGNER_ADDED" if added else "DESIGNER_ADD_SAVED",
+				not added
+			)
+			add.pressed.connect(func(): _design_order(source.add_saved(uuid) >= 0))
+			row.add_child(add)
+			row.add_child(_delete_button(design, func(): return source.delete_saved(uuid)))
 	return row
 
 
-func _delete_button(design: Dictionary) -> Button:
-	var delete := ScreenKit.small_button("✕", "DESIGNER_DELETE")
-	delete.pressed.connect(
-		func():
-			FODialog.open_on(
-				self,
-				tr("DESIGNER_DELETE"),
-				tr("DESIGNER_DELETE_CONFIRM").replace("%1%", design.get("name", "")),
-				[
-					[
-						tr("DESIGNER_DELETE"),
-						"DangerButton",
-						func(): _design_order(source.delete_design(design.get("id", -1)))
-					],
-					[tr("CANCEL"), "GhostButton"],
-				]
-			)
+## Ask for a new name for own design \a design.
+func open_rename(design: Dictionary) -> FODialog:
+	var field := LineEdit.new()
+	field.text = design.get("name", "")
+	field.custom_minimum_size.x = 320
+	var rename := func():
+		var new_name := field.text.strip_edges()
+		if not new_name.is_empty() and new_name != design.get("name", ""):
+			_design_order(source.rename_design(design.get("id", -1), new_name))
+	var dialog := FODialog.open_on(
+		self,
+		tr("DESIGNER_RENAME"),
+		"",
+		[[tr("DESIGNER_RENAME"), "PrimaryButton", rename], [tr("CANCEL"), "GhostButton"]]
 	)
+	dialog.add_content(field)
+	field.text_submitted.connect(func(_t): dialog.choose(0))
+	field.call_deferred("grab_focus")
+	field.call_deferred("select_all")
+	return dialog
+
+
+func _delete_button(design: Dictionary, delete_action := Callable()) -> Button:
+	var delete := ScreenKit.small_button("✕", "DESIGNER_DELETE")
+	delete.pressed.connect(confirm_delete.bind(design, delete_action))
 	return delete
+
+
+## Ask before deleting \a design (by \a delete_action, or as an own design).
+func confirm_delete(design: Dictionary, delete_action := Callable()) -> FODialog:
+	if not delete_action.is_valid():
+		delete_action = func(): return source.delete_design(design.get("id", -1))
+	var confirmed := func(): _design_order(delete_action.call())
+	return FODialog.open_on(
+		self,
+		tr("DESIGNER_DELETE"),
+		tr("DESIGNER_DELETE_CONFIRM").replace("%1%", design.get("name", "")),
+		[[tr("DESIGNER_DELETE"), "DangerButton", confirmed], [tr("CANCEL"), "GhostButton"]]
+	)
 
 
 func _design_order(ok: bool) -> void:

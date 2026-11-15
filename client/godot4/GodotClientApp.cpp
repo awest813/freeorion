@@ -43,6 +43,7 @@ namespace {
         db.Add("ui.map.scale.legend.shown",      UserStringNop("OPTIONS_DB_GALAXY_MAP_SCALE_LINE"),             true,  Validator<bool>());
         db.Add("ui.map.scale.circle.shown",      UserStringNop("OPTIONS_DB_GALAXY_MAP_SCALE_CIRCLE"),           false, Validator<bool>());
         db.Add("ui.map.minimap.shown",           UserStringNop("OPTIONS_DB_UI_MAP_MINIMAP_SHOWN"),              true,  Validator<bool>());
+        db.Add("resource.shipdesign.saved.enabled", UserStringNop("OPTIONS_DB_AUTO_ADD_SAVED_DESIGNS"),       true,  Validator<bool>());
         db.Add("ui.turn.readiness.check",        UserStringNop("OPTIONS_DB_UI_TURN_READINESS_CHECK"),           true,  Validator<bool>());
         db.Add("save.auto.initial.enabled",      UserStringNop("OPTIONS_DB_AUTOSAVE_GALAXY_CREATION"),          true,  Validator<bool>());
     }

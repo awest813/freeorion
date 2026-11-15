@@ -34,3 +34,20 @@ func delete_design(design_id: int) -> bool:
 
 func add_premade(design_id: int) -> int:
 	return FODesigner.add_premade(design_id)
+
+
+func rename_design(design_id: int, new_name: String) -> bool:
+	return FODesigner.rename_design(design_id, new_name)
+
+
+## Keep own design \a design_id between games (<user data>/shipdesigns).
+func save_design(design_id: int) -> bool:
+	return FODesigner.save_design(design_id)
+
+
+func add_saved(uuid: String) -> int:
+	return FODesigner.add_saved(uuid)
+
+
+func delete_saved(uuid: String) -> bool:
+	return FODesigner.delete_saved(uuid)

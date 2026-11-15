@@ -47,6 +47,13 @@ public:
 
     /** Add a copy of premade design \a design_id to the empire's designs. */
     static int add_premade(int design_id);
+    /** Designs kept between games in <user data>/shipdesigns, as the GG
+      * client keeps them: get_designs("saved") lists them by "uuid". */
+    static bool save_design(int design_id);
+    static int add_saved(const godot::String& uuid);
+    static bool delete_saved(const godot::String& uuid);
+    /** Add every saved design to the empire (a new game's first turn). */
+    static int add_all_saved();
 
     /** IDs put aside as obsolete, kept with the save's UI data. */
     static std::set<int>& ObsoleteDesigns();

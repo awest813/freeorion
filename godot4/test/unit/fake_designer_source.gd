@@ -56,6 +56,7 @@ var designs := {
 			"hull": "SH_BASIC_MEDIUM",
 			"parts": PackedStringArray(["SR_WEAPON_1_1", "AR_STD_PLATE", ""]),
 			"producible": true,
+			"renamable": true,
 		},
 	],
 	"obsolete":
@@ -76,6 +77,27 @@ var designs := {
 			"hull": "SH_BASIC_SMALL",
 			"parts": PackedStringArray([""]),
 			"producible": true,
+		},
+	],
+	"saved":
+	[
+		{
+			"id": -1,
+			"uuid": "aaaa-1",
+			"name": "Kept Raider",
+			"hull": "SH_BASIC_MEDIUM",
+			"parts": PackedStringArray(["SR_WEAPON_1_1", "", ""]),
+			"producible": true,
+			"added": false,
+		},
+		{
+			"id": -1,
+			"uuid": "aaaa-2",
+			"name": "Kept Scout",
+			"hull": "SH_BASIC_SMALL",
+			"parts": PackedStringArray([""]),
+			"producible": true,
+			"added": true,
 		},
 	],
 }
@@ -132,3 +154,23 @@ func delete_design(design_id: int) -> bool:
 func add_premade(design_id: int) -> int:
 	calls.push_back(["add_premade", design_id])
 	return 99
+
+
+func rename_design(design_id: int, new_name: String) -> bool:
+	calls.push_back(["rename_design", design_id, new_name])
+	return true
+
+
+func save_design(design_id: int) -> bool:
+	calls.push_back(["save_design", design_id])
+	return true
+
+
+func add_saved(uuid: String) -> int:
+	calls.push_back(["add_saved", uuid])
+	return 99
+
+
+func delete_saved(uuid: String) -> bool:
+	calls.push_back(["delete_saved", uuid])
+	return true

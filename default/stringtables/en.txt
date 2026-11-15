@@ -2838,6 +2838,28 @@ Premade
 DESIGNER_KIND_MONSTER
 Monsters
 
+DESIGNER_KIND_SAVED
+Saved
+
+DESIGNER_RENAME
+Rename
+
+DESIGNER_ACTIONS
+Rename, keep for later games, put aside or delete
+
+DESIGNER_SAVE_TO_DISK
+Keep this design for later games
+
+# %1% design name
+DESIGNER_SAVED_TO_DISK
+%1% is kept for later games.
+
+DESIGNER_ADD_SAVED
+Add this saved design to your empire
+
+DESIGNER_ADDED
+Already one of your designs
+
 DESIGNER_NO_DESIGNS
 No designs here.
 
