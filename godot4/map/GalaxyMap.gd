@@ -139,6 +139,18 @@ func route_points() -> PackedVector2Array:
 	return _route
 
 
+## Hover highlight and name chip for \a system_id (-1 clears); the mouse
+## normally drives this, tests and screenshots call it directly.
+func hover_system(system_id: int) -> void:
+	var index: int = _index_by_id.get(system_id, NO_SYSTEM)
+	if index == _hovered:
+		return
+	_hovered = index
+	_overlay.queue_redraw()
+	_label_layer.queue_redraw()
+	system_hovered.emit(system_id)
+
+
 func select_system(system_id: int) -> void:
 	var index: int = _index_by_id.get(system_id, NO_SYSTEM)
 	if index == _selected:
@@ -181,6 +193,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if index != _hovered:
 			_hovered = index
 			_overlay.queue_redraw()
+			_label_layer.queue_redraw()
 			system_hovered.emit(hovered_id)
 	elif event is InputEventMouseButton:
 		var button := event as InputEventMouseButton
@@ -325,7 +338,10 @@ func _draw_labels(layer: CanvasItem) -> void:
 	var size := MapStyle.LABEL_FONT_SIZE
 	var screen := Rect2(Vector2.ZERO, get_viewport_rect().size)
 	var placed := _LabelGrid.new()
+	_draw_hover_chip(layer, placed)
 	for i in _label_order:
+		if i == _hovered:
+			continue
 		var at := camera.world_to_screen(_positions[i])
 		if not screen.has_point(at):
 			continue
@@ -343,6 +359,36 @@ func _draw_labels(layer: CanvasItem) -> void:
 			size,
 			text_color
 		)
+
+
+# The hovered system always gets its name, as a chip that also reserves its
+# space so regular labels avoid it.
+func _draw_hover_chip(layer: CanvasItem, placed: _LabelGrid) -> void:
+	if _hovered == NO_SYSTEM or _hovered >= _names.size() or _names[_hovered].is_empty():
+		return
+	var tokens: FOTokens = FOUi.tokens
+	var size := MapStyle.LABEL_FONT_SIZE
+	var width := _label_widths[_hovered]
+	var at := camera.world_to_screen(_positions[_hovered])
+	var pad := Vector2(tokens.space_2, tokens.space_1) if tokens else Vector2(8, 4)
+	var top_left := at + Vector2(-width * 0.5, MapStyle.LABEL_OFFSET_PX.y)
+	var chip := Rect2(top_left - pad, Vector2(width, size * 1.25) + pad * 2.0).abs()
+	chip.position = chip.position.round()
+	placed.try_place(chip)
+	var background := tokens.surface_overlay if tokens else Color(0.1, 0.1, 0.12)
+	var border := tokens.border_strong if tokens else Color.GRAY
+	layer.draw_rect(chip, Color(background, 0.92))
+	layer.draw_rect(chip, border, false, 1.0)
+	var text_color: Color = tokens.text_primary if tokens else Color.WHITE
+	layer.draw_string(
+		_label_font,
+		(top_left + Vector2(0, size)).round(),
+		_names[_hovered],
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		size,
+		text_color
+	)
 
 
 # Label priority: selected system, then explored systems, then the rest.

@@ -46,9 +46,12 @@ func refresh() -> void:
 
 
 func show_data(data: Dictionary) -> void:
+	var was_hidden := not visible
 	visible = not data.is_empty()
 	if data.is_empty():
 		return
+	if was_hidden:
+		FOUi.fade_in(self)
 	_title.text = data.get("name", "")
 	var star_type: String = data.get("star_type", "")
 	_subtitle.text = (
@@ -98,9 +101,11 @@ func _rebuild_fleet_list(fleets: Array) -> void:
 		child.queue_free()
 	var still_listed := false
 	for fleet: Dictionary in fleets:
-		var line := tr("SYSTEM_PANEL_FLEET_LINE").replace("%1%", fleet.get("name", "")).replace(
-			"%2%", str(fleet.get("ships", 0))
+		var ships: int = fleet.get("ships", 0)
+		var line_key := (
+			"SYSTEM_PANEL_FLEET_LINE_ONE_SHIP" if ships == 1 else "SYSTEM_PANEL_FLEET_LINE"
 		)
+		var line := tr(line_key).replace("%1%", fleet.get("name", "")).replace("%2%", str(ships))
 		var destination: String = fleet.get("destination", "")
 		if not destination.is_empty():
 			line += "  " + tr("SYSTEM_PANEL_FLEET_DESTINATION").replace("%1%", destination)
@@ -243,14 +248,24 @@ func _build() -> void:
 	box.add_child(_notice)
 
 
+# Planet row: type icon, name with owner swatch, population and focus icons,
+# then a text line with size, type, species, focus and owner (icons are never
+# the only carrier of information).
 func _planet_row(planet: Dictionary) -> Control:
-	var row := VBoxContainer.new()
-	row.add_theme_constant_override("separation", 0)
+	var row := HBoxContainer.new()
+	var type_icon := _icon(FOArt.planet_type_icon(planet.get("type", "")), FOUi.tokens.icon)
+	type_icon.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	type_icon.tooltip_text = tr(planet.get("type", ""))
+	row.add_child(type_icon)
+
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 0)
+	row.add_child(text)
 	var name_line := HBoxContainer.new()
-	row.add_child(name_line)
+	text.add_child(name_line)
 	var owner_name: String = planet.get("owner_name", "")
 	if not owner_name.is_empty():
-		# Owner swatch: colour plus the name below, never colour alone.
 		var swatch := ColorRect.new()
 		swatch.color = planet.get("owner_color", Color.WHITE)
 		swatch.custom_minimum_size = Vector2(FOUi.tokens.space_2, FOUi.tokens.space_2) * 1.5
@@ -260,26 +275,48 @@ func _planet_row(planet: Dictionary) -> Control:
 	planet_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	planet_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_line.add_child(planet_name)
+	var focus: String = planet.get("focus", "")
+	if not focus.is_empty():
+		var focus_icon := _icon(FOArt.focus_icon(focus), FOUi.tokens.icon_small)
+		focus_icon.tooltip_text = tr(focus)
+		name_line.add_child(focus_icon)
 	var population: float = planet.get("population", 0.0)
 	if population > 0.0:
+		name_line.add_child(_icon(FOArt.meter_icon("pop"), FOUi.tokens.icon_small))
 		var pop := _label("%.1f" % population, "SecondaryLabel")
 		pop.tooltip_text = tr("METER_POPULATION")
 		name_line.add_child(pop)
 
 	var details: PackedStringArray = []
-	details.push_back("%s %s" % [tr(planet.get("size", "")), tr(planet.get("type", ""))])
+	var planet_size: String = planet.get("size", "")
+	var planet_type: String = planet.get("type", "")
+	# Gas giants and asteroid fields have a size named like their type.
+	if planet_size in ["SZ_GASGIANT", "SZ_ASTEROIDS"] or planet_size.is_empty():
+		details.push_back(tr(planet_type))
+	else:
+		details.push_back("%s %s" % [tr(planet_size), tr(planet_type)])
 	var species: String = planet.get("species", "")
 	if not species.is_empty():
 		details.push_back(tr(species))
-	var focus: String = planet.get("focus", "")
 	if not focus.is_empty():
 		details.push_back(tr(focus))
 	if not owner_name.is_empty():
 		details.push_back(owner_name)
 	var detail_label := _label(" · ".join(details), "SmallLabel")
 	detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(detail_label)
+	text.add_child(detail_label)
 	return row
+
+
+# Fixed-size icon; an empty placeholder keeps rows aligned when art is missing.
+static func _icon(texture: Texture2D, size: int) -> TextureRect:
+	var rect := TextureRect.new()
+	rect.texture = texture
+	rect.custom_minimum_size = Vector2(size, size)
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return rect
 
 
 static func _label(text: String, variation := "") -> Label:

@@ -115,6 +115,14 @@ static func _panels(theme: Theme, t: FOTokens) -> void:
 	background.set_corner_radius_all(0)
 	theme.set_stylebox("panel", "BackgroundPanel", background)
 
+	# Full-width bar along the top of a screen: "TopBarPanel".
+	theme.set_type_variation("TopBarPanel", "PanelContainer")
+	var top_bar := box(t, Color(t.surface_raised, 0.94), t.border, t.space_4, t.space_2)
+	top_bar.set_border_width_all(0)
+	top_bar.border_width_bottom = t.border_width
+	top_bar.set_corner_radius_all(0)
+	theme.set_stylebox("panel", "TopBarPanel", top_bar)
+
 	# Floating or emphasised surface: "OverlayPanel".
 	theme.set_type_variation("OverlayPanel", "PanelContainer")
 	theme.set_stylebox(

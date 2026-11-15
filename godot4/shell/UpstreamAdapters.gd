@@ -12,8 +12,8 @@ static func adapt(scene: Node) -> void:
 			_add_galaxy_map(scene)
 
 
-# Upstream MapWnd has only a toolbar and turn button: put the game shell (map
-# and context panel) behind them, keeping the panel clear of the toolbar.
+# Upstream MapWnd has only a toolbar and turn button: replace them with the
+# game shell (map, top bar with End Turn, context panel).
 static func _add_galaxy_map(map_wnd: Node) -> void:
 	if map_wnd.has_node("GameShell"):
 		return
@@ -25,8 +25,9 @@ static func _add_galaxy_map(map_wnd: Node) -> void:
 		return
 	var shell: Control = shell_script.new()
 	shell.name = "GameShell"
-	var toolbar := map_wnd.get_node_or_null("ToolBar") as Control
+	# The shell's top bar replaces upstream's toolbar (turn button included).
+	var toolbar := map_wnd.get_node_or_null("ToolBar") as CanvasItem
 	if toolbar:
-		shell.set("top_inset", toolbar.size.y)
+		toolbar.visible = false
 	map_wnd.add_child(shell)
 	map_wnd.move_child(shell, 0)

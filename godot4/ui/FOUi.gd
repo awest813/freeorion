@@ -10,6 +10,7 @@ signal scale_changed(scale: float)
 
 const OPTION_SCALE := "ui.scale"
 const OPTION_THEME := "ui.theme"
+const OPTION_REDUCE_MOTION := "ui.reduce-motion"
 const THEMES := {
 	"default": "res://ui/tokens/default.tres",
 	"high_contrast": "res://ui/tokens/high_contrast.tres",
@@ -18,6 +19,8 @@ const THEMES := {
 var tokens: FOTokens
 var theme: Theme
 var scale := 1.0
+## Skip UI animations (option ui.reduce-motion); tests set it for stable shots.
+var reduce_motion := false
 
 var _scale_setting := "auto"
 var _theme_name := "default"
@@ -29,6 +32,15 @@ func _ready() -> void:
 	get_tree().node_added.connect(_on_node_added)
 	get_window().size_changed.connect(_apply_scale)
 	_apply_scale()
+
+
+## Fade \a item in over the short motion duration, unless motion is reduced.
+func fade_in(item: CanvasItem) -> void:
+	if reduce_motion or not item.is_inside_tree():
+		item.modulate.a = 1.0
+		return
+	item.modulate.a = 0.0
+	item.create_tween().tween_property(item, "modulate:a", 1.0, tokens.motion_fast)
 
 
 ## Switch token set ("default", "high_contrast") and rebuild the theme.
@@ -89,11 +101,14 @@ func _read_options() -> void:
 	var options := Engine.get_singleton("FOOptions")
 	options.add_option(OPTION_SCALE, "OPTIONS_DB_UI_SCALE", "auto")
 	options.add_option(OPTION_THEME, "OPTIONS_DB_UI_THEME", "default")
+	options.add_option(OPTION_REDUCE_MOTION, "OPTIONS_DB_UI_REDUCE_MOTION", false)
+	reduce_motion = options.get_value(OPTION_REDUCE_MOTION)
 	_scale_setting = options.get_value(OPTION_SCALE)
 	_theme_name = options.get_value(OPTION_THEME)
 	# React live when the options screen (or anything else) changes them.
 	options.watch(OPTION_SCALE)
 	options.watch(OPTION_THEME)
+	options.watch(OPTION_REDUCE_MOTION)
 	options.option_changed.connect(_on_option_changed)
 
 
@@ -103,6 +118,8 @@ func _on_option_changed(option_name: String) -> void:
 		OPTION_SCALE:
 			_scale_setting = options.get_value(OPTION_SCALE)
 			_apply_scale()
+		OPTION_REDUCE_MOTION:
+			reduce_motion = options.get_value(OPTION_REDUCE_MOTION)
 		OPTION_THEME:
 			var theme_name: String = options.get_value(OPTION_THEME)
 			if theme_name != _theme_name:

@@ -97,6 +97,12 @@ func _check_fleet_order_from_shell() -> void:
 	shell.map_view.map.system_context_requested.emit(target)
 	_test.assert_eq(fleet.get_final_destination_id(), target, "Right-click ordered the move")
 	_test.assert_gt(shell.map_view.map.route_points().size(), 1, "Route drawn")
+	_test.assert_eq(
+		shell.top_bar._turn.text,
+		_test.tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(GlobalFreeOrionNode.get_current_turn())),
+		"Top bar shows the turn"
+	)
+	_test.assert_false(shell.top_bar._empire.text.is_empty(), "Top bar shows the empire")
 
 
 func _check_home_system_panel() -> void:

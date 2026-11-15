@@ -16,6 +16,14 @@ const CHANNEL_TOLERANCE := 24
 const MAX_DIFF_FRACTION := 0.005
 
 
+func before_all():
+	FOUi.reduce_motion = true
+
+
+func after_all():
+	FOUi.reduce_motion = false
+
+
 func test_component_gallery_default_theme():
 	await _check_scene(GALLERY.instantiate(), "gallery_default")
 
@@ -40,7 +48,12 @@ func test_game_shell_with_system_panel():
 
 func _fill_shell(shell: GameShell) -> void:
 	_fill_galaxy(shell.map_view)
+	shell.top_bar.set_state("Empire Blue", Color("#3d9bff"), 12, false)
 	shell.system_panel.show_data(preload("res://test/unit/test_system_panel.gd").SAMPLE)
+	shell.system_panel.select_fleet(7)
+	var map := shell.map_view.map
+	map.set_route(map.system_position(10), PackedInt32Array([85, 22]))
+	map.hover_system(50)
 
 
 func _check_scene(scene: Control, golden_name: String, setup := Callable()) -> void:

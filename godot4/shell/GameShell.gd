@@ -1,28 +1,25 @@
 class_name GameShell
 extends Control
-## In-game frame: the galaxy map with the context panel docked on the right.
-## Grows into the Phase 4 shell (top bar, left rail, notifications); until
-## then UpstreamAdapters places it under upstream MapWnd's toolbar.
+## In-game frame: the galaxy map, the top bar and the context panel docked on
+## the right. Grows into the Phase 4 shell (left rail, notifications); until
+## then UpstreamAdapters places it in upstream's MapWnd.
 
 const GALAXY_MAP_VIEW := preload("res://map/GalaxyMapView.tscn")
-
-## Space kept free at the top, e.g. for upstream's toolbar.
-var top_inset := 0.0:
-	set(value):
-		top_inset = value
-		if _panel_margin:
-			_panel_margin.add_theme_constant_override("margin_top", int(value) + _gap())
 
 ## Set false before adding to the tree to feed map and panel directly (tests).
 var follow_game := true
 var map_view: GalaxyMapView
+var top_bar: TopBar
 var system_panel: SystemPanel
-var _panel_margin: MarginContainer
 
 
 func _init() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Our UI calls tr() on stringtable keys itself. Upstream scenes (MapWnd) set
+	# auto-translation to ALWAYS, which would run names and numbers through
+	# UserString too and show them as "ERROR: <text>".
+	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 
 
 func _ready() -> void:
@@ -30,18 +27,33 @@ func _ready() -> void:
 	map_view.follow_game = follow_game
 	add_child(map_view)
 
-	_panel_margin = MarginContainer.new()
-	_panel_margin.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	_panel_margin.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_panel_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["margin_left", "margin_right", "margin_bottom"]:
-		_panel_margin.add_theme_constant_override(side, _gap())
-	_panel_margin.add_theme_constant_override("margin_top", int(top_inset) + _gap())
-	add_child(_panel_margin)
+	# UI layer over the map: top bar, then the body with the docked panel.
+	var layout := VBoxContainer.new()
+	layout.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layout.add_theme_constant_override("separation", 0)
+	add_child(layout)
 
+	top_bar = TopBar.new()
+	top_bar.follow_game = follow_game
+	layout.add_child(top_bar)
+
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layout.add_child(body)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(spacer)
+	var panel_margin := MarginContainer.new()
+	panel_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		panel_margin.add_theme_constant_override(side, _gap())
+	body.add_child(panel_margin)
 	var column := VBoxContainer.new()
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_panel_margin.add_child(column)
+	panel_margin.add_child(column)
 	system_panel = SystemPanel.new()
 	column.add_child(system_panel)
 

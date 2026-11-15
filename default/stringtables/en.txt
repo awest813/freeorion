@@ -1911,6 +1911,15 @@ UI scale of the Godot client: "auto" to follow the display, or a factor from 0.7
 OPTIONS_DB_UI_THEME
 Colour theme of the Godot client: "default" or "high_contrast".
 
+OPTIONS_DB_UI_REDUCE_MOTION
+Turn off UI animations in the Godot client.
+
+TOPBAR_END_TURN
+End turn
+
+TOPBAR_WAITING
+Waiting…
+
 PANEL_CLOSE
 Close
 
@@ -1925,6 +1934,9 @@ SYSTEM_PANEL_FLEETS
 
 SYSTEM_PANEL_FLEET_LINE
 %1% · %2% ships
+
+SYSTEM_PANEL_FLEET_LINE_ONE_SHIP
+%1% · 1 ship
 
 SYSTEM_PANEL_FLEET_DESTINATION
 → %1%
