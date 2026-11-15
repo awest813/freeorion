@@ -144,3 +144,29 @@ func test_empty_rounds_are_dropped():
 	]
 	var kept: Array = CombatScreen.without_empty_bouts(events).map(func(e): return e["text"])
 	assert_eq(kept, ["Round 1", "a", "Round 3", "d"])
+
+
+func test_replay_steps_through_the_bouts():
+	screen.open(5)
+	await wait_process_frames(1)
+	assert_eq(screen.bout, 3, "Starts after the combat")
+	var charts: Array = screen._detail.find_children("*", "LineChart", true, false)
+	assert_eq(charts.size(), 1)
+	assert_eq(charts[0].series.size(), 3, "One line per side")
+	assert_eq(charts[0].hover_title.call(0), tr("COMBAT_REPLAY_BEFORE"))
+	screen.show_bout(0)
+	assert_eq(screen._bout_label.text, tr("COMBAT_REPLAY_BEFORE"))
+	var bars: Array = screen._replay_bars
+	assert_true(
+		bars.any(func(e): return e[0].value == 40.0 and e[1][3] == 0.0), "A lost ship whole"
+	)
+	assert_true(screen._replay_losses.all(func(e): return not e[0].visible), "Nothing lost yet")
+	assert_true(screen._log_rows.all(func(e): return e[0].visible == (e[1] == 0)))
+	screen.show_bout(1)
+	assert_true(screen._replay_losses.all(func(e): return e[0].visible), "Lost in bout 1")
+	assert_true(screen._log_rows.any(func(e): return e[0].visible), "Bout 1's log")
+	screen.show_bout(9)
+	assert_eq(screen.bout, 3, "Kept within the combat")
+	screen.show_whole_combat()
+	assert_true(screen._log_rows.all(func(e): return e[0].visible))
+	assert_true(screen._whole_log.disabled)

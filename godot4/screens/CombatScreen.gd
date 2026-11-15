@@ -16,6 +16,10 @@ const KIND_MARKERS := {"attack": "›", "destroyed": "✕", "fighters": "»"}
 const FALLBACK_SHIP_ICON := "icons/ship_hulls/generic-medium-hull_small.png"
 
 var source: Variant = CombatSource.new()
+## Replay: the bout shown (0 before the combat, the last after it). The
+## replay moves health bars ([ProgressBar, health_by_bout]), unit rows'
+## "destroyed" labels and log rows (by bout).
+var bout := 0
 
 var _info: Label
 var _list: VBoxContainer
@@ -23,6 +27,12 @@ var _detail: VBoxContainer
 var _detail_scroll: ScrollContainer
 var _combats: Array = []
 var _selected_id := -1
+var _bouts := 0
+var _replay_bars: Array = []
+var _replay_losses: Array = []
+var _log_rows: Array = []
+var _bout_label: Label
+var _whole_log: Button
 
 
 func _init() -> void:
@@ -64,6 +74,10 @@ func open(log_id: int) -> void:
 		if card is Button:
 			card.set_pressed_no_signal(card.get_meta("id") == log_id)
 	ScreenKit.clear(_detail)
+	_replay_bars.clear()
+	_replay_losses.clear()
+	_log_rows.clear()
+	_bouts = 0
 	var combat: Dictionary = source.get_combat(log_id) if log_id >= 0 else {}
 	if combat.is_empty():
 		return
@@ -193,15 +207,116 @@ func _build_detail(combat: Dictionary) -> void:
 	for side: Dictionary in combat.get("sides", []):
 		sides.add_child(_side_card(side))
 
+	_bouts = combat.get("bouts", 0)
+	if _bouts > 0:
+		_detail.add_child(_health_chart(combat.get("sides", [])))
+		_detail.add_child(_replay_bar())
+
 	_detail.add_child(ScreenKit.label(tr("COMBAT_LOG"), "TitleLabel"))
-	var events := without_empty_bouts(combat.get("events", []))
+	var all_events: Array = combat.get("events", [])
+	var events := without_empty_bouts(all_events)
 	if events.is_empty():
 		_detail.add_child(ScreenKit.label(tr("COMBAT_REPORT_NO_EVENTS"), "SecondaryLabel"))
 	var log_box := VBoxContainer.new()
 	log_box.add_theme_constant_override("separation", FOUi.tokens.space_1)
 	_detail.add_child(log_box)
-	for event: Dictionary in events:
-		log_box.add_child(_event_row(event))
+	# Bouts are counted on the whole log, empty ones included.
+	var event_bout := 0
+	for event: Dictionary in all_events:
+		if event.get("kind", "") == "bout":
+			event_bout += 1
+		if not events.has(event):
+			continue
+		var row := _event_row(event)
+		_log_rows.push_back([row, event_bout])
+		log_box.add_child(row)
+	bout = _bouts
+
+
+## Show the combat as it stood at \a at_bout (0 before it, 1.. after each
+## bout): health bars, units lost by then, and that bout's part of the log.
+func show_bout(at_bout: int) -> void:
+	bout = clampi(at_bout, 0, _bouts)
+	for entry: Array in _replay_bars:
+		var health: PackedFloat32Array = entry[1]
+		if bout < health.size():
+			entry[0].value = health[bout]
+	for entry: Array in _replay_losses:
+		var health: PackedFloat32Array = entry[1]
+		entry[0].visible = bout < health.size() and health[bout] <= 0.0
+	for entry: Array in _log_rows:
+		entry[0].visible = entry[1] == bout
+	_bout_label.text = (
+		tr("COMBAT_REPLAY_BEFORE")
+		if bout == 0
+		else tr("COMBAT_REPLAY_AFTER").replace("%1%", str(bout)).replace("%2%", str(_bouts))
+	)
+	_whole_log.disabled = false
+
+
+## Back to the whole report: final health and the full log.
+func show_whole_combat() -> void:
+	show_bout(_bouts)
+	for entry: Array in _log_rows:
+		entry[0].visible = true
+	_bout_label.text = tr("COMBAT_REPLAY_ALL").replace("%1%", str(_bouts))
+	_whole_log.disabled = true
+
+
+# Each side's health before the combat and after each bout.
+func _health_chart(sides: Array) -> Control:
+	var chart := LineChart.new()
+	chart.custom_minimum_size.y = FOUi.tokens.space_8 * 5
+	chart.hover_title = func(at: int) -> String:
+		return (
+			tr("COMBAT_REPLAY_BEFORE")
+			if at == 0
+			else tr("COMBAT_CHART_AFTER").replace("%1%", str(at))
+		)
+	var series := []
+	for side: Dictionary in sides:
+		var turns := PackedInt32Array()
+		var values := PackedFloat64Array()
+		var health: PackedFloat32Array = side.get("health_by_bout", PackedFloat32Array())
+		for i in health.size():
+			turns.push_back(i)
+			values.push_back(health[i])
+		(
+			series
+			. push_back(
+				{
+					"label": side.get("name", ""),
+					"color": side.get("color", Color.GRAY),
+					"turns": turns,
+					"values": values,
+				}
+			)
+		)
+	chart.series = series
+	return chart
+
+
+# ◀ bout ▶, and back to the whole combat.
+func _replay_bar() -> Control:
+	var row := HBoxContainer.new()
+	row.add_child(ScreenKit.label(tr("COMBAT_REPLAY"), "TitleLabel"))
+	var back := ScreenKit.small_button("◀", "COMBAT_REPLAY_PREVIOUS")
+	back.pressed.connect(func(): show_bout(bout - 1))
+	row.add_child(back)
+	_bout_label = ScreenKit.label(tr("COMBAT_REPLAY_ALL").replace("%1%", str(_bouts)))
+	_bout_label.custom_minimum_size.x = SIDE_MIN_WIDTH * 0.6
+	_bout_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(_bout_label)
+	var next := ScreenKit.small_button("▶", "COMBAT_REPLAY_NEXT")
+	next.pressed.connect(func(): show_bout(bout + 1))
+	row.add_child(next)
+	_whole_log = Button.new()
+	_whole_log.text = tr("COMBAT_REPLAY_WHOLE")
+	_whole_log.theme_type_variation = "GhostButton"
+	_whole_log.disabled = true
+	_whole_log.pressed.connect(show_whole_combat)
+	row.add_child(_whole_log)
+	return row
 
 
 func _side_card(side: Dictionary) -> Control:
@@ -223,7 +338,9 @@ func _side_card(side: Dictionary) -> Control:
 	top.add_child(side_name)
 
 	var max_health: float = side.get("max_health", 0.0)
-	box.add_child(_health_bar(side.get("health", 0.0), max_health, color, FOUi.tokens.space_2))
+	var side_bar := _health_bar(side.get("health", 0.0), max_health, color, FOUi.tokens.space_2)
+	_replay_bars.push_back([side_bar, side.get("health_by_bout", PackedFloat32Array())])
+	box.add_child(side_bar)
 	var facts: PackedStringArray = [
 		tr("COMBAT_REPORT_LOST").replace("%1%", str(side.get("destroyed", 0))).replace(
 			"%2%", str(side.get("units", 0))
@@ -256,12 +373,15 @@ func _unit_row(unit: Dictionary, color: Color) -> Control:
 	var unit_name := _rich("<%s %d>%s</%s>" % [link_kind, unit["id"], unit["name"], link_kind])
 	text.add_child(unit_name)
 	var destroyed: bool = unit.get("destroyed", false)
+	var health: PackedFloat32Array = unit.get("health_by_bout", PackedFloat32Array())
 	if destroyed:
 		icon.modulate = Color(1, 1, 1, 0.4)
 		var lost := ScreenKit.label(tr("COMBAT_REPORT_DESTROYED"), "SmallLabel")
 		lost.add_theme_color_override("font_color", FOUi.tokens.negative)
 		text.add_child(lost)
-	elif unit.get("max_health", 0.0) > 0.0:
+		# In the replay, "destroyed" shows from the bout it happened in.
+		_replay_losses.push_back([lost, health])
+	if unit.get("max_health", 0.0) > 0.0 and (not destroyed or not health.is_empty()):
 		var bar := _health_bar(
 			unit.get("health", 0.0), unit["max_health"], color, FOUi.tokens.space_1
 		)
@@ -269,6 +389,7 @@ func _unit_row(unit: Dictionary, color: Color) -> Control:
 			"%s %.0f / %.0f" % [tr("FLEET_PANEL_STRUCTURE"), unit["health"], unit["max_health"]]
 		)
 		text.add_child(bar)
+		_replay_bars.push_back([bar, health])
 	return row
 
 

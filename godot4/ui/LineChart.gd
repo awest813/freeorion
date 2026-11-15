@@ -22,6 +22,8 @@ var highlight := -1:
 		highlight = value
 		queue_redraw()
 ## Series indices left out (toggled off in a legend).
+## Heading of the hover box for x value (turn) \a turn.
+var hover_title := func(turn: int) -> String: return tr("CHART_TURN").replace("%1%", str(turn))
 var hidden_series := {}:
 	set(value):
 		hidden_series = value
@@ -242,7 +244,7 @@ func _draw_hover(plot: Rect2, font: Font, font_size: int) -> void:
 		return
 	rows.sort_custom(func(a, b): return a[0] > b[0])
 	var line_height := font.get_height(font_size) + 2.0
-	var title := tr("CHART_TURN").replace("%1%", str(_hover_turn))
+	var title: String = hover_title.call(_hover_turn)
 	var box_width := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 	for row in rows:
 		var text := "%s  %s" % [row[1].get("label", ""), short_number(row[0])]

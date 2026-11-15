@@ -121,8 +121,26 @@ func get_combat(log_id: int) -> Dictionary:
 			for side: Dictionary in detail["sides"]:
 				side["unit_list"] = units.get(side["empire_id"], []) if log_id == 5 else []
 			detail["events"] = events if log_id == 5 else []
+			if log_id == 5:
+				_add_bouts(detail)
 			return detail
 	return {}
+
+
+# Health before the combat and after each of its 3 bouts: everything
+# happened in the first.
+func _add_bouts(detail: Dictionary) -> void:
+	detail["bouts"] = 3
+	for side: Dictionary in detail["sides"]:
+		var start := 0.0
+		for unit: Dictionary in side["unit_list"]:
+			var before: float = 40.0 if unit["destroyed"] else unit["max_health"]
+			var after: float = unit["health"]
+			unit["health_by_bout"] = PackedFloat32Array([before, after, after, after])
+			start += before
+		var final: float = side["health"]
+		side["health_by_bout"] = PackedFloat32Array([start, final, final, final])
+		side["dealt_by_bout"] = PackedFloat32Array([side["damage_dealt"], 0.0, 0.0])
 
 
 func get_pending_count() -> int:

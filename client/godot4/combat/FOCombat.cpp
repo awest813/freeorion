@@ -106,6 +106,54 @@ namespace {
                 SumDamage(*sub_event, viewing_empire_id, damage, depth + 1);
     }
 
+    // Damage per bout: taken by each object and dealt by each empire. A shot
+    // belongs to the bout of the BoutEvent it is under.
+    struct BoutDamage {
+        int bouts = 0;
+        std::map<int, std::map<int, float>> taken;  // object id -> bout -> damage
+        std::map<int, std::map<int, float>> dealt;  // empire id -> bout -> damage
+    };
+
+    void TallyBouts(const CombatEvent& event, int viewing_empire_id, int bout, BoutDamage& tally, int depth) {
+        if (const auto* bout_event = dynamic_cast<const BoutEvent*>(&event)) {
+            bout = bout_event->bout;
+            tally.bouts = std::max(tally.bouts, bout);
+        }
+        if (const auto* fire = dynamic_cast<const WeaponFireEvent*>(&event); fire && bout > 0) {
+            tally.taken[fire->target_id][bout] += fire->damage;
+            tally.dealt[fire->attacker_owner_id][bout] += fire->damage;
+        }
+        if (event.IsEmpty() || depth >= MAX_EVENT_DEPTH)
+            return;
+        for (const auto* sub_event : event.SubEvents(viewing_empire_id))
+            if (sub_event)
+                TallyBouts(*sub_event, viewing_empire_id, bout, tally, depth + 1);
+    }
+
+    // Health of \a object_id before the combat and after each bout: its final
+    // health plus the damage it took later, never above its maximum.
+    godot::PackedFloat32Array HealthByBout(int object_id, const CombatLog& log, const BoutDamage& tally) {
+        godot::PackedFloat32Array result;
+        const auto state_it = log.participant_states.find(object_id);
+        if (state_it == log.participant_states.end())
+            return result;
+        const float final_health = std::max(0.0f, state_it->second.current_health);
+        const auto taken_it = tally.taken.find(object_id);
+        float total = 0.0f;
+        if (taken_it != tally.taken.end())
+            for (const auto& [bout, damage] : taken_it->second)
+                total += damage;
+        float health = std::min(state_it->second.max_health, final_health + total);
+        result.push_back(health);
+        for (int bout = 1; bout <= tally.bouts; ++bout) {
+            if (taken_it != tally.taken.end())
+                if (const auto it = taken_it->second.find(bout); it != taken_it->second.end())
+                    health = std::max(0.0f, health - it->second);
+            result.push_back(health);
+        }
+        return result;
+    }
+
     std::string_view TypeName(UniverseObjectType type) {
         switch (type) {
         case UniverseObjectType::OBJ_SHIP:     return "ship";
@@ -117,7 +165,7 @@ namespace {
     }
 
     godot::Dictionary Unit(int object_id, const CombatLog& log, int viewing_empire_id,
-                           const ScriptingContext& context)
+                           const ScriptingContext& context, const BoutDamage& tally)
     {
         godot::Dictionary unit;
         unit["id"] = object_id;
@@ -144,6 +192,7 @@ namespace {
         unit["health"] = state_it != log.participant_states.end() ? std::max(0.0f, state_it->second.current_health) : 0.0f;
         unit["max_health"] = state_it != log.participant_states.end() ? state_it->second.max_health : 0.0f;
         unit["destroyed"] = log.destroyed_object_ids.contains(object_id);
+        unit["health_by_bout"] = HealthByBout(object_id, log, tally);
         return unit;
     }
 
@@ -164,6 +213,11 @@ namespace {
         for (const auto& event : log.combat_events)
             if (event)
                 SumDamage(*event, viewer, damage, 0);
+        BoutDamage tally;
+        for (const auto& event : log.combat_events)
+            if (event)
+                TallyBouts(*event, viewer, 0, tally, 0);
+        result["bouts"] = tally.bouts;
 
         // Sides: one per owner of a participant; the player's side first.
         // Ships and planets fight; the log also lists the system and fleets.
@@ -202,7 +256,7 @@ namespace {
                 if (log.destroyed_object_ids.contains(id))
                     ++destroyed;
                 if (with_details)
-                    units.push_back(Unit(id, log, viewer, context));
+                    units.push_back(Unit(id, log, viewer, context, tally));
             }
             side["units"] = static_cast<int>(unit_ids.size());
             side["destroyed"] = destroyed;
@@ -210,6 +264,26 @@ namespace {
             side["max_health"] = max_health;
             const auto damage_it = damage.find(owner);
             side["damage_dealt"] = damage_it != damage.end() ? damage_it->second : 0.0f;
+            // Health before the combat and after each bout, and damage dealt in each.
+            godot::PackedFloat32Array side_health;
+            side_health.resize(tally.bouts + 1);
+            side_health.fill(0.0f);
+            for (const int id : unit_ids) {
+                const auto unit_health = HealthByBout(id, log, tally);
+                for (int64_t i = 0; i < unit_health.size() && i < side_health.size(); ++i)
+                    side_health[i] += unit_health[i];
+            }
+            side["health_by_bout"] = side_health;
+            godot::PackedFloat32Array dealt;
+            const auto dealt_it = tally.dealt.find(owner);
+            for (int bout = 1; bout <= tally.bouts; ++bout) {
+                float value = 0.0f;
+                if (dealt_it != tally.dealt.end())
+                    if (const auto it = dealt_it->second.find(bout); it != dealt_it->second.end())
+                        value = it->second;
+                dealt.push_back(value);
+            }
+            side["dealt_by_bout"] = dealt;
             if (with_details)
                 side["unit_list"] = units;
             if (owner == viewer)

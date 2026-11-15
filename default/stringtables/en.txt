@@ -7592,6 +7592,33 @@ Damage
 OPTIONS_COMBAT_SUMMARY_HEALTH_COLOR
 Health
 
+COMBAT_REPLAY
+Replay
+
+COMBAT_REPLAY_BEFORE
+Before the combat
+
+# %1% bout, %2% number of bouts
+COMBAT_REPLAY_AFTER
+After bout %1% of %2%
+
+# %1% bout
+COMBAT_CHART_AFTER
+After bout %1%
+
+COMBAT_REPLAY_WHOLE
+Whole combat
+
+# %1% number of bouts
+COMBAT_REPLAY_ALL
+All %1% bouts
+
+COMBAT_REPLAY_PREVIOUS
+Earlier in the combat
+
+COMBAT_REPLAY_NEXT
+Later in the combat
+
 COMBAT_LOG
 Log
 
