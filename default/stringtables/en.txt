@@ -2022,6 +2022,9 @@ That save couldn't be loaded.
 SAVES_OVERWRITE
 Saving will replace this save.
 
+SAVES_AUTOSAVE
+Autosave
+
 MENU_RESUME
 Resume
 
@@ -2034,8 +2037,60 @@ Leave this game? Progress since your last save will be lost.
 MENU_LEAVING
 Leaving the game…
 
+GAME_ABORTED_TITLE
+The game has ended
+
+SERVER_ERROR_TITLE
+Server error
+
+GAME_OVER_VICTORY_TITLE
+Victory
+
+GAME_OVER_VICTORY
+Your empire has won the game. You can keep playing.
+
+GAME_OVER_DEFEAT_TITLE
+Defeat
+
+GAME_OVER_DEFEAT
+Your empire has been eliminated.
+
+GAME_OVER_KEEP_PLAYING
+Keep playing
+
+GAME_OVER_KEEP_WATCHING
+Keep watching
+
 TOPBAR_MENU
 Menu (Esc)
+
+# %1% PP produced, %2% PP spent.
+TOPBAR_INDUSTRY
+Industry: %1% PP produced, %2% spent.
+
+# %1% RP produced, %2% RP spent.
+TOPBAR_RESEARCH
+Research: %1% RP produced, %2% spent.
+
+# %1% unspent points.
+TOPBAR_WASTED
+%1% go unspent this turn.
+
+# %1% IP in stock, %2% change next turn.
+TOPBAR_INFLUENCE
+Influence: %1% IP in stock, %2% next turn.
+
+TOPBAR_STOCKPILE
+Imperial stockpile of PP.
+
+TOPBAR_POPULATION
+Population of your planets.
+
+TOPBAR_SHIPS
+Your ships.
+
+TOPBAR_DETECTION
+Detection strength: you see objects whose stealth is lower.
 
 COMBAT_TAB
 Combat

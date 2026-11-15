@@ -37,14 +37,22 @@ func test_save_mode_suggests_and_overwrites():
 	await _make("save")
 	assert_true(screen._name.visible)
 	assert_eq(screen._name.text, "Terran_Imperium_turn_43")
-	screen._list.get_child(1).pressed.emit()
-	assert_eq(screen._name.text, "autosave", "Picking a save overwrites it")
+	assert_eq(screen._list.get_child_count(), 1, "Autosaves aren't offered for overwriting")
+	screen._list.get_child(0).pressed.emit()
+	assert_eq(screen._name.text, "Terran_Imperium_turn_42", "Picking a save overwrites it")
 	assert_eq(screen._status.text, tr("SAVES_OVERWRITE"))
 	screen._action.pressed.emit()
-	assert_eq(fake.calls, [["save", "autosave"]])
+	assert_eq(fake.calls, [["save", "Terran_Imperium_turn_42"]])
 	assert_eq(screen._status.text, tr("SAVES_SAVING"))
-	screen.on_save_completed("/saves/autosave.sav")
-	assert_eq(screen._status.text, tr("SAVES_SAVED").replace("%1%", "autosave.sav"))
+	screen.on_save_completed("/saves/Terran_Imperium_turn_42.sav")
+	assert_eq(screen._status.text, tr("SAVES_SAVED").replace("%1%", "Terran_Imperium_turn_42.sav"))
+
+
+func test_autosaves_are_marked_in_load_mode():
+	await _make("load")
+	assert_eq(screen._list.get_child_count(), 2)
+	var labels: Array = screen._list.get_child(1).find_children("*", "Label", true, false)
+	assert_true(labels.any(func(l): return l.text.begins_with(tr("SAVES_AUTOSAVE"))))
 
 
 func test_empty_name_cannot_be_saved():

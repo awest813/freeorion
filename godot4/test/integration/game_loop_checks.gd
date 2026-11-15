@@ -329,11 +329,12 @@ func _check_government() -> void:
 
 
 # Save through the server, wait for save_completed, find it in the list,
-# then delete it again.
+# then delete it again. Autosaves may complete in between.
 func _check_save() -> void:
 	var signaler := _SaveSignal.new()
 	GlobalFreeOrionNode.save_completed.connect(signaler.on_completed)
 	var path := FOSaves.save_game("godot_integration_test")
+	signaler.wanted = path
 	_test.assert_false(path.is_empty(), "Save requested")
 	if path.is_empty():
 		return
@@ -350,9 +351,12 @@ func _check_save() -> void:
 
 class _SaveSignal:
 	signal completed
+	var wanted := ""
 	var filename := ""
 
 	func on_completed(saved: String, _bytes: int) -> void:
+		if saved != wanted:
+			return
 		filename = saved
 		completed.emit()
 

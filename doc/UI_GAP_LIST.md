@@ -18,14 +18,14 @@ The fork covers the menus, galaxy setup, save/load, the map with fleet moves,
 production, research, government, the ship designer, the Pedia, options,
 combat reports and the objects list. Nothing blocks a normal
 single-player game any more. The planet actions (colonise, invade, annex,
-focus, scrap) were the last P0 gap. Next come the information a player
-plays by (resources in the top bar, supply ranges, planet meters) and the
-game's end states (victory, defeat, server errors).
+focus, scrap) were the last P0 gap. The resources, autosave and the game's end states (victory,
+defeat, server errors) are in as well. Next come supply ranges and fields
+on the map, and planet detail with meter breakdowns.
 
 | Priority | Open items | Main ones |
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
-| P1 | 13 | Top-bar resources; supply on the map; planet detail; autosave; end of game and server errors; diplomacy; species and colour in setup; meter tooltips; multiplayer |
+| P1 | 9 | Supply on the map; fields; planet detail; meter tooltips; bombard; diplomacy; species, colour and rules in setup; multiplayer |
 | P2 | 22 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
 | P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
@@ -42,11 +42,17 @@ Each is an action button, or a focus picker, on the planet rows of the system pa
 
 ## P1: a regular player misses it
 
+Closed on 2026-11-15:
+- **Resources in the top bar:** PP and RP with unspent points flagged, IP with next turn's change, PP stockpile, population, ships and detection. Each opens its screen.
+- **Autosave:** at the start and end of turns, on the first turn and on exit, following the `save.auto.*` options. Autosaves are listed (and marked) in the load screen.
+- **Server errors:** shown in a dialog. Fatal ones and the server ending the game return to the title, saying why.
+- **Lost server:** if the server dies, the client returns to the title.
+- **Victory and defeat:** announced in a dialog, once each.
+
 ### Map and panels
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
-| Resources in the top bar | `MapWnd` toolbar (`m_industry`, `m_research`, `m_influence`, `m_population`, `m_detection`, fleet counts) | S | PP, RP and IP with this turn's change, stockpile, population; each opens its screen. |
 | Supply ranges on the map | `MapWnd::InitStarlaneRenderingBuffers` supply lanes, `RenderSupply` | M | Owner-tinted supply lanes or territory shader (plan, phase 3). Decides where fleets resupply and where production can be delivered. |
 | Fields (ion storms, nebulae, black holes) | `UI/FieldIcon.cpp` | S | Not drawn at all; they change stealth, detection and movement. |
 | Planet detail | `SidePanel` population, resource, military, buildings and specials panels | M | Meters with their targets (industry, research, influence, stability, supply, defence, shield, troops), buildings (with scrapping) and specials. The panel shows population and focus only. |
@@ -57,9 +63,6 @@ Each is an action button, or a focus picker, on the planet rows of the system pa
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
-| Autosave | `GGHumanClientApp::Autosave`, `save.auto.*` options | S | Each turn and on exit, as the options say. Nothing autosaves now. |
-| End of game | `HumanClientFSM` `EndGame`, `PlayerEliminated` | S | Victory, defeat and elimination are ignored: the game just stops changing. |
-| Server errors and crashes | `ERROR_MSG`, `Disconnection` in `HumanClientFSM` | S | Show the error; if the server dies, say so and return to the title. |
 | Diplomacy | `PlayerListWnd`, `DIPLO_MESSAGE`, `DIPLOMATIC_STATUS` | M | AIs propose peace and alliances even in single player; the client can neither see nor answer them. Includes an empires list. |
 | Species and colour in galaxy setup | `GalaxySetupWnd` species picker, colour selector | S | New games always use the stored species and colour. |
 | Game rules in galaxy setup | `GalaxySetupWnd` rules tab | M | Generated from the rules' metadata, like the options screen. |

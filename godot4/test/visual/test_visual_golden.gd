@@ -158,6 +158,24 @@ func _fill_designer(screen: DesignerScreen) -> void:
 func _fill_shell(shell: GameShell) -> void:
 	_fill_galaxy(shell.map_view)
 	shell.top_bar.set_state("Empire Blue", Color("#3d9bff"), 12, false)
+	(
+		shell
+		. top_bar
+		. set_resources(
+			{
+				"industry": 15.0,
+				"industry_spent": 12.0,
+				"research": 9.4,
+				"research_spent": 9.4,
+				"influence": 23.0,
+				"influence_change": 1.5,
+				"pp_stockpile": 4.0,
+				"population": 34.5,
+				"ships": 6,
+				"detection": 30.0,
+			}
+		)
+	)
 	shell.system_panel.show_data(preload("res://test/unit/test_system_panel.gd").SAMPLE)
 	shell.system_panel.select_fleet(7)
 	shell.fleet_panel.show_data(preload("res://test/unit/test_fleet_panel.gd").SAMPLE)

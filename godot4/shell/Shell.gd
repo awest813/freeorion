@@ -13,6 +13,8 @@ var game: GameShell
 var _content_ready := false
 ## While leaving a game: [action, save path] to do once the server is gone.
 var _leaving: Array = []
+## Why the game ended, shown on the title once it's back.
+var _notice := ""
 
 
 func _ready() -> void:
@@ -26,6 +28,8 @@ func _ready() -> void:
 	GlobalFreeOrionNode.parsing_completed.connect(_on_parsing_completed)
 	GlobalFreeOrionNode.start_game.connect(_on_start_game)
 	GlobalFreeOrionNode.game_ended.connect(_on_game_ended)
+	GlobalFreeOrionNode.game_aborted.connect(_on_game_aborted)
+	GlobalFreeOrionNode.server_error.connect(_on_server_error)
 	GlobalFreeOrionNode.start_network_thread()
 	GlobalFreeOrionNode.start_parsing_thread()
 
@@ -158,3 +162,28 @@ func _on_game_ended() -> void:
 				title.show_notice(tr("SAVES_LOAD_FAILED"))
 		_:
 			title.set_busy("")
+	if not _notice.is_empty():
+		FODialog.open_on(self, tr("GAME_ABORTED_TITLE"), _notice, [[tr("OK"), "PrimaryButton"]])
+		_notice = ""
+
+
+# The server ended the game or went away: back to the title, saying why.
+func _on_game_aborted(message: String) -> void:
+	_notice = message
+	if game:
+		leave_game("title")
+
+
+# Errors from the server. In game, GameShell shows them; before the game
+# starts (e.g. a failed load), the title does, and a fatal one shuts the
+# server down.
+func _on_server_error(message: String, fatal: bool) -> void:
+	if game:
+		return
+	if fatal:
+		_notice = message
+		title.set_busy(tr("MENU_LEAVING"))
+		GlobalFreeOrionNode.quit_game()
+	else:
+		title.set_busy("")
+		title.show_notice(message)

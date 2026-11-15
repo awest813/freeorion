@@ -47,6 +47,9 @@ func refresh() -> void:
 	_selected_path = ""
 	_status.text = ""
 	_saves = source.list_saves()
+	# Saving picks a save to overwrite; autosaves are the game's own.
+	if mode == "save":
+		_saves = _saves.filter(func(save): return not save.get("auto", false))
 	ScreenKit.clear(_list)
 	for save: Dictionary in _saves:
 		_list.add_child(_save_card(save))
@@ -132,11 +135,10 @@ func _save_card(save: Dictionary) -> Control:
 			)
 		)
 	)
-	text.add_child(
-		ScreenKit.label(
-			"%s · %s" % [save.get("file", ""), format_time(save.get("time", ""))], "SmallLabel"
-		)
-	)
+	var details := "%s · %s" % [save.get("file", ""), format_time(save.get("time", ""))]
+	if save.get("auto", false):
+		details = tr("SAVES_AUTOSAVE") + " · " + details
+	text.add_child(ScreenKit.label(details, "SmallLabel"))
 	return card
 
 

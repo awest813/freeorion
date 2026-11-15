@@ -1,6 +1,19 @@
 extends GutTest
 ## TopBar driven directly (follow_game = false).
 
+const RESOURCES := {
+	"industry": 15.0,
+	"industry_spent": 12.0,
+	"research": 9.4,
+	"research_spent": 9.4,
+	"influence": 23.0,
+	"influence_change": -1.5,
+	"pp_stockpile": 4.0,
+	"population": 34.5,
+	"ships": 6,
+	"detection": 30.0,
+}
+
 var bar: TopBar
 
 
@@ -78,3 +91,28 @@ func test_shell_shows_one_screen_at_a_time():
 	shell.research_screen.close_requested.emit()
 	assert_eq(shell.active_screen, "")
 	assert_false(shell.research_screen.visible)
+
+
+func test_resources_are_hidden_without_an_empire():
+	bar.set_resources({})
+	for chip in bar._resource_chips.values():
+		assert_false(chip.visible)
+
+
+func test_resources_show_values_and_warnings():
+	bar.set_resources(RESOURCES)
+	var industry: Button = bar._resource_chips["industry"]
+	assert_eq(industry.text, "15.0")
+	assert_string_contains(industry.tooltip_text, tr("TOPBAR_WASTED").replace("%1%", "3.0"))
+	assert_true(industry.has_theme_color_override("font_color"), "Wasted PP stand out")
+	var research: Button = bar._resource_chips["research"]
+	assert_false(research.has_theme_color_override("font_color"), "All RP spent")
+	assert_eq(bar._resource_chips["influence"].text, "23.0 (-1.5)")
+	assert_eq(bar._resource_chips["ships"].text, "6")
+
+
+func test_resource_chips_open_their_screens():
+	watch_signals(bar)
+	bar.set_resources(RESOURCES)
+	bar._resource_chips["influence"].pressed.emit()
+	assert_signal_emitted_with_parameters(bar, "screen_requested", ["government"])

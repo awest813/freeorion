@@ -12,8 +12,9 @@ var saves: Array = [
 		"time": "2026-11-15T10:42:07Z",
 	},
 	{
-		"path": "/saves/autosave.sav",
-		"file": "autosave.sav",
+		"path": "/saves/auto/FreeOrion_Admiral_Terran_Imperium_0040.sav",
+		"file": "FreeOrion_Admiral_Terran_Imperium_0040.sav",
+		"auto": true,
 		"player": "Admiral",
 		"empire": "Terran Imperium",
 		"color": Color("#3d9bff"),

@@ -1,6 +1,7 @@
 class_name TopBar
 extends PanelContainer
-## In-game top bar: empire (colour + name), turn number and End Turn.
+## In-game top bar: empire (colour + name), screen buttons, turn number and
+## End Turn, and below them the empire's resources (each opens its screen).
 ## Follows the running game unless follow_game is false; set_state() then
 ## drives it directly (tests, previews).
 
@@ -24,6 +25,20 @@ const SCREENS := [
 	["options", "OPTIONS_TITLE", KEY_F10],
 ]
 
+## Resource chips: key in get_empire_resources(), icon, screen to open,
+## tooltip key.
+const RESOURCES := [
+	["industry", "icons/meter/industry.png", "production", "TOPBAR_INDUSTRY"],
+	["research", "icons/meter/research.png", "research", "TOPBAR_RESEARCH"],
+	["influence", "icons/meter/influence.png", "government", "TOPBAR_INFLUENCE"],
+	["pp_stockpile", "icons/meter/stockpile.png", "production", "TOPBAR_STOCKPILE"],
+	["population", "icons/meter/pop.png", "objects", "TOPBAR_POPULATION"],
+	["ships", "icons/fleet/big-head-warship.png", "objects", "TOPBAR_SHIPS"],
+	["detection", "icons/meter/detection.png", "", "TOPBAR_DETECTION"],
+]
+## Unspent PP or RP above this counts as wasted.
+const WASTE_EPSILON := 0.05
+
 var follow_game := true
 
 var _swatch: ColorRect
@@ -31,6 +46,7 @@ var _empire: Label
 var _turn: Label
 var _end_turn: Button
 var _screen_buttons := {}
+var _resource_chips := {}
 var _waiting := false
 
 
@@ -58,6 +74,52 @@ func set_state(empire_name: String, color: Color, turn: int, waiting: bool) -> v
 	_waiting = waiting
 	_end_turn.disabled = waiting or turn < 1
 	_end_turn.text = tr("TOPBAR_WAITING") if waiting else tr("TOPBAR_END_TURN")
+
+
+## Show the empire's resources (FOUniverse.get_empire_resources()).
+func set_resources(data: Dictionary) -> void:
+	for entry in RESOURCES:
+		var chip: Button = _resource_chips[entry[0]]
+		chip.visible = data.has(entry[0])
+		if chip.visible:
+			_fill_chip(chip, entry, data)
+
+
+## Re-read the resources, e.g. after the queues changed.
+func refresh_resources() -> void:
+	if follow_game and is_instance_valid(GlobalFreeOrionNode):
+		set_resources(FOUniverse.get_empire_resources())
+
+
+func _fill_chip(chip: Button, entry: Array, data: Dictionary) -> void:
+	var key: String = entry[0]
+	var value: float = data.get(key, 0.0)
+	var text := "%.1f" % value
+	var tooltip := tr(entry[3])
+	var color := Color()
+	match key:
+		"industry", "research":
+			var spent: float = data.get(key + "_spent", 0.0)
+			tooltip = tooltip.replace("%1%", "%.1f" % value).replace("%2%", "%.1f" % spent)
+			if value - spent > WASTE_EPSILON:
+				color = FOUi.tokens.warning
+				tooltip += "\n" + tr("TOPBAR_WASTED").replace("%1%", "%.1f" % (value - spent))
+		"influence":
+			var change: float = data.get("influence_change", 0.0)
+			text = "%.1f (%+.1f)" % [value, change]
+			tooltip = tooltip.replace("%1%", "%.1f" % value).replace("%2%", "%+.1f" % change)
+			if change < 0.0:
+				color = FOUi.tokens.negative
+		"ships":
+			text = str(int(value))
+		"detection":
+			text = "%.0f" % value
+	chip.text = text
+	chip.tooltip_text = tooltip
+	if color == Color():
+		chip.remove_theme_color_override("font_color")
+	else:
+		chip.add_theme_color_override("font_color", color)
 
 
 ## Mark \a screen_name ("" for the map) as shown, without emitting signals.
@@ -88,8 +150,26 @@ func is_waiting() -> bool:
 
 
 func _build() -> void:
+	var rows := VBoxContainer.new()
+	rows.add_theme_constant_override("separation", 0)
+	add_child(rows)
 	var row := HBoxContainer.new()
-	add_child(row)
+	rows.add_child(row)
+	var resources := HBoxContainer.new()
+	resources.add_theme_constant_override("separation", FOUi.tokens.space_1)
+	rows.add_child(resources)
+	for entry in RESOURCES:
+		var chip := Button.new()
+		chip.theme_type_variation = "GhostButton"
+		chip.icon = FOArt.icon(entry[1])
+		chip.expand_icon = false
+		chip.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_small)
+		chip.add_theme_font_size_override("font_size", FOUi.tokens.font_size_small)
+		chip.focus_mode = Control.FOCUS_NONE if entry[2].is_empty() else Control.FOCUS_ALL
+		if not entry[2].is_empty():
+			chip.pressed.connect(screen_requested.emit.bind(entry[2]))
+		resources.add_child(chip)
+		_resource_chips[entry[0]] = chip
 	_swatch = ColorRect.new()
 	_swatch.custom_minimum_size = Vector2(FOUi.tokens.space_3, FOUi.tokens.space_3)
 	_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -163,6 +243,7 @@ func _refresh_from_game() -> void:
 		set_state(_empire.text, _swatch.color, 0, _waiting)
 		return
 	var empire_id: int = FOUniverse.get_empire_id()
+	set_resources(FOUniverse.get_empire_resources())
 	set_state(
 		FOUniverse.get_empire_name(empire_id),
 		FOUniverse.get_empire_color(empire_id),

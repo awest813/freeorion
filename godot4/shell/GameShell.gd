@@ -33,6 +33,8 @@ var active_screen := ""
 
 ## Newest combat the player has seen in the combat screen.
 var _seen_combat_id := -1
+## Victory or defeat already announced (or already so when the game began).
+var _announced := {}
 
 
 func _init() -> void:
@@ -164,6 +166,9 @@ func _ready() -> void:
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 		GlobalFreeOrionNode.save_completed.connect(_on_save_completed)
 		GlobalFreeOrionNode.combat_logs_updated.connect(_on_combat_logs_updated)
+		GlobalFreeOrionNode.server_error.connect(_on_server_error)
+		# A loaded game that was already won or lost isn't announced again.
+		check_game_over(FOUniverse.get_empire_resources(), true)
 
 
 # Esc on the map: clear the selection first, then open the menu. Screens and
@@ -212,6 +217,8 @@ func show_screen(screen_name: String) -> void:
 	for key in screens:
 		screens[key].visible = key == screen_name
 	if not screens.has(screen_name):
+		# Back on the map: queues and focus may have changed what's spent.
+		top_bar.refresh_resources()
 		return
 	if follow_game:
 		_prepare_screen(screen_name)
@@ -350,6 +357,7 @@ func _on_focus_requested(planet_id: int, focus: String) -> void:
 	if follow_game and not FOPlanetActions.set_focus(planet_id, focus):
 		system_panel.show_notice(tr("SYSTEM_PANEL_ACTION_REFUSED"))
 	system_panel.refresh()
+	top_bar.refresh_resources()
 
 
 # After a fleet order: re-read the system panel and show \a fleet_id.
@@ -379,7 +387,40 @@ func update_combat_badge(combats: Array, current_turn: int) -> void:
 	top_bar.set_badge("combat", 0 if active_screen == "combat" else count)
 
 
+## Announce victory or defeat from \a resources (get_empire_resources()),
+## once each; \a silently only notes them.
+func check_game_over(resources: Dictionary, silently := false) -> void:
+	for outcome in ["won", "eliminated"]:
+		if not resources.get(outcome, false) or _announced.has(outcome):
+			continue
+		_announced[outcome] = true
+		if silently:
+			continue
+		var quit := [
+			tr("MENU_QUIT_TO_TITLE"), "GhostButton", leave_requested.emit.bind("title", "")
+		]
+		if outcome == "won":
+			FODialog.open_on(
+				self,
+				tr("GAME_OVER_VICTORY_TITLE"),
+				tr("GAME_OVER_VICTORY"),
+				[quit, [tr("GAME_OVER_KEEP_PLAYING"), "PrimaryButton"]]
+			)
+		else:
+			FODialog.open_on(
+				self,
+				tr("GAME_OVER_DEFEAT_TITLE"),
+				tr("GAME_OVER_DEFEAT"),
+				[quit, [tr("GAME_OVER_KEEP_WATCHING"), "GhostButton"]]
+			)
+
+
+func _on_server_error(message: String, _fatal: bool) -> void:
+	FODialog.open_on(self, tr("SERVER_ERROR_TITLE"), message, [[tr("OK"), "PrimaryButton"]])
+
+
 func _on_turn_update() -> void:
+	check_game_over(FOUniverse.get_empire_resources())
 	system_panel.refresh()
 	if fleet_panel.visible:
 		fleet_panel.refresh()
