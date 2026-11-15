@@ -1911,6 +1911,18 @@ UI scale of the Godot client: "auto" to follow the display, or a factor from 0.7
 OPTIONS_DB_UI_THEME
 Colour theme of the Godot client: "default" or "high_contrast".
 
+PANEL_CLOSE
+Close
+
+SYSTEM_PANEL_PLANETS
+Planets
+
+SYSTEM_PANEL_NO_PLANETS
+No known planets
+
+SYSTEM_PANEL_FLEETS
+%1% fleets here, %2% yours
+
 OPTIONS_DB_UI_TITLE_FONT
 Sets UI title font resource file.
 

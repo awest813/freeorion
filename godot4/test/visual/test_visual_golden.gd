@@ -32,6 +32,17 @@ func test_galaxy_map_synthetic():
 	await _check_scene(view, "galaxy_map_synthetic", _fill_galaxy)
 
 
+func test_game_shell_with_system_panel():
+	var shell := GameShell.new()
+	shell.follow_game = false
+	await _check_scene(shell, "game_shell_system_panel", _fill_shell)
+
+
+func _fill_shell(shell: GameShell) -> void:
+	_fill_galaxy(shell.map_view)
+	shell.system_panel.show_data(preload("res://test/unit/test_system_panel.gd").SAMPLE)
+
+
 func _check_scene(scene: Control, golden_name: String, setup := Callable()) -> void:
 	if DisplayServer.get_name() == "headless":
 		pending("Needs a renderer (run under Xvfb with --rendering-driver opengl3)")

@@ -68,6 +68,26 @@ func _check_galaxy_map() -> void:
 		view.map.system_count(), FOUniverse.get_system_ids().size(), "Map shows known systems"
 	)
 	_test.assert_true(view.map.bounds.has_area(), "Map has galaxy bounds")
+	_check_home_system_panel()
+
+
+func _check_home_system_panel() -> void:
+	var empire_id: int = FOUniverse.get_empire_id()
+	var home_id := -1
+	for planet_id in FOUniverse.get_planet_ids():
+		var planet: FOPlanet = FOUniverse.get_planet(planet_id)
+		if planet.get_owner_id() == empire_id:
+			home_id = planet.get_system_id()
+			break
+	_test.assert_ne(home_id, -1, "Player owns a planet")
+	var data := SystemPanel.from_universe(home_id)
+	_test.assert_false(data.is_empty(), "Home system data")
+	var own_planets: Array = data["planets"].filter(func(p): return p["own"])
+	_test.assert_gt(own_planets.size(), 0, "Panel lists an own planet")
+	if not own_planets.is_empty():
+		_test.assert_gt(own_planets[0]["population"], 0.0, "Own planet has population")
+		_test.assert_false(own_planets[0]["species"].is_empty(), "Own planet has species")
+		_test.assert_false(own_planets[0]["owner_name"].is_empty(), "Owner empire has a name")
 
 
 func _check_snapshot() -> void:

@@ -214,6 +214,7 @@ void FOPlanet::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_planet_size"), &FOPlanet::get_planet_size);
     ClassDB::bind_method(D_METHOD("get_species_name"), &FOPlanet::get_species_name);
     ClassDB::bind_method(D_METHOD("get_focus"), &FOPlanet::get_focus);
+    ClassDB::bind_method(D_METHOD("get_meter", "meter_name"), &FOPlanet::get_meter);
 }
 
 bool FOPlanet::is_valid() const
@@ -259,6 +260,21 @@ godot::String FOPlanet::get_focus() const {
     return planet ? ToGodot(planet->Focus()) : godot::String();
 }
 
+double FOPlanet::get_meter(const godot::String& meter_name) const {
+    const auto* planet = Lookup<Planet>(m_id);
+    if (!planet)
+        return 0.0;
+    const std::string wanted = meter_name.utf8().get_data();
+    for (int i = 0; i < static_cast<int>(MeterType::NUM_METER_TYPES); ++i) {
+        const auto type = static_cast<MeterType>(i);
+        if (::to_string(type) == wanted) {
+            const auto* meter = planet->GetMeter(type);
+            return meter ? meter->Current() : 0.0;
+        }
+    }
+    return 0.0;
+}
+
 // FOUniverse
 
 void FOUniverse::_bind_methods() {
@@ -272,6 +288,7 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_fleet_ids"), &FOUniverse::get_fleet_ids);
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_ids"), &FOUniverse::get_planet_ids);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_color", "empire_id"), &FOUniverse::get_empire_color);
+    ClassDB::bind_static_method(cls, D_METHOD("get_empire_name", "empire_id"), &FOUniverse::get_empire_name);
     ClassDB::bind_static_method(cls, D_METHOD("get_map_snapshot"), &FOUniverse::get_map_snapshot);
 }
 
@@ -305,6 +322,12 @@ godot::Color FOUniverse::get_empire_color(int empire_id) {
         return godot::Color(0.5f, 0.5f, 0.5f, 1.0f);
     const auto c = empire->Color();
     return godot::Color::from_rgba8(c[0], c[1], c[2], c[3]);
+}
+
+godot::String FOUniverse::get_empire_name(int empire_id) {
+    const auto* app = ClientApp::GetApp();
+    const auto* empire = app ? app->GetEmpire(empire_id) : nullptr;
+    return empire ? ToGodot(empire->Name()) : godot::String();
 }
 
 godot::Dictionary FOUniverse::get_map_snapshot() {

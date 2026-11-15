@@ -83,6 +83,9 @@ public:
     godot::String get_planet_size() const;
     godot::String get_species_name() const;
     godot::String get_focus() const;
+    /** Current value of a meter, by MeterType name such as "METER_POPULATION";
+      * 0.0 if the planet or meter is unknown. */
+    double get_meter(const godot::String& meter_name) const;
 
 protected:
     static void _bind_methods();
@@ -103,6 +106,7 @@ public:
     static godot::PackedInt32Array get_fleet_ids();
     static godot::PackedInt32Array get_planet_ids();
     static godot::Color get_empire_color(int empire_id);
+    static godot::String get_empire_name(int empire_id); ///< empty if unknown
 
     /** Bulk data for the galaxy map renderer, as packed arrays so a frame
       * needs one call instead of one per object. Keys:
