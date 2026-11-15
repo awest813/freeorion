@@ -7,6 +7,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/combat/FOCombat.h
         ${CMAKE_CURRENT_LIST_DIR}/designer/FODesigner.h
         ${CMAKE_CURRENT_LIST_DIR}/government/FOGovernment.h
+        ${CMAKE_CURRENT_LIST_DIR}/objects/FOObjects.h
         ${CMAKE_CURRENT_LIST_DIR}/options/FOOptions.h
         ${CMAKE_CURRENT_LIST_DIR}/orders/FOOrders.h
         ${CMAKE_CURRENT_LIST_DIR}/pedia/FOPedia.h
@@ -23,6 +24,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/combat/FOCombat.cpp
         ${CMAKE_CURRENT_LIST_DIR}/designer/FODesigner.cpp
         ${CMAKE_CURRENT_LIST_DIR}/government/FOGovernment.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/objects/FOObjects.cpp
         ${CMAKE_CURRENT_LIST_DIR}/options/FOOptions.cpp
         ${CMAKE_CURRENT_LIST_DIR}/orders/FOOrders.cpp
         ${CMAKE_CURRENT_LIST_DIR}/pedia/FOPedia.cpp
