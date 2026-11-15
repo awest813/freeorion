@@ -74,10 +74,37 @@ namespace {
         return env >= PlanetEnvironment::PE_HOSTILE && env <= PlanetEnvironment::PE_GOOD;
     }
 
+    // Projections made this turn, by planet, species and empire: each one
+    // updates the meter estimates twice, and a system panel refresh asks for
+    // every ship and planet pair (as GG's colony_projections cache).
+    struct ProjectionCache {
+        int turn = INVALID_GAME_TURN;
+        std::map<std::tuple<int, std::string, int>, float> values;
+    };
+    ProjectionCache projection_cache;
+
+    float ProjectTargetPopulation(Planet& planet, const std::string& species_name, int empire_id,
+                                  ScriptingContext& context);
+
     // Target population \a planet would have with \a species_name living on
     // it, by setting it temporarily and updating the meter estimates.
     float ProjectedTargetPopulation(Planet& planet, const std::string& species_name, int empire_id,
                                     ScriptingContext& context)
+    {
+        if (projection_cache.turn != context.current_turn) {
+            projection_cache.turn = context.current_turn;
+            projection_cache.values.clear();
+        }
+        const auto key = std::make_tuple(planet.ID(), species_name, empire_id);
+        if (const auto it = projection_cache.values.find(key); it != projection_cache.values.end())
+            return it->second;
+        const float projected = ProjectTargetPopulation(planet, species_name, empire_id, context);
+        projection_cache.values.emplace(key, projected);
+        return projected;
+    }
+
+    float ProjectTargetPopulation(Planet& planet, const std::string& species_name, int empire_id,
+                                  ScriptingContext& context)
     {
         const auto* species = context.species.GetSpecies(species_name);
         if (!species || species->GetPlanetEnvironment(planet.Type()) == PlanetEnvironment::PE_UNINHABITABLE)

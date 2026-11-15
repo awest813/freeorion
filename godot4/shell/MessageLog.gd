@@ -4,7 +4,12 @@ extends Node
 ## begun, games saved, and wars, peace treaties and alliances between the
 ## player's empire and others; and opens the Pedia for "/pedia". Also, as
 ## the GG client: a server error stops ending turns automatically, and
-## players' status changes refresh the empires' ready marks.
+## players' status changes refresh the empires' ready marks. A server
+## error that doesn't end the game is logged with a toast (clicking it
+## opens the messages); only fatal ones get a dialog.
+
+## The note for errors that don't end the game.
+var toast := Toast.new()
 
 var _shell: GameShell
 ## Diplomatic status with each other empire, as last seen: id -> status.
@@ -17,6 +22,8 @@ func _init(shell: GameShell) -> void:
 
 func _ready() -> void:
 	_shell.chat_window.pedia_requested.connect(open_pedia)
+	toast.pressed.connect(_shell.chat_window.open)
+	_shell.add_child.call_deferred(toast)
 	if not _shell.follow_game:
 		return
 	var node := get_node_or_null("/root/GlobalFreeOrionNode")
@@ -25,7 +32,7 @@ func _ready() -> void:
 	node.turn_update.connect(func(): turn_begun(node.get_current_turn()), CONNECT_DEFERRED)
 	node.save_completed.connect(saved)
 	node.diplomacy_changed.connect(func(): diplomacy(FODiplomacy.get_empires()))
-	node.server_error.connect(func(_message, _fatal): _shell.top_bar.set_auto_end_turn(false))
+	node.server_error.connect(server_error)
 	node.players_changed.connect(players_changed)
 	# The server's saves arrived: an open save or load screen lists them.
 	node.server_saves.connect(
@@ -35,6 +42,17 @@ func _ready() -> void:
 					screen.refresh()
 	)
 	diplomacy(FODiplomacy.get_empires())
+
+
+## The server reported \a message: \a fatal ones (the game ends) in a
+## dialog, others in the log and a toast, so several don't stack up.
+func server_error(message: String, fatal: bool) -> void:
+	_shell.top_bar.set_auto_end_turn(false)
+	if fatal:
+		FODialog.open_on(_shell, tr("SERVER_ERROR_TITLE"), message, [[tr("OK"), "PrimaryButton"]])
+		return
+	_shell.chat_window.add_event(tr("SERVER_ERROR_TITLE") + ": " + message)
+	toast.show_text(message)
 
 
 ## Players' status changed (ready, playing): the empires list shows it.

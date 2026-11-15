@@ -62,7 +62,13 @@ func _notification(what: int) -> void:
 	if what != NOTIFICATION_WM_CLOSE_REQUEST:
 		return
 	if game and _leaving.is_empty():
-		leave_game("exit")
+		# Ask first, as the in-game menu does; closing again while asked
+		# leaves.
+		if game.game_menu.visible and game.game_menu.pending_leave == "exit":
+			leave_game("exit")
+			return
+		game.open_menu()
+		game.game_menu.request_leave("exit")
 	elif _leaving.is_empty() or _leaving[0] != "exit":
 		quit()
 

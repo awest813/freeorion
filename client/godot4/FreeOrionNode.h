@@ -40,6 +40,10 @@ private:
 
     bool get_single_player_game() const; ///< Returns true if this game is a single-player game
 
+    /** Whether this turn's orders went off by themselves (auto-advance-n-turns
+      * from the command line): the top bar shows the turn as waiting. */
+    bool is_turn_auto_ended() const;
+
     void parsing_thread(); ///< Function called in a separate parsing thread
 
     /** Starts dispatching incoming server messages, should be called after initialization.
@@ -96,6 +100,7 @@ private:
     void AbortGame(const std::string& message);
 
     std::unique_ptr<GodotClientApp> m_app;
+    bool m_turn_auto_ended = false;
     std::atomic<bool> m_parsing_done = false; ///< content parsed, so checksums can be compared
     SaveGameUIData m_ui_data;              ///< sent with each turn's orders
     std::optional<SaveGameUIData> m_loaded_ui_data; ///< from the loaded save, if any

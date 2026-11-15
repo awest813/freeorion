@@ -65,12 +65,15 @@ func test_host_emits_name():
 func test_lan_servers_listed_and_picked():
 	var screen := _connect_screen()
 	screen.find_lan_servers()
+	assert_true(screen.join_button.disabled, "No joining while searching")
+	await wait_for_signal(screen.lan_search_done, 5)
 	assert_eq(screen.lan_list.item_count, 1)
 	screen.lan_list.select(0)
 	screen.lan_list.item_selected.emit(0)
 	assert_eq(screen.address_edit.text, "192.168.1.20")
 	source.lan_servers = PackedStringArray()
 	screen.find_lan_servers()
+	await wait_for_signal(screen.lan_search_done, 5)
 	assert_eq(screen.status_text(), tr("MP_NO_LAN_SERVERS"))
 
 

@@ -346,7 +346,6 @@ func _ready() -> void:
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 		GlobalFreeOrionNode.save_completed.connect(_on_save_completed)
 		GlobalFreeOrionNode.combat_logs_updated.connect(_on_combat_logs_updated)
-		GlobalFreeOrionNode.server_error.connect(_on_server_error)
 		GlobalFreeOrionNode.diplomacy_changed.connect(_on_diplomacy_changed)
 		var options := Engine.get_singleton("FOOptions")
 		if options.exists("ui.map.detection.shown"):
@@ -886,10 +885,6 @@ func show_readiness(issues: Array) -> FODialog:
 	)
 	dialog.add_content(dont_ask)
 	return dialog
-
-
-func _on_server_error(message: String, _fatal: bool) -> void:
-	FODialog.open_on(self, tr("SERVER_ERROR_TITLE"), message, [[tr("OK"), "PrimaryButton"]])
 
 
 # Proposals from other empires: count them on the Empires button.

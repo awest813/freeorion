@@ -9,6 +9,8 @@ extends PanelContainer
 signal back_requested
 signal host_requested(player_name: String)
 signal join_requested(address: String, player_name: String, client_type: String)
+## The local network search finished (its results are listed).
+signal lan_search_done
 
 const OPTION_NAME := "setup.multiplayer.player.name"
 const OPTION_ADDRESS := "setup.multiplayer.host.address"
@@ -29,6 +31,10 @@ var host_button: Button
 var join_button: Button
 
 var _status: Label
+var _refresh_button: Button
+# The local network search running in the background (it waits about two
+# seconds for answers).
+var _search: Thread
 
 
 func _init() -> void:
@@ -62,13 +68,33 @@ func status_text() -> String:
 
 
 ## Look for servers on the local network and list them.
+## The search runs in the background; joining waits until it is done (both
+## use the client's network connection).
 func find_lan_servers() -> void:
+	if _search:
+		return
 	lan_list.clear()
 	set_status(tr("MP_SEARCHING_LAN"))
-	var found: PackedStringArray = lobby_source.discover_lan_servers()
+	_search = Thread.new()
+	_search.start(lobby_source.discover_lan_servers)
+	_update_buttons()
+	while _search.is_alive() and is_inside_tree():
+		await get_tree().process_frame
+	if _search == null:  # The screen was closed meanwhile.
+		return
+	var found: PackedStringArray = _search.wait_to_finish()
+	_search = null
+	_update_buttons()
 	for server in found:
 		lan_list.add_item(server)
 	set_status("" if not found.is_empty() else tr("MP_NO_LAN_SERVERS"))
+	lan_search_done.emit()
+
+
+func _exit_tree() -> void:
+	if _search:
+		_search.wait_to_finish()
+		_search = null
 
 
 func player_name() -> String:
@@ -109,11 +135,11 @@ func _build() -> void:
 	var lan_label := ScreenKit.label(tr("LAN_GAME_LABEL"), "SecondaryLabel")
 	lan_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lan_row.add_child(lan_label)
-	var refresh_button := Button.new()
-	refresh_button.text = tr("REFRESH_LIST_BN")
-	refresh_button.theme_type_variation = "GhostButton"
-	refresh_button.pressed.connect(find_lan_servers)
-	lan_row.add_child(refresh_button)
+	_refresh_button = Button.new()
+	_refresh_button.text = tr("REFRESH_LIST_BN")
+	_refresh_button.theme_type_variation = "GhostButton"
+	_refresh_button.pressed.connect(find_lan_servers)
+	lan_row.add_child(_refresh_button)
 	lan_list = ItemList.new()
 	lan_list.custom_minimum_size.y = 96
 	lan_list.item_selected.connect(func(i): address_edit.text = lan_list.get_item_text(i))
@@ -153,8 +179,12 @@ func _build() -> void:
 
 
 func _update_buttons() -> void:
-	host_button.disabled = player_name().is_empty()
-	join_button.disabled = player_name().is_empty() or address_edit.text.strip_edges().is_empty()
+	var searching := _search != null
+	_refresh_button.disabled = searching
+	host_button.disabled = player_name().is_empty() or searching
+	join_button.disabled = (
+		player_name().is_empty() or address_edit.text.strip_edges().is_empty() or searching
+	)
 
 
 func _remember() -> void:

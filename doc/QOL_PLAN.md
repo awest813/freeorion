@@ -155,7 +155,7 @@ The most common frustration is an action that silently does nothing.
      the server's directory.
    - Fix: list the server's saves (as the lobby now does).
 
-### Phase 4: speed and polish (about 2 days)
+### Phase 4: speed and polish (about 2 days) ✅ done
 
 1. **System panel refresh cost.**
    - Every refresh re-runs the colony projection for every ship and planet,

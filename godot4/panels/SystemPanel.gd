@@ -76,9 +76,28 @@ func show_system(id: int) -> void:
 
 
 ## Re-read the shown system, e.g. after a turn update.
+## Waits while one of the panel's drop-downs is open (a rebuild would
+## close it under the pointer) and refreshes once it closes.
 func refresh() -> void:
-	if system_id >= 0:
-		show_system(system_id)
+	if system_id < 0:
+		return
+	var open := _open_popup()
+	if open:
+		if not open.popup_hide.is_connected(refresh):
+			open.popup_hide.connect(refresh, CONNECT_ONE_SHOT | CONNECT_DEFERRED)
+		return
+	show_system(system_id)
+
+
+# The drop-down list open in this panel, if any.
+func _open_popup() -> PopupMenu:
+	for button: Node in find_children("*", "MenuButton", true, false):
+		if (button as MenuButton).get_popup().visible:
+			return (button as MenuButton).get_popup()
+	for button: Node in find_children("*", "OptionButton", true, false):
+		if (button as OptionButton).get_popup().visible:
+			return (button as OptionButton).get_popup()
+	return null
 
 
 func show_data(data: Dictionary) -> void:

@@ -96,7 +96,7 @@ func _ready() -> void:
 	GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 	GlobalFreeOrionNode.turn_progress.connect(set_phase)
 	GlobalFreeOrionNode.turn_timeout.connect(set_turn_timeout)
-	_refresh_from_game()
+	_on_turn_update()
 
 
 ## Show \a empire_name / \a color at \a turn; \a waiting disables End Turn.
@@ -538,12 +538,12 @@ func end_turn() -> void:
 
 
 func _on_start_game(_is_new_game: bool) -> void:
-	_waiting = false
-	_refresh_from_game()
+	_on_turn_update()
 
 
 func _on_turn_update() -> void:
-	_waiting = false
+	# Turns ended by themselves (auto-advance from the command line) wait.
+	_waiting = GlobalFreeOrionNode.is_turn_auto_ended()
 	_refresh_from_game()
 
 

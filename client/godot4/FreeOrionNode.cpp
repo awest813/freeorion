@@ -50,6 +50,7 @@ void FreeOrionNode::_bind_methods() {
     godot::ClassDB::bind_method(godot::D_METHOD("start_parsing_thread"), &FreeOrionNode::start_parsing_thread);
     godot::ClassDB::bind_method(godot::D_METHOD("new_single_player_game"), &FreeOrionNode::new_single_player_game);
     godot::ClassDB::bind_method(godot::D_METHOD("start_turn"), &FreeOrionNode::start_turn);
+    godot::ClassDB::bind_method(godot::D_METHOD("is_turn_auto_ended"), &FreeOrionNode::is_turn_auto_ended);
     godot::ClassDB::bind_method(godot::D_METHOD("set_view", "center", "zoom"), &FreeOrionNode::set_view);
     godot::ClassDB::bind_method(godot::D_METHOD("get_saved_view"), &FreeOrionNode::get_saved_view);
     godot::ClassDB::bind_method(godot::D_METHOD("quit_game"), &FreeOrionNode::quit_game);
@@ -273,6 +274,9 @@ godot::String FreeOrionNode::get_user_config_dir() const
 
 int FreeOrionNode::get_current_turn() const
 { return m_app ? m_app->CurrentTurn() : INVALID_GAME_TURN; }
+
+bool FreeOrionNode::is_turn_auto_ended() const
+{ return m_turn_auto_ended; }
 
 bool FreeOrionNode::get_single_player_game() const
 { return m_app ? m_app->SinglePlayerGame() : false; }
@@ -507,7 +511,8 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                 m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
             call_deferred("emit_start_game", is_new_game);
 
-            if (m_app->AutoTurnsLeft() > 0) {
+            m_turn_auto_ended = m_app->AutoTurnsLeft() > 0;
+            if (m_turn_auto_ended) {
                 SaveGameUIData ui_data;
                 m_app->StartTurn(ui_data);
                 m_app->DecAutoTurns();
@@ -541,7 +546,8 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
             call_deferred("emit_signal", "turn_update");
 
-            if (m_app->AutoTurnsLeft() > 0) {
+            m_turn_auto_ended = m_app->AutoTurnsLeft() > 0;
+            if (m_turn_auto_ended) {
                 SaveGameUIData ui_data;
                 m_app->StartTurn(ui_data);
                 m_app->DecAutoTurns();
