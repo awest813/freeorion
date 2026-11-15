@@ -91,7 +91,7 @@ HAS_ADVANCED_FOCI = [
         description="FOCUS_STEALTH_DESC",
         location=Contains(IsBuilding(name=["BLD_PLANET_CLOAK"]))
         | (Contains(IsBuilding(name=["BLD_TRANSFORMER"])) & OwnerHasTech(name="DEF_PLANET_CLOAK")),
-        graphic="icons/focus/stealth.png",
+        graphic="icons/meter/stealth.png",
     ),
     FocusType(
         name="FOCUS_BIOTERROR",

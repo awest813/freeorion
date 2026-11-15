@@ -16,3 +16,5 @@ jobs:
         run: ty check .
       - name: Lint Python FOCS files with pyrefly
         run: pyrefly check --summarize-errors
+      - name: Check that referenced art files exist
+        run: python check/checkArtPaths.py default
