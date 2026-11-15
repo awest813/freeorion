@@ -17,6 +17,7 @@
 #include "../../../util/Logger.h"
 #include "../../../util/Order.h"
 #include "../../../util/OrderSet.h"
+#include "../../../util/i18n.h"
 
 namespace {
     godot::String ToGodot(std::string_view s)
@@ -97,10 +98,16 @@ namespace {
 void FODesigner::_bind_methods() {
     using godot::ClassDB, godot::D_METHOD;
     const auto cls = get_class_static();
-    ClassDB::bind_static_method(cls, D_METHOD("get_hulls"), &FODesigner::get_hulls);
-    ClassDB::bind_static_method(cls, D_METHOD("get_parts"), &FODesigner::get_parts);
+    ClassDB::bind_static_method(cls, D_METHOD("get_hulls", "include_unavailable"), &FODesigner::get_hulls, DEFVAL(false));
+    ClassDB::bind_static_method(cls, D_METHOD("get_parts", "include_unavailable"), &FODesigner::get_parts, DEFVAL(false));
     ClassDB::bind_static_method(cls, D_METHOD("evaluate", "hull", "parts"), &FODesigner::evaluate);
-    ClassDB::bind_static_method(cls, D_METHOD("create", "name", "hull", "parts"), &FODesigner::create);
+    ClassDB::bind_static_method(cls, D_METHOD("create", "name", "hull", "parts", "description"), &FODesigner::create, DEFVAL(""));
+    ClassDB::bind_static_method(cls, D_METHOD("update_design", "design_id", "name", "hull", "parts", "description"),
+                                &FODesigner::update_design);
+    ClassDB::bind_static_method(cls, D_METHOD("update_saved", "uuid", "name", "hull", "parts", "description"),
+                                &FODesigner::update_saved);
+    ClassDB::bind_static_method(cls, D_METHOD("set_part_obsolete", "name", "obsolete"), &FODesigner::set_part_obsolete);
+    ClassDB::bind_static_method(cls, D_METHOD("set_hull_obsolete", "name", "obsolete"), &FODesigner::set_hull_obsolete);
     ClassDB::bind_static_method(cls, D_METHOD("get_designs", "kind"), &FODesigner::get_designs, DEFVAL("empire"));
     ClassDB::bind_static_method(cls, D_METHOD("set_obsolete", "design_id", "obsolete"), &FODesigner::set_obsolete);
     ClassDB::bind_static_method(cls, D_METHOD("delete_design", "design_id"), &FODesigner::delete_design);
@@ -112,22 +119,43 @@ void FODesigner::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("add_all_saved"), &FODesigner::add_all_saved);
 }
 
-godot::Array FODesigner::get_hulls() {
+namespace {
+    // A hull's or part's cost at the capital (costs can depend on where).
+    template <typename T>
+    float CostAtCapital(const T& item, const Empire& empire) {
+        try {
+            return item.ProductionCost(empire.EmpireID(), empire.CapitalID(), ClientApp::GetApp()->GetContext());
+        } catch (const std::exception& e) {
+            ErrorLogger() << "FODesigner: cost: " << e.what();
+        }
+        return 0.0f;
+    }
+}
+
+godot::Array FODesigner::get_hulls(bool include_unavailable) {
     godot::Array result;
     const auto* empire = PlayerEmpire();
     if (!empire)
         return result;
-    for (const auto& name : empire->AvailableShipHulls()) {
-        const auto* hull = GetShipHull(name);
-        if (!hull)
+    for (const auto& [name, hull_ptr] : GetShipHullManager()) {
+        const auto* hull = hull_ptr.get();
+        if (!hull || !hull->Producible())
+            continue;
+        const bool available = empire->ShipHullAvailable(name);
+        if (!available && !include_unavailable)
             continue;
         godot::Dictionary entry;
         entry["name"] = ToGodot(name);
         entry["icon"] = ToGodot(hull->Icon());
         entry["graphic"] = ToGodot(hull->Graphic());
+        entry["description"] = ToGodot(hull->Description());
         entry["structure"] = hull->Structure();
         entry["speed"] = hull->Speed();
         entry["fuel"] = hull->Fuel();
+        entry["stealth"] = hull->Stealth();
+        entry["cost"] = CostAtCapital(*hull, *empire);
+        entry["available"] = available;
+        entry["obsolete"] = ObsoleteHulls().contains(name);
         godot::Array slots;
         for (const auto& slot : hull->Slots()) {
             godot::Dictionary s;
@@ -142,20 +170,28 @@ godot::Array FODesigner::get_hulls() {
     return result;
 }
 
-godot::Array FODesigner::get_parts() {
+godot::Array FODesigner::get_parts(bool include_unavailable) {
     godot::Array result;
     const auto* empire = PlayerEmpire();
     if (!empire)
         return result;
-    for (const auto& name : empire->AvailableShipParts()) {
-        const auto* part = GetShipPart(name);
-        if (!part)
+    for (const auto& [name, part_ptr] : GetShipPartManager()) {
+        const auto* part = part_ptr.get();
+        if (!part || !part->Producible())
+            continue;
+        const bool available = empire->ShipPartAvailable(name);
+        if (!available && !include_unavailable)
             continue;
         godot::Dictionary entry;
         entry["name"] = ToGodot(name);
         entry["icon"] = ToGodot(part->Icon());
         entry["class"] = ToGodot(::to_string(part->Class()));
         entry["capacity"] = part->Capacity();
+        entry["secondary"] = part->SecondaryStat();
+        entry["description"] = ToGodot(part->Description());
+        entry["cost"] = CostAtCapital(*part, *empire);
+        entry["available"] = available;
+        entry["obsolete"] = ObsoleteParts().contains(name);
         godot::PackedStringArray mountable;
         for (const auto type : {ShipSlotType::SL_EXTERNAL, ShipSlotType::SL_INTERNAL, ShipSlotType::SL_CORE})
             if (part->CanMountInSlotType(type))
@@ -166,6 +202,80 @@ godot::Array FODesigner::get_parts() {
     return result;
 }
 
+std::set<std::string>& FODesigner::ObsoleteParts() {
+    static std::set<std::string> obsolete;
+    return obsolete;
+}
+
+std::set<std::string>& FODesigner::ObsoleteHulls() {
+    static std::set<std::string> obsolete;
+    return obsolete;
+}
+
+bool FODesigner::set_part_obsolete(const godot::String& name, bool obsolete) {
+    const auto part = ToStd(name);
+    if (!GetShipPart(part))
+        return false;
+    if (obsolete)
+        ObsoleteParts().insert(part);
+    else
+        ObsoleteParts().erase(part);
+    return true;
+}
+
+bool FODesigner::set_hull_obsolete(const godot::String& name, bool obsolete) {
+    const auto hull = ToStd(name);
+    if (!GetShipHull(hull))
+        return false;
+    if (obsolete)
+        ObsoleteHulls().insert(hull);
+    else
+        ObsoleteHulls().erase(hull);
+    return true;
+}
+
+namespace {
+    // Why hull and parts don't make a design, as the GG designer tells:
+    // a part the hull excludes or two parts excluding each other, a part in
+    // a slot it can't go in, more parts than slots.
+    std::vector<std::string> DesignProblems(const std::string& hull_name, const std::vector<std::string>& parts) {
+        std::vector<std::string> problems;
+        const auto* hull = GetShipHull(hull_name);
+        if (!hull) {
+            problems.push_back(UserString("DESIGN_INV_NO_HULL"));
+            return problems;
+        }
+        const auto conflict = [&](std::string_view a, std::string_view b) {
+            problems.push_back(boost::io::str(FlexibleFormat(UserString("DESIGN_WND_COMPONENT_CONFLICT_DETAIL"))
+                                              % UserString(a) % UserString(b)));
+        };
+        for (const auto& part_name : parts)
+            if (!part_name.empty() &&
+                std::find(hull->Exclusions().begin(), hull->Exclusions().end(), part_name) != hull->Exclusions().end())
+            { conflict(hull_name, part_name); }
+        std::set<std::string_view> seen{hull_name};
+        for (const auto& part_name : parts) {
+            const auto* part = GetShipPart(part_name);
+            if (!part)
+                continue;
+            for (const auto& excluded : part->Exclusions())
+                if (seen.contains(excluded) && excluded != part_name)
+                    conflict(part_name, excluded);
+            seen.insert(part_name);
+        }
+        const auto& slots = hull->Slots();
+        if (parts.size() > slots.size())
+            problems.push_back(UserString("DESIGNER_TOO_MANY_PARTS"));
+        for (std::size_t i = 0; i < std::min(parts.size(), slots.size()); ++i) {
+            const auto* part = GetShipPart(parts[i]);
+            if (part && !part->CanMountInSlotType(slots[i].type))
+                problems.push_back(boost::io::str(FlexibleFormat(UserString("DESIGNER_WRONG_SLOT"))
+                                                  % UserString(parts[i])));
+        }
+        return problems;
+    }
+}
+
 godot::Dictionary FODesigner::evaluate(const godot::String& hull, const godot::PackedStringArray& parts) {
     godot::Dictionary stats;
     const auto hull_name = ToStd(hull);
@@ -174,8 +284,31 @@ godot::Dictionary FODesigner::evaluate(const godot::String& hull, const godot::P
     stats["valid"] = valid;
     const auto* app = ClientApp::GetApp();
     const auto* empire = PlayerEmpire();
+    godot::PackedStringArray problems;
+    if (!valid)
+        for (const auto& problem : DesignProblems(hull_name, part_names))
+            problems.push_back(ToGodot(problem));
+    stats["problems"] = problems;
+    // What the empire can't build yet: the hull or parts not available.
+    godot::PackedStringArray unavailable;
+    if (empire) {
+        if (!hull_name.empty() && !empire->ShipHullAvailable(hull_name))
+            unavailable.push_back(ToGodot(hull_name));
+        for (const auto& part_name : part_names)
+            if (!part_name.empty() && !empire->ShipPartAvailable(part_name) && !unavailable.has(ToGodot(part_name)))
+                unavailable.push_back(ToGodot(part_name));
+    }
+    stats["unavailable"] = unavailable;
     if (!valid || !app || !empire)
         return stats;
+    // An own design with the same hull and parts (GG's "duplicates").
+    for (const int id : empire->ShipDesigns()) {
+        const auto* own = app->GetUniverse().GetShipDesign(id);
+        if (own && own->Hull() == hull_name && own->Parts() == part_names) {
+            stats["duplicate_of"] = ToGodot(own->Name(true));
+            break;
+        }
+    }
     try {
         const ShipDesign design(boost::none, "", "", app->CurrentTurn(), empire->EmpireID(),
                                 hull_name, std::move(part_names), "", "");
@@ -201,7 +334,7 @@ godot::Dictionary FODesigner::evaluate(const godot::String& hull, const godot::P
 }
 
 int FODesigner::create(const godot::String& name, const godot::String& hull,
-                       const godot::PackedStringArray& parts)
+                       const godot::PackedStringArray& parts, const godot::String& description)
 {
     auto* app = ClientApp::GetApp();
     const auto* empire = PlayerEmpire();
@@ -209,15 +342,16 @@ int FODesigner::create(const godot::String& name, const godot::String& hull,
         return -1;
     const auto design_name = ToStd(name.strip_edges());
     const auto hull_name = ToStd(hull);
+    const auto design_description = ToStd(description.strip_edges());
     auto part_names = ToVector(parts);
     auto& context = app->GetContext();
     if (design_name.empty() ||
-        !ShipDesignOrder::CheckNew(empire->EmpireID(), design_name, "", hull_name, part_names, context))
+        !ShipDesignOrder::CheckNew(empire->EmpireID(), design_name, design_description, hull_name, part_names, context))
     { return -1; }
     try {
         // A UUID of its own, as the GG designer gives: saved designs are
         // told apart by it.
-        const ShipDesign design(boost::none, design_name, "", app->CurrentTurn(), empire->EmpireID(),
+        const ShipDesign design(boost::none, design_name, design_description, app->CurrentTurn(), empire->EmpireID(),
                                 hull_name, std::move(part_names), "", "", false,
                                 ShipDesign::Monster::NOTMONSTER, boost::uuids::random_generator()());
         const auto order = app->Orders().IssueOrder<ShipDesignOrder>(context, empire->EmpireID(), design);
@@ -244,6 +378,7 @@ godot::Array FODesigner::get_designs(const godot::String& kind) {
         entry["hull"] = ToGodot(design->Hull());
         entry["parts"] = ToPacked(design->Parts());
         entry["producible"] = empire->ShipDesignAvailable(*design);
+        entry["description"] = ToGodot(design->Description(true));
         // Only designs the empire made itself can be renamed.
         entry["renamable"] = design->DesignedByEmpire() == empire->EmpireID();
         result.push_back(entry);
@@ -437,4 +572,53 @@ int FODesigner::add_all_saved() {
         if (add_saved(ToGodot(boost::uuids::to_string(uuid))) >= 0)
             ++added;
     return added;
+}
+
+// As GG's "Update Finished Design": the new design takes the old one's
+// place; the old one is forgotten (ships already queued keep it).
+int FODesigner::update_design(int design_id, const godot::String& name, const godot::String& hull,
+                              const godot::PackedStringArray& parts, const godot::String& description)
+{
+    auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    if (!app || !empire || !app->GetUniverse().GetShipDesign(design_id))
+        return -1;
+    const int new_id = create(name, hull, parts, description);
+    if (new_id < 0)
+        return -1;
+    if (ObsoleteDesigns().erase(design_id) == 0 &&
+        ShipDesignOrder::CheckErase(empire->EmpireID(), design_id, true, app->GetContext()))
+    { IssueDesignOrder(empire->EmpireID(), design_id, true); }
+    return new_id;
+}
+
+// As GG's "Update Saved Design": the saved design's file is rewritten.
+bool FODesigner::update_saved(const godot::String& uuid_text, const godot::String& name, const godot::String& hull,
+                              const godot::PackedStringArray& parts, const godot::String& description)
+{
+    const auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    const auto design_name = ToStd(name.strip_edges());
+    auto part_names = ToVector(parts);
+    if (!app || design_name.empty() || !ShipDesign::ValidDesign(ToStd(hull), part_names))
+        return false;
+    auto [designs, ordering] = SavedDesigns();
+    for (const auto& [uuid, design_and_path] : designs) {
+        if (ToGodot(boost::uuids::to_string(uuid)) != uuid_text)
+            continue;
+        try {
+            const ShipDesign design(boost::none, design_name, ToStd(description.strip_edges()), app->CurrentTurn(),
+                                    empire ? empire->EmpireID() : ALL_EMPIRES, ToStd(hull), std::move(part_names),
+                                    "", "", false, ShipDesign::Monster::NOTMONSTER, uuid);
+            std::ofstream file(design_and_path.second);
+            if (!file)
+                return false;
+            file << design.Dump();
+            return static_cast<bool>(file);
+        } catch (const std::exception& e) {
+            ErrorLogger() << "FODesigner::update_saved: " << e.what();
+        }
+        return false;
+    }
+    return false;
 }

@@ -97,10 +97,10 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] Tech list: sortable columns — S
 - [x] Government: availability filters (adopted, adoptable, unaffordable, restricted, locked), full policy tooltips, revert this turn's changes — S
 - [x] Government: drag policies to slots, double-click to adopt or remove — M
-- [ ] Designer: update an existing design or saved design — M
-- [ ] Designer: specific reasons a design is invalid; name check; description — S
-- [ ] Designer: clear all parts; fill every slot of a type; drag parts — M
-- [ ] Designer: part and hull availability and obsolete filters; mark parts and hulls obsolete; hide redundant parts; part class toggles — M
+- [x] Designer: update an existing design or saved design — M
+- [x] Designer: specific reasons a design is invalid; name check; description — S
+- [x] Designer: clear all parts; fill every slot of a type; drag parts — M
+- [x] Designer: part and hull availability and obsolete filters; mark parts and hulls obsolete; hide redundant parts; part class toggles — M
 - [ ] Designer: Pedia and tooltips for parts, hulls, designs; mark designs that can't be built; "add all saved now" — S
 
 ## Title, options, saves, messages, Pedia, empires

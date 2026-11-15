@@ -2,18 +2,28 @@ class_name DesignerScreen
 extends PanelContainer
 ## Ship designer: pick a hull (or start from an existing design), fill its
 ## slots with parts, see the stats update (against the design started from),
-## name it and create it. Designs are listed by kind: yours, put aside
-## (obsolete), premade and monsters; yours can be put aside or deleted,
-## premade ones added to your empire.
-## Slots sit on the hull art at their positions; they're labelled with their
-## type as well as coloured. Select a slot, then click a part (or click a
-## part to fill the first free slot that fits); right-click a slot to empty
-## it.
+## name and describe it, and create it, or update the own or saved design
+## started from. Why a design can't be made is said (no name, conflicting
+## parts, a duplicate of an own design; parts not yet available).
+## Designs are listed by kind: yours, put aside (obsolete), premade,
+## monsters and saved; yours can be put aside or deleted, premade and saved
+## ones added to your empire (all saved ones at once too). Designs that
+## can't be built are marked.
+## Hulls and parts are filtered as GG's: available, unavailable, obsolete
+## (marked so from their right-click menu), redundant parts and part classes
+## (DesignerPalette). Slots sit on the hull art at their positions; they're
+## labelled with their type as well as coloured. Select a slot, then click a
+## part (or click a part to fill the first free slot that fits; Shift: every
+## free slot); drag parts onto slots, between slots, or off the hull;
+## right-click a slot to empty it.
 
 signal close_requested
+signal pedia_requested(kind: String, article_name: String)
 
 ## Own designs' menu.
 enum DesignAction { RENAME, KEEP, ASIDE, DELETE }
+## Hulls' menu.
+enum HullAction { PEDIA, OBSOLETE }
 
 const SLOT_SIZE := 56
 ## Design lists: kind for get_designs(), tab label key.
@@ -46,6 +56,8 @@ var source: Variant = DesignerSource.new()
 var hull_name := ""
 var parts := PackedStringArray()
 var selected_slot := -1
+## Hull availabilities shown: key -> bool.
+var hulls_shown := {"available": true, "unavailable": false, "obsolete": false}
 
 var _hulls: Array = []
 var _parts: Array = []
@@ -54,7 +66,8 @@ var _hull_list: VBoxContainer
 var _design_list: VBoxContainer
 var _design_kind: OptionButton
 var _compare_label: Label
-## The design started from, to compare against: {name, stats} or {}.
+## The design started from, to compare against and update: {name, stats,
+## kind, id, uuid} or {}.
 var _baseline := {}
 var _art: TextureRect
 var _slot_layer: Control
@@ -62,10 +75,11 @@ var _name: LineEdit
 var _stats: GridContainer
 var _validity: Label
 var _create: Button
-var _part_class: OptionButton
-var _fits_only: CheckBox
-var _search: LineEdit
-var _part_list: VBoxContainer
+var _update: Button
+var _description: TextEdit
+var _palette: DesignerPalette
+var _hull_menu: PopupMenu
+var _menu_hull := ""
 
 
 func _init() -> void:
@@ -82,21 +96,15 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func refresh() -> void:
-	_hulls = source.get_hulls()
-	_parts = source.get_parts()
+	_hulls = source.get_hulls(true)
+	_parts = source.get_parts(true)
+	_palette.parts = _parts
+	_palette.source = source
 	_rebuild_hull_list()
 	_rebuild_design_list()
-	var classes := {}
-	for part: Dictionary in _parts:
-		classes[part.get("class", "")] = true
-	_part_class.clear()
-	_part_class.add_item(tr("PRODUCTION_FILTER_ALL"))
-	_part_class.set_item_metadata(0, "")
-	for part_class in classes.keys():
-		_part_class.add_item(ScreenKit.tr_or_name(part_class))
-		_part_class.set_item_metadata(_part_class.item_count - 1, part_class)
 	if hull_name.is_empty() and not _hulls.is_empty():
-		select_hull(_hulls[0]["name"])
+		var first: Array = _hulls.filter(func(h): return DesignerPalette.passes(h, hulls_shown))
+		select_hull((first if not first.is_empty() else _hulls)[0]["name"])
 	else:
 		_refresh_design()
 
@@ -119,12 +127,17 @@ func select_hull(name_key: String) -> void:
 
 ## Load an existing design into the editor; its stats become the ones the
 ## new design is compared with.
-func load_design(design: Dictionary) -> void:
+func load_design(design: Dictionary, kind := "") -> void:
 	select_hull(design.get("hull", ""))
 	_baseline = {
 		"name": design.get("name", ""),
 		"stats": source.evaluate(design.get("hull", ""), design.get("parts", PackedStringArray())),
+		"kind": kind,
+		"id": design.get("id", -1),
+		"uuid": design.get("uuid", ""),
 	}
+	var description: String = design.get("description", "")
+	_description.text = "" if description.begins_with("ERROR") else description
 	var design_parts: PackedStringArray = design.get("parts", PackedStringArray())
 	for i in mini(parts.size(), design_parts.size()):
 		parts[i] = design_parts[i]
@@ -132,8 +145,20 @@ func load_design(design: Dictionary) -> void:
 	_refresh_design()
 
 
-## Put \a part_name into the selected slot, or the first free slot it fits.
-func place_part(part_name: String) -> bool:
+## Put \a part_name into the selected slot, or the first free slot it fits;
+## with \a fill_all, into every free slot it fits.
+func place_part(part_name: String, fill_all := false) -> bool:
+	if fill_all:
+		var filled := false
+		for i in parts.size():
+			if parts[i].is_empty() and part_fits(part_name, i):
+				parts[i] = part_name
+				filled = true
+		if filled:
+			_refresh_design()
+		else:
+			_status.text = tr("DESIGNER_NO_SLOT")
+		return filled
 	var slot := selected_slot
 	if slot < 0 or not part_fits(part_name, slot):
 		slot = -1
@@ -155,6 +180,40 @@ func clear_slot(slot: int) -> void:
 		_refresh_design()
 
 
+## Empty every slot (GG's "Clear Parts").
+func clear_all() -> void:
+	for i in parts.size():
+		parts[i] = ""
+	_refresh_design()
+
+
+## Why \a design_name can't name a design (GG's rules: not empty, no
+## leading or trailing spaces, no formatting characters), or "".
+static func name_problem(design_name: String) -> String:
+	if design_name.is_empty():
+		return TranslationServer.translate("DESIGN_INV_NO_NAME")
+	if design_name != design_name.strip_edges():
+		return TranslationServer.translate("DESIGNER_NAME_SPACES")
+	for c in "<>;:,.@#$%&*(){}'\"/?\\`[]|":
+		if design_name.contains(c):
+			return TranslationServer.translate("DESIGNER_NAME_CHARS").replace("%1%", c)
+	return ""
+
+
+## Move or swap the part in slot \a from to slot \a to (dragging).
+func move_part(from: int, to: int) -> bool:
+	if from == to or from < 0 or to < 0 or from >= parts.size() or to >= parts.size():
+		return false
+	var moving := parts[from]
+	var other := parts[to]
+	if not part_fits(moving, to) or (not other.is_empty() and not part_fits(other, from)):
+		return false
+	parts[to] = moving
+	parts[from] = other
+	_refresh_design()
+	return true
+
+
 func part_fits(part_name: String, slot: int) -> bool:
 	var slots: Array = _hull(hull_name).get("slots", [])
 	if slot < 0 or slot >= slots.size():
@@ -173,6 +232,7 @@ func _build() -> void:
 	left.custom_minimum_size.x = SIDE_WIDTH
 	columns.add_child(left)
 	left.add_child(ScreenKit.label(tr("DESIGNER_HULLS"), "TitleLabel"))
+	left.add_child(DesignerPalette.availability_row(hulls_shown, func(): _rebuild_hull_list()))
 	_hull_list = ScreenKit.list()
 	left.add_child(ScreenKit.scrolling(_hull_list))
 	left.add_child(ScreenKit.label(tr("DESIGNER_DESIGNS"), "TitleLabel"))
@@ -205,7 +265,18 @@ func _build() -> void:
 	_slot_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(_slot_layer)
 	stage.resized.connect(_layout_slots)
-	center.add_child(ScreenKit.label(tr("DESIGNER_SLOT_HINT"), "SmallLabel"))
+	var hint_row := HBoxContainer.new()
+	center.add_child(hint_row)
+	var hint := ScreenKit.label(tr("DESIGNER_SLOT_HINT"), "SmallLabel")
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_row.add_child(hint)
+	var clear := Button.new()
+	clear.text = tr("DESIGN_WND_CLEAR")
+	clear.theme_type_variation = "GhostButton"
+	clear.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	clear.pressed.connect(clear_all)
+	hint_row.add_child(clear)
 
 	var details := HBoxContainer.new()
 	details.add_theme_constant_override("separation", FOUi.tokens.space_6)
@@ -220,6 +291,19 @@ func _build() -> void:
 	_name.placeholder_text = tr("DESIGNER_NAME")
 	_name.text_changed.connect(func(_t): _update_create())
 	create_box.add_child(_name)
+	var describe := Button.new()
+	describe.text = tr("DESIGN_WND_DESIGN_DESCRIPTION")
+	describe.toggle_mode = true
+	describe.theme_type_variation = "GhostButton"
+	describe.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	create_box.add_child(describe)
+	_description = TextEdit.new()
+	_description.placeholder_text = tr("DESIGNER_DESCRIPTION_HINT")
+	_description.custom_minimum_size.y = 64
+	_description.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	_description.visible = false
+	describe.toggled.connect(func(on: bool): _description.visible = on)
+	create_box.add_child(_description)
 	_validity = ScreenKit.label("", "SmallLabel")
 	_validity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	create_box.add_child(_validity)
@@ -227,58 +311,92 @@ func _build() -> void:
 	_create.text = tr("DESIGNER_CREATE")
 	_create.theme_type_variation = "PrimaryButton"
 	_create.pressed.connect(_on_create_pressed)
-	create_box.add_child(_create)
+	var buttons := HBoxContainer.new()
+	create_box.add_child(buttons)
+	buttons.add_child(_create)
+	_update = Button.new()
+	_update.visible = false
+	_update.pressed.connect(update_design)
+	buttons.add_child(_update)
 
-	var right := VBoxContainer.new()
-	right.custom_minimum_size.x = SIDE_WIDTH
-	columns.add_child(right)
-	right.add_child(ScreenKit.label(tr("DESIGN_WND_PART_PALETTE_TITLE"), "TitleLabel"))
-	_part_class = OptionButton.new()
-	# The longest class name must not widen the column past the screen.
-	_part_class.fit_to_longest_item = false
-	_part_class.clip_text = true
-	_part_class.item_selected.connect(func(_i): _rebuild_part_list())
-	right.add_child(_part_class)
-	_fits_only = CheckBox.new()
-	_fits_only.text = tr("DESIGNER_FITS")
-	_fits_only.toggled.connect(func(_on): _rebuild_part_list())
-	right.add_child(_fits_only)
-	_search = LineEdit.new()
-	_search.placeholder_text = tr("PRODUCTION_SEARCH")
-	_search.clear_button_enabled = true
-	_search.text_changed.connect(func(_t): _rebuild_part_list())
-	right.add_child(_search)
-	_part_list = ScreenKit.list()
-	right.add_child(ScreenKit.scrolling(_part_list))
+	_palette = DesignerPalette.new()
+	_palette.custom_minimum_size.x = SIDE_WIDTH
+	_palette.source = source
+	_palette.fits = func(part_name: String) -> bool:
+		return selected_slot < 0 or part_fits(part_name, selected_slot)
+	_palette.part_chosen.connect(place_part)
+	_palette.slot_cleared.connect(clear_slot)
+	_palette.pedia_requested.connect(pedia_requested.emit)
+	columns.add_child(_palette)
+	_hull_menu = PopupMenu.new()
+	_hull_menu.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_hull_menu.id_pressed.connect(_on_hull_menu)
+	add_child(_hull_menu)
 
 
 func _rebuild_hull_list() -> void:
 	ScreenKit.clear(_hull_list)
 	for hull: Dictionary in _hulls:
-		var counts := {"external": 0, "internal": 0, "core": 0}
-		for slot: Dictionary in hull.get("slots", []):
-			counts[slot["type"]] = counts.get(slot["type"], 0) + 1
-		var summary: PackedStringArray = []
-		for slot_type in ["external", "internal", "core"]:
-			if counts[slot_type] > 0:
-				summary.push_back(
-					(
-						"%d %s"
-						% [
-							counts[slot_type],
-							tr("DESIGNER_SLOT_" + slot_type.to_upper()).to_lower()
-						]
-					)
-				)
-		var button := _list_button(tr(hull["name"]), " · ".join(summary), hull.get("icon", ""))
+		if not DesignerPalette.passes(hull, hulls_shown):
+			continue
+		var button: Button = DesignerPalette.list_button(
+			tr(hull["name"]), DesignerPalette.slot_summary(hull), hull.get("icon", "")
+		)
+		button.tooltip_text = DesignerPalette.hull_tooltip(hull)
+		if DesignerPalette.availability_of(hull) != "available":
+			button.modulate.a = 0.6
 		button.pressed.connect(func(): select_hull(hull["name"]))
+		button.gui_input.connect(
+			func(event: InputEvent):
+				var click := event as InputEventMouseButton
+				if click and click.pressed and click.button_index == MOUSE_BUTTON_RIGHT:
+					open_hull_menu(hull["name"], button.get_screen_position() + click.position)
+					button.accept_event()
+		)
 		_hull_list.add_child(button)
+
+
+## The right-click menu of \a hull: Pedia, mark obsolete or not.
+func open_hull_menu(hull: String, at: Vector2) -> PopupMenu:
+	_menu_hull = hull
+	_hull_menu.clear()
+	_hull_menu.add_item(tr("PEDIA_OPEN"), HullAction.PEDIA)
+	_hull_menu.add_item(
+		tr(
+			(
+				"DESIGNER_UNMARK_OBSOLETE"
+				if _hull(hull).get("obsolete", false)
+				else "DESIGN_WND_OBSOLETE_HULL"
+			)
+		),
+		HullAction.OBSOLETE
+	)
+	_hull_menu.popup(Rect2i(Vector2i(at), Vector2i.ZERO))
+	return _hull_menu
+
+
+func _on_hull_menu(id: int) -> void:
+	match id:
+		HullAction.PEDIA:
+			pedia_requested.emit("shiphull", _menu_hull)
+		HullAction.OBSOLETE:
+			var hull := _hull(_menu_hull)
+			var obsolete: bool = not hull.get("obsolete", false)
+			if source.set_hull_obsolete(_menu_hull, obsolete):
+				hull["obsolete"] = obsolete
+				_rebuild_hull_list()
 
 
 func _rebuild_design_list() -> void:
 	ScreenKit.clear(_design_list)
 	var kind: String = DESIGN_KINDS[maxi(_design_kind.selected, 0)][0]
 	var designs: Array = source.get_designs(kind)
+	if kind == "saved" and not designs.is_empty():
+		var add_all := Button.new()
+		add_all.text = tr("DESIGN_WND_ADD_ALL_SAVED_NOW")
+		add_all.theme_type_variation = "GhostButton"
+		add_all.pressed.connect(func(): _design_order(source.add_all_saved() >= 0))
+		_design_list.add_child(add_all)
 	for design: Dictionary in designs:
 		_design_list.add_child(_design_row(design, kind))
 	if designs.is_empty():
@@ -330,9 +448,15 @@ func _design_menu(design: Dictionary) -> MenuButton:
 # A design: click to start from it; actions for the list it's in.
 func _design_row(design: Dictionary, kind: String) -> Control:
 	var row := HBoxContainer.new()
-	var button := _list_button(design.get("name", ""), tr(design.get("hull", "")), "")
+	var detail := tr(design.get("hull", ""))
+	if not design.get("producible", true):
+		detail += " · " + tr("DESIGNER_CANT_BUILD")
+	var button: Button = DesignerPalette.list_button(design.get("name", ""), detail, "")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.pressed.connect(load_design.bind(design))
+	button.tooltip_text = DesignerPalette.design_tooltip(design)
+	if not design.get("producible", true):
+		button.modulate.a = 0.6
+	button.pressed.connect(load_design.bind(design, kind))
 	row.add_child(button)
 	var id: int = design.get("id", -1)
 	match kind:
@@ -408,40 +532,7 @@ func _design_order(ok: bool) -> void:
 
 
 func _rebuild_part_list() -> void:
-	ScreenKit.clear(_part_list)
-	var part_class: String = (
-		str(_part_class.get_item_metadata(_part_class.selected))
-		if _part_class.selected >= 0
-		else ""
-	)
-	var needle := _search.text.strip_edges().to_lower()
-	for part: Dictionary in _parts:
-		var part_name: String = part["name"]
-		if not part_class.is_empty() and part.get("class") != part_class:
-			continue
-		if not needle.is_empty() and not tr(part_name).to_lower().contains(needle):
-			continue
-		if (
-			_fits_only.button_pressed
-			and selected_slot >= 0
-			and not part_fits(part_name, selected_slot)
-		):
-			continue
-		var mountable := ", ".join(
-			Array(part.get("mountable", PackedStringArray())).map(
-				func(t): return tr("DESIGNER_SLOT_" + t.to_upper())
-			)
-		)
-		var button := _list_button(
-			tr(part_name),
-			(
-				"%s · %s · %s"
-				% [tr(part.get("class", "")), _number(part.get("capacity", 0.0)), mountable]
-			),
-			part.get("icon", "")
-		)
-		button.pressed.connect(func(): place_part(part_name))
-		_part_list.add_child(button)
+	_palette.rebuild()
 
 
 func _refresh_design() -> void:
@@ -474,8 +565,7 @@ func _refresh_design() -> void:
 				)
 				cell.add_child(label)
 		_stats.add_child(cell)
-	_validity.text = "" if stats.get("valid", false) else tr("DESIGNER_INVALID")
-	_create.set_meta("valid", stats.get("valid", false))
+	_create.set_meta("stats", stats)
 	_update_create()
 
 
@@ -505,6 +595,16 @@ func _build_slots() -> void:
 		button.add_theme_stylebox_override("pressed", _slot_style(slot["type"], true))
 		button.gui_input.connect(_on_slot_input.bind(i))
 		button.pressed.connect(_on_slot_pressed.bind(i))
+		button.set_drag_forwarding(
+			func(_at):
+				return (
+					{"type": DesignerPalette.SLOT_DRAG, "slot": i}
+					if not parts[i].is_empty()
+					else null
+				),
+			func(_at, data): return can_drop_on_slot(data, i),
+			func(_at, data): _drop_on_slot(data, i)
+		)
 		_slot_layer.add_child(button)
 
 
@@ -547,17 +647,121 @@ func _on_slot_input(event: InputEvent, slot: int) -> void:
 		clear_slot(slot)
 
 
+## Whether \a data (a dragged part or slot) can go into \a slot.
+func can_drop_on_slot(data: Variant, slot: int) -> bool:
+	if not data is Dictionary:
+		return false
+	match data.get("type", ""):
+		DesignerPalette.PART_DRAG:
+			return part_fits(data["name"], slot)
+		DesignerPalette.SLOT_DRAG:
+			var from: int = data["slot"]
+			return (
+				from != slot
+				and part_fits(parts[from], slot)
+				and (parts[slot].is_empty() or part_fits(parts[slot], from))
+			)
+	return false
+
+
+func _drop_on_slot(data: Dictionary, slot: int) -> void:
+	if data["type"] == DesignerPalette.PART_DRAG:
+		parts[slot] = data["name"]
+		_refresh_design()
+	else:
+		move_part(data["slot"], slot)
+
+
+## Why the design as it stands can't be added: [reasons]; empty when it can.
+func design_problems() -> PackedStringArray:
+	var stats: Dictionary = _create.get_meta("stats", {})
+	var problems := PackedStringArray()
+	if hull_name.is_empty():
+		problems.push_back(tr("DESIGN_INV_NO_HULL"))
+		return problems
+	var naming := name_problem(_name.text)
+	if not naming.is_empty():
+		problems.push_back(naming)
+	if not stats.get("valid", false):
+		problems.append_array(stats.get("problems", PackedStringArray()))
+		if stats.get("problems", PackedStringArray()).is_empty():
+			problems.push_back(tr("DESIGNER_INVALID"))
+	elif stats.has("duplicate_of"):
+		problems.push_back(tr("DESIGN_WND_KNOWN_DETAIL").replace("%1%", stats["duplicate_of"]))
+	return problems
+
+
 func _update_create() -> void:
-	_create.disabled = not _create.get_meta("valid", false) or _name.text.strip_edges().is_empty()
+	var problems := design_problems()
+	var stats: Dictionary = _create.get_meta("stats", {})
+	var notes := Array(problems)
+	var unavailable: PackedStringArray = stats.get("unavailable", PackedStringArray())
+	if not unavailable.is_empty():
+		var names := ", ".join(Array(unavailable).map(func(n): return tr(n)))
+		notes.push_back(tr("DESIGNER_NOT_YET_AVAILABLE").replace("%1%", names))
+	_validity.text = "\n".join(notes)
+	_create.disabled = not problems.is_empty()
+	_create.tooltip_text = "\n".join(problems)
+	# Update the own or saved design started from.
+	var kind: String = _baseline.get("kind", "")
+	_update.visible = kind in ["empire", "saved"]
+	_update.text = tr(
+		"DESIGN_WND_UPDATE_SAVED" if kind == "saved" else "DESIGN_WND_UPDATE_FINISHED"
+	)
+	_update.tooltip_text = (
+		tr(
+			(
+				"DESIGN_WND_UPDATE_SAVED_DETAIL"
+				if kind == "saved"
+				else "DESIGN_WND_UPDATE_FINISHED_DETAIL"
+			)
+		)
+		. replace("%1%", _baseline.get("name", ""))
+		. replace("%2%", _name.text.strip_edges())
+	)
+	# A duplicate may replace the design it duplicates (a rename).
+	var blocking := Array(problems).filter(func(p): return not p.begins_with(_known_prefix()))
+	_update.disabled = not blocking.is_empty()
+
+
+func _known_prefix() -> String:
+	return tr("DESIGN_WND_KNOWN_DETAIL").get_slice("%1%", 0)
 
 
 func _on_create_pressed() -> void:
-	var design_id: int = source.create(_name.text.strip_edges(), hull_name, parts)
+	var design_name := _name.text.strip_edges()
+	var design_id: int = source.create(design_name, hull_name, parts, _description.text)
 	if design_id < 0:
 		_status.text = tr("DESIGNER_REFUSED")
 		return
-	_status.text = tr("DESIGNER_CREATED").replace("%1%", _name.text.strip_edges())
+	_status.text = tr("DESIGNER_CREATED").replace("%1%", design_name)
 	_rebuild_design_list()
+
+
+## Replace the own or saved design started from with the one on the bench.
+func update_design() -> bool:
+	var design_name := _name.text.strip_edges()
+	var ok := false
+	if _baseline.get("kind", "") == "saved":
+		ok = source.update_saved(
+			_baseline["uuid"], design_name, hull_name, parts, _description.text
+		)
+	else:
+		var new_id: int = source.update_design(
+			_baseline.get("id", -1), design_name, hull_name, parts, _description.text
+		)
+		ok = new_id >= 0
+		if ok:
+			_baseline["id"] = new_id
+	_status.text = (tr("DESIGNER_UPDATED") if ok else tr("DESIGNER_REFUSED")).replace(
+		"%1%", design_name
+	)
+	if ok:
+		_baseline["name"] = design_name
+		_baseline["stats"] = source.evaluate(hull_name, parts)
+	_rebuild_design_list()
+	_refresh_design()
+	return ok
 
 
 ## How stat \a key changed from \a before to \a after: {text, better},
@@ -570,18 +774,6 @@ static func stat_change(key: String, after: float, before: float) -> Dictionary:
 		"text": ("+" if change > 0.0 else "") + _number(change),
 		"better": (change < 0.0) if key in LOWER_IS_BETTER else (change > 0.0),
 	}
-
-
-func _list_button(title: String, detail: String, icon_path: String) -> Button:
-	var button := Button.new()
-	button.text = "%s\n%s" % [title, detail]
-	button.icon = FOArt.icon(icon_path)
-	button.expand_icon = false
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.theme_type_variation = "GhostButton"
-	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	button.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_large)
-	return button
 
 
 func _hull(name_key: String) -> Dictionary:

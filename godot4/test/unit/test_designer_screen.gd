@@ -44,9 +44,9 @@ func test_selected_slot_takes_the_part():
 
 func test_fits_filter_follows_selected_slot():
 	screen._on_slot_pressed(2)
-	screen._fits_only.button_pressed = true
+	screen._palette._fits_only.button_pressed = true
 	await wait_process_frames(1)
-	assert_eq(screen._part_list.get_child_count(), 1, "Only the internal detector fits")
+	assert_eq(screen._palette._part_list.get_child_count(), 1, "Only the internal detector fits")
 
 
 func test_stats_update():

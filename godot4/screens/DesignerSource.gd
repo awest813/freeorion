@@ -4,20 +4,40 @@ extends RefCounted
 ## fake with the same methods.
 
 
-func get_hulls() -> Array:
-	return FODesigner.get_hulls()
+func get_hulls(include_unavailable := false) -> Array:
+	return FODesigner.get_hulls(include_unavailable)
 
 
-func get_parts() -> Array:
-	return FODesigner.get_parts()
+func get_parts(include_unavailable := false) -> Array:
+	return FODesigner.get_parts(include_unavailable)
 
 
 func evaluate(hull: String, parts: PackedStringArray) -> Dictionary:
 	return FODesigner.evaluate(hull, parts)
 
 
-func create(design_name: String, hull: String, parts: PackedStringArray) -> int:
-	return FODesigner.create(design_name, hull, parts)
+func create(design_name: String, hull: String, parts: PackedStringArray, description := "") -> int:
+	return FODesigner.create(design_name, hull, parts, description)
+
+
+func update_design(
+	design_id: int, design_name: String, hull: String, parts: PackedStringArray, description: String
+) -> int:
+	return FODesigner.update_design(design_id, design_name, hull, parts, description)
+
+
+func update_saved(
+	uuid: String, design_name: String, hull: String, parts: PackedStringArray, description: String
+) -> bool:
+	return FODesigner.update_saved(uuid, design_name, hull, parts, description)
+
+
+func set_part_obsolete(part_name: String, obsolete: bool) -> bool:
+	return FODesigner.set_part_obsolete(part_name, obsolete)
+
+
+func set_hull_obsolete(hull_name: String, obsolete: bool) -> bool:
+	return FODesigner.set_hull_obsolete(hull_name, obsolete)
 
 
 func get_designs(kind: String) -> Array:
@@ -51,3 +71,7 @@ func add_saved(uuid: String) -> int:
 
 func delete_saved(uuid: String) -> bool:
 	return FODesigner.delete_saved(uuid)
+
+
+func add_all_saved() -> int:
+	return FODesigner.add_all_saved()

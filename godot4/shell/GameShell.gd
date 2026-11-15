@@ -122,6 +122,7 @@ func _ready() -> void:
 	load_screen.defer_load = true
 	load_screen.load_started.connect(func(path: String): leave_requested.emit("load", path))
 	government_screen.pedia_requested.connect(open_pedia)
+	designer_screen.pedia_requested.connect(open_pedia)
 	pedia_screen.link_activated.connect(_on_link_activated)
 	research_screen.pedia_requested.connect(open_pedia)
 	production_screen.pedia_requested.connect(open_pedia)

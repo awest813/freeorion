@@ -394,6 +394,39 @@ func _check_designer() -> void:
 	var names := FODesigner.get_designs().map(func(d): return d["name"])
 	_test.assert_has(names, "Godot Test Design", "Design listed")
 	_test.assert_eq(FODesigner.create("", hull["name"], design_parts), -1, "Unnamed refused")
+	_check_designer_extras(hull, design_parts, design_id)
+
+
+# Availability, reasons, duplicates, updating, obsolete parts.
+func _check_designer_extras(
+	hull: Dictionary, design_parts: PackedStringArray, design_id: int
+) -> void:
+	var all_parts := FODesigner.get_parts(true)
+	_test.assert_gt(all_parts.size(), FODesigner.get_parts().size(), "Unavailable parts listed too")
+	_test.assert_true(
+		all_parts.any(func(p): return not p["available"]), "Some parts not yet available"
+	)
+	_test.assert_gt(FODesigner.get_hulls(true).size(), FODesigner.get_hulls().size(), "All hulls")
+	var stats := FODesigner.evaluate(hull["name"], design_parts)
+	_test.assert_eq(stats.get("duplicate_of", ""), "Godot Test Design", "Duplicate found")
+	var wrong := design_parts.duplicate()
+	wrong.push_back("NO_SUCH_PART")
+	_test.assert_gt(
+		FODesigner.evaluate(hull["name"], wrong)["problems"].size(), 0, "Invalid design says why"
+	)
+	var updated := FODesigner.update_design(
+		design_id, "Godot Test Design 2", hull["name"], design_parts, "Updated"
+	)
+	_test.assert_gt(updated, -1, "Design updated")
+	var designs := FODesigner.get_designs()
+	var names := designs.map(func(d): return d["name"])
+	_test.assert_has(names, "Godot Test Design 2", "Updated design listed")
+	_test.assert_does_not_have(names, "Godot Test Design", "Old design replaced")
+	var part_name: String = all_parts[0]["name"]
+	_test.assert_true(FODesigner.set_part_obsolete(part_name, true), "Part marked obsolete")
+	var marked: Array = FODesigner.get_parts(true).filter(func(p): return p["name"] == part_name)
+	_test.assert_true(marked[0]["obsolete"], "Obsolete mark listed")
+	FODesigner.set_part_obsolete(part_name, false)
 
 
 func _check_snapshot() -> void:

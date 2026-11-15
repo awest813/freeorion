@@ -20,6 +20,15 @@ var hulls: Array = [
 		"graphic": "hulls_design/basic-small-hull.png",
 		"slots": [{"type": "external", "x": 0.5, "y": 0.5}],
 	},
+	{
+		"name": "SH_ROBOTIC",
+		"icon": "icons/ship_hulls/robotic_hull_small.png",
+		"graphic": "hulls_design/robotic_hull.png",
+		"description": "SH_ROBOTIC_DESC",
+		"structure": 200.0,
+		"available": false,
+		"slots": [{"type": "external", "x": 0.5, "y": 0.5}],
+	},
 ]
 var parts: Array = [
 	{
@@ -42,6 +51,23 @@ var parts: Array = [
 		"class": "PC_DETECTION",
 		"capacity": 25.0,
 		"mountable": PackedStringArray(["internal"]),
+	},
+	{
+		"name": "AR_ZORTRIUM_PLATE",
+		"icon": "icons/ship_parts/zortrium_armor_plating.png",
+		"class": "PC_ARMOUR",
+		"capacity": 32.0,
+		"cost": 8.0,
+		"available": false,
+		"mountable": PackedStringArray(["external"]),
+	},
+	{
+		"name": "SR_WEAPON_0_1",
+		"icon": "icons/ship_parts/flak.png",
+		"class": "PC_DIRECT_WEAPON",
+		"capacity": 3.0,
+		"obsolete": true,
+		"mountable": PackedStringArray(["external"]),
 	},
 ]
 var created: Array = []
@@ -103,12 +129,12 @@ var designs := {
 }
 
 
-func get_hulls() -> Array:
-	return hulls
+func get_hulls(include_unavailable := false) -> Array:
+	return hulls if include_unavailable else hulls.filter(func(h): return h.get("available", true))
 
 
-func get_parts() -> Array:
-	return parts
+func get_parts(include_unavailable := false) -> Array:
+	return parts if include_unavailable else parts.filter(func(p): return p.get("available", true))
 
 
 func evaluate(hull: String, design_parts: PackedStringArray) -> Dictionary:
@@ -120,21 +146,64 @@ func evaluate(hull: String, design_parts: PackedStringArray) -> Dictionary:
 				attack += 18.0
 			"AR_STD_PLATE":
 				structure += 24.0
-	return {
-		"valid": not hull.is_empty(),
-		"attack": attack,
-		"structure": structure,
-		"speed": 75.0,
-		"fuel": 5.0,
-		"detection": 25.0,
-		"cost": 20.0 + 6.0 * design_parts.size(),
-		"turns": 2,
-	}
+	var extra := {}
+	if hull == "SH_BASIC_MEDIUM" and design_parts == designs["empire"][0]["parts"]:
+		extra["duplicate_of"] = "Frigate Ms"
+	if "AR_ZORTRIUM_PLATE" in design_parts:
+		extra["unavailable"] = PackedStringArray(["AR_ZORTRIUM_PLATE"])
+	return (
+		extra
+		. merged(
+			{
+				"valid": not hull.is_empty(),
+				"attack": attack,
+				"structure": structure,
+				"speed": 75.0,
+				"fuel": 5.0,
+				"detection": 25.0,
+				"cost": 20.0 + 6.0 * design_parts.size(),
+				"turns": 2,
+			}
+		)
+	)
 
 
-func create(design_name: String, hull: String, design_parts: PackedStringArray) -> int:
+func create(
+	design_name: String, hull: String, design_parts: PackedStringArray, description := ""
+) -> int:
 	created.push_back([design_name, hull, design_parts])
+	if not description.is_empty():
+		calls.push_back(["describe", description])
 	return 42
+
+
+func update_design(
+	design_id: int, design_name: String, hull: String, design_parts: PackedStringArray, _d: String
+) -> int:
+	calls.push_back(["update_design", design_id, design_name, hull, design_parts])
+	return 43
+
+
+func update_saved(
+	uuid: String, design_name: String, hull: String, design_parts: PackedStringArray, _d: String
+) -> bool:
+	calls.push_back(["update_saved", uuid, design_name, hull, design_parts])
+	return true
+
+
+func set_part_obsolete(part_name: String, obsolete: bool) -> bool:
+	calls.push_back(["set_part_obsolete", part_name, obsolete])
+	return true
+
+
+func set_hull_obsolete(hull_name: String, obsolete: bool) -> bool:
+	calls.push_back(["set_hull_obsolete", hull_name, obsolete])
+	return true
+
+
+func add_all_saved() -> int:
+	calls.push_back(["add_all_saved"])
+	return 1
 
 
 func get_designs(kind: String) -> Array:

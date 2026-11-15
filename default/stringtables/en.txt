@@ -3069,6 +3069,54 @@ Unlocks:
 RESEARCH_TIP_KEYS
 Double-click to queue (Shift: at the top); Shift+click to queue at the end.
 
+DESIGNER_PP
+PP
+
+DESIGNER_CAPACITY
+capacity
+
+DESIGNER_MOUNTS
+Goes in: %1%
+
+DESIGNER_REDUNDANT_TIP
+Show parts another available part does better for no more
+
+DESIGNER_PART_CLASSES
+Classes
+
+DESIGNER_NO_PARTS
+No parts match the filters.
+
+DESIGNER_CANT_BUILD
+can't be built yet
+
+DESIGNER_FILL_SLOTS
+Fill every free slot it fits
+
+DESIGNER_UNMARK_OBSOLETE
+No longer obsolete
+
+DESIGNER_NAME_SPACES
+A design name can't start or end with spaces.
+
+DESIGNER_NAME_CHARS
+A design name can't contain "%1%".
+
+DESIGNER_DESCRIPTION_HINT
+What the design is for (optional)
+
+DESIGNER_NOT_YET_AVAILABLE
+Can't be built yet: %1% not available.
+
+DESIGNER_UPDATED
+Updated "%1%".
+
+DESIGNER_TOO_MANY_PARTS
+More parts than the hull has slots.
+
+DESIGNER_WRONG_SLOT
+%1% doesn't fit the slot it is in.
+
 OPTIONS_LANGUAGE_NAME
 Language
 
@@ -3340,7 +3388,7 @@ DESIGNER_NO_SLOT
 No free slot fits that part.
 
 DESIGNER_SLOT_HINT
-Select a slot, then click a part, or click a part to fill the first free slot it fits. Right-click a slot to empty it.
+Select a slot, then click a part, or click a part to fill the first free slot it fits (Shift: every free slot). Drag parts onto slots, between them or off the hull. Right-click a slot to empty it.
 
 DESIGNER_FITS
 Fits the selected slot

@@ -282,9 +282,24 @@ godot::Array FOPedia::get_index() {
     return index;
 }
 
+namespace {
+    // A named value evaluated in the client's context (EvalAsString's empty
+    // default context can't evaluate everything).
+    std::string EvalInGame(const ValueRef::ValueRefBase& value_ref) {
+        const auto& context = ClientApp::GetApp()->GetContext();
+        if (const auto* d = dynamic_cast<const ValueRef::ValueRef<double>*>(&value_ref))
+            return ValueRef::FlexibleToString(d->Eval(context));
+        if (const auto* i = dynamic_cast<const ValueRef::ValueRef<int>*>(&value_ref))
+            return ValueRef::FlexibleToString(i->Eval(context));
+        if (const auto* t = dynamic_cast<const ValueRef::ValueRef<std::string>*>(&value_ref))
+            return t->Eval(context);
+        return value_ref.EvalAsString();
+    }
+}
+
 godot::String FOPedia::resolve_values(const godot::String& text) {
     std::string in = text.utf8().get_data();
-    if (in.find("</value>") == std::string::npos)
+    if (!ContentReady() || !ClientApp::GetApp() || in.find("</value>") == std::string::npos)
         return text;
     static const std::regex value_tag{R"(<value\s+([^<>]+)>([^<>]*)</value>)"};
     std::string out;
@@ -295,7 +310,7 @@ godot::String FOPedia::resolve_values(const godot::String& text) {
             out.append(it, (*m)[0].first);
             const std::string name = (*m)[1].str();
             const auto* value_ref = GetValueRefBase(name);
-            const std::string value = value_ref ? value_ref->EvalAsString() : (*m)[2].str();
+            const std::string value = value_ref ? EvalInGame(*value_ref) : (*m)[2].str();
             out.append("<value ").append(name).append(">").append(value).append("</value>");
             it = (*m)[0].second;
         }
@@ -306,4 +321,9 @@ godot::String FOPedia::resolve_values(const godot::String& text) {
     }
     out.append(it, in.cend());
     return godot::String::utf8(out.data(), static_cast<int>(out.size()));
+}
+
+std::atomic<bool>& FOPedia::ContentReady() {
+    static std::atomic<bool> ready = false;
+    return ready;
 }

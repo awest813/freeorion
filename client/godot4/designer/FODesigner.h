@@ -2,6 +2,7 @@
 #define _FODesigner_h_
 
 #include <set>
+#include <string>
 
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/variant/array.hpp>
@@ -11,24 +12,42 @@
 
 /** Static ship designer API for GDScript.
   *
-  * get_hulls(): [{name, icon, graphic, structure, speed, fuel, slots:
-  *   [{type ("external"|"internal"|"core"), x, y}]}] available to the player.
-  * get_parts(): [{name, icon, class, capacity, mountable: [slot types]}].
-  * evaluate(hull, parts): {valid, attack, structure, shields, speed, fuel,
-  *   detection, stealth, colony, troops, cost, turns}; parts has one entry
-  *   per hull slot, "" for an empty slot.
-  * create(name, hull, parts): adds the design to the empire; returns its
-  *   ID or -1 if refused.
+  * get_hulls(include_unavailable): [{name, icon, graphic, description,
+  *   structure, speed, fuel, stealth, cost, available, obsolete, slots:
+  *   [{type ("external"|"internal"|"core"), x, y}]}]; the player's
+  *   available ones, or every producible one.
+  * get_parts(include_unavailable): [{name, icon, class, capacity,
+  *   secondary, description, cost, available, obsolete, mountable: [slot
+  *   types]}].
+  * evaluate(hull, parts): {valid, problems: [why not valid], unavailable:
+  *   [hull or parts the empire can't build], duplicate_of (an own design's
+  *   name, when one has the same hull and parts), attack, structure,
+  *   shields, speed, fuel, detection, stealth, colony, troops, cost, turns};
+  *   parts has one entry per hull slot, "" for an empty slot.
+  * create(name, hull, parts, description): adds the design to the empire;
+  *   returns its ID or -1 if refused.
   * get_designs(): [{id, name, hull, parts, producible}] the empire knows.
   * Names (hull, part, class) are stringtable keys. Main thread only. */
 class FODesigner : public godot::Object {
     GDCLASS(FODesigner, Object)
 public:
-    static godot::Array get_hulls();
-    static godot::Array get_parts();
+    static godot::Array get_hulls(bool include_unavailable = false);
+    static godot::Array get_parts(bool include_unavailable = false);
     static godot::Dictionary evaluate(const godot::String& hull, const godot::PackedStringArray& parts);
     static int create(const godot::String& name, const godot::String& hull,
-                      const godot::PackedStringArray& parts);
+                      const godot::PackedStringArray& parts, const godot::String& description = "");
+    /** Replace own design \a design_id with a new one; returns its ID. */
+    static int update_design(int design_id, const godot::String& name, const godot::String& hull,
+                             const godot::PackedStringArray& parts, const godot::String& description);
+    /** Rewrite saved design \a uuid. */
+    static bool update_saved(const godot::String& uuid, const godot::String& name, const godot::String& hull,
+                             const godot::PackedStringArray& parts, const godot::String& description);
+    /** Mark a part or hull obsolete (hidden unless the Obsolete filter is
+      * on), kept with the save's UI data as the GG client keeps them. */
+    static bool set_part_obsolete(const godot::String& name, bool obsolete);
+    static bool set_hull_obsolete(const godot::String& name, bool obsolete);
+    static std::set<std::string>& ObsoleteParts();
+    static std::set<std::string>& ObsoleteHulls();
     /** Designs of \a kind: "empire" (the player's, which production
       * offers), "obsolete" (put aside: the empire forgets them, this client
       * keeps them listed), "premade" or "monster" (the game's predefined

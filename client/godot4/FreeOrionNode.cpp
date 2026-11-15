@@ -1,4 +1,5 @@
 #include "FreeOrionNode.h"
+#include "pedia/FOPedia.h"
 
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/os.hpp>
@@ -263,6 +264,7 @@ void FreeOrionNode::parsing_thread() {
     DebugLogger() << "FreeOrionNode::parsing_thread(): Freeorion parsing started";
     m_app->StartParsingContent();
     m_parsing_done = true;
+    FOPedia::ContentReady() = true;
     call_deferred("emit_signal", "parsing_completed");
     DebugLogger() << "FreeOrionNode::parsing_thread(): Freeorion parsing stopped";
 }
@@ -290,6 +292,12 @@ void FreeOrionNode::start_turn() {
     }
     for (const int id : FODesigner::ObsoleteDesigns())
         designs.emplace_back(id, std::pair{true, 0});
+    m_ui_data.obsolete_ship_parts.clear();
+    for (const auto& part : FODesigner::ObsoleteParts())
+        m_ui_data.obsolete_ship_parts.emplace(part, 1);
+    m_ui_data.ordered_ship_hull_and_obsolete.clear();
+    for (const auto& hull : FODesigner::ObsoleteHulls())
+        m_ui_data.ordered_ship_hull_and_obsolete.emplace_back(hull, std::pair{true, 1});
     m_ui_data.fleets_exploring = FOExplore::Exploring();
     m_app->StartTurn(m_ui_data);
 }
@@ -455,6 +463,8 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_loaded_ui_data.reset();
             m_ui_data = SaveGameUIData{};
             FODesigner::ObsoleteDesigns().clear();
+            FODesigner::ObsoleteParts().clear();
+            FODesigner::ObsoleteHulls().clear();
             FOExplore::Exploring().clear();
             if (loaded_game_data && ui_data_available) {
                 m_loaded_ui_data = ui_data;
@@ -464,6 +474,11 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                 for (const auto& [design_id, obsolete] : ui_data.ordered_ship_design_ids_and_obsolete)
                     if (obsolete && obsolete->first)
                         FODesigner::ObsoleteDesigns().insert(design_id);
+                for (const auto& [part, event] : ui_data.obsolete_ship_parts)
+                    FODesigner::ObsoleteParts().insert(part);
+                for (const auto& [hull, obsolete] : ui_data.ordered_ship_hull_and_obsolete)
+                    if (obsolete.first)
+                        FODesigner::ObsoleteHulls().insert(hull);
             }
 
             bool is_new_game = !(loaded_game_data && ui_data_available);

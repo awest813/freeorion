@@ -1,6 +1,8 @@
 #ifndef _FOPedia_h_
 #define _FOPedia_h_
 
+#include <atomic>
+
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
@@ -27,6 +29,9 @@ public:
     static godot::Array get_index();
     static bool has_article(const godot::String& kind, const godot::String& name);
     static godot::String resolve_values(const godot::String& text);
+    /** Whether the content has been parsed (set by FreeOrionNode); named
+      * values are only evaluated once it has. */
+    static std::atomic<bool>& ContentReady();
 
 protected:
     static void _bind_methods();
