@@ -6,6 +6,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/GodotOptionsDB.h
         ${CMAKE_CURRENT_LIST_DIR}/options/FOOptions.h
         ${CMAKE_CURRENT_LIST_DIR}/orders/FOOrders.h
+        ${CMAKE_CURRENT_LIST_DIR}/pedia/FOPedia.h
         ${CMAKE_CURRENT_LIST_DIR}/production/FOProduction.h
         ${CMAKE_CURRENT_LIST_DIR}/research/FOResearch.h
         ${CMAKE_CURRENT_LIST_DIR}/views/FOViews.h
@@ -17,6 +18,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/GodotOptionsDB.cpp
         ${CMAKE_CURRENT_LIST_DIR}/options/FOOptions.cpp
         ${CMAKE_CURRENT_LIST_DIR}/orders/FOOrders.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/pedia/FOPedia.cpp
         ${CMAKE_CURRENT_LIST_DIR}/production/FOProduction.cpp
         ${CMAKE_CURRENT_LIST_DIR}/research/FOResearch.cpp
         ${CMAKE_CURRENT_LIST_DIR}/views/FOViews.cpp
