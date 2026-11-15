@@ -3,6 +3,8 @@ extends Camera2D
 ## Galaxy map camera: smooth zoom anchored at the cursor, drag and keyboard pan.
 
 signal zoom_changed(zoom_level: float)
+## Emitted once per frame in which the camera moved or zoomed.
+signal view_changed
 
 const WHEEL_FACTOR := 1.2
 const KEY_ZOOM_FACTOR := 1.5
@@ -31,6 +33,8 @@ var _anchor_world := Vector2.ZERO
 var _anchored := false
 var _dragging := false
 var _home_rect := Rect2()
+var _last_position := Vector2.INF
+var _last_zoom := -1.0
 
 
 func _ready() -> void:
@@ -60,6 +64,7 @@ func fit_rect(rect: Rect2) -> void:
 	position = rect.get_center()
 	_target_zoom = fit
 	_set_zoom_now(fit)
+	_notify_view_change()
 
 
 ## Zoom by \a factor keeping the world point under \a screen_pos fixed.
@@ -93,6 +98,14 @@ func _process(delta: float) -> void:
 		if absf(z - _target_zoom) < _target_zoom * 0.001:
 			z = _target_zoom
 		_set_zoom_now(z)
+	_notify_view_change()
+
+
+func _notify_view_change() -> void:
+	if position != _last_position or zoom.x != _last_zoom:
+		_last_position = position
+		_last_zoom = zoom.x
+		view_changed.emit()
 
 
 func _unhandled_input(event: InputEvent) -> void:

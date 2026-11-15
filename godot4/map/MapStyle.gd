@@ -22,7 +22,6 @@ const UNEXPLORED_RING_PX := 6.0
 
 ## Sizes in screen pixels, kept constant across zoom levels.
 const STAR_PX := 16.0
-const BACKGROUND_STAR_PX := 2.5
 const LANE_PX := 1.5
 const FLEET_PX := 7.0
 const SELECTION_RING_PX := 13.0
@@ -34,8 +33,10 @@ const LABEL_OFFSET_PX := Vector2(0, 16)
 const LABEL_MIN_SPACING_PX := 12.0
 const LABEL_PADDING_PX := 2.0
 
+const SPACE_COLOR := Color(0.016, 0.02, 0.035)
 const LANE_COLOR := Color(0.55, 0.65, 0.8, 0.45)
-const BACKGROUND_STAR_COUNT := 1500
+## Background star density: one star per this many screen pixels.
+const BACKGROUND_PX_PER_STAR := 900.0
 
 
 static func star_color(star_type: int) -> Color:
