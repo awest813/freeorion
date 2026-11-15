@@ -2862,9 +2862,6 @@ Back to the latest turn
 NOTIFICATIONS_HIDE_ALL
 Hide all types
 
-COMBAT_SUMMARY
-Summary
-
 COMBAT_SUMMARY_BAR_HEIGHT
 Bar height by size
 
@@ -2878,7 +2875,7 @@ COMBAT_SUMMARY_GRAPH_HEIGHT
 Row height by side
 
 # %1% number of units
-COMBAT_INITIAL_FORCES
+COMBAT_INITIAL_FORCES_COUNT
 Initial forces (%1%)
 
 # %1% number of units

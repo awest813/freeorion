@@ -361,7 +361,7 @@ func _side_card(side: Dictionary) -> Control:
 	if not units.is_empty():
 		box.add_child(HSeparator.new())
 		var forces := _section(
-			box, tr("COMBAT_INITIAL_FORCES").replace("%1%", str(units.size())), true
+			box, tr("COMBAT_INITIAL_FORCES_COUNT").replace("%1%", str(units.size())), true
 		)
 		for unit: Dictionary in units:
 			forces.add_child(_unit_row(unit, color))

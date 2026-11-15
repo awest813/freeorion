@@ -90,7 +90,7 @@ func test_forces_and_losses_fold():
 	add_child_autofree(screen)
 	screen.refresh()
 	var headers := screen._detail.find_children("*", "Button", true, false).filter(
-		func(b): return b.text.contains(tr("COMBAT_INITIAL_FORCES").split(" (")[0])
+		func(b): return b.text.contains(tr("COMBAT_INITIAL_FORCES_COUNT").split(" (")[0])
 	)
 	assert_gt(headers.size(), 0)
 	var content: Control = headers[0].get_parent().get_child(headers[0].get_index() + 1)
