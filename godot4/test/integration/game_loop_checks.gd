@@ -60,6 +60,7 @@ func after_turn() -> void:
 	_test.assert_not_null(fleet, "Fleet still known after the turn")
 	if fleet:
 		_test.assert_ne(fleet.get_position(), _start_position, "Fleet moved during the turn")
+	_check_fleet_orders()
 	var sitreps: Array = FOUniverse.get_sitreps()
 	_test.assert_gt(sitreps.size(), 0, "Turn produced situation reports")
 	for entry: Dictionary in sitreps:
@@ -219,6 +220,53 @@ func _check_pedia() -> void:
 	var algo := FOPedia.get_article("tech", "LRN_ALGO_ELEGANCE")
 	_test.assert_gt(algo["facts"].size(), 1, "Tech facts")
 	_test.assert_gt(algo["links"].size(), 0, "Tech links to unlocks")
+
+
+# Fleet orders on two own stationary fleets at the same system: stance,
+# rename, merge, split, and the ship views.
+func _check_fleet_orders() -> void:
+	var empire_id: int = FOUniverse.get_empire_id()
+	var by_system := {}
+	for fleet_id in FOUniverse.get_fleet_ids():
+		var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
+		if fleet.get_owner_id() == empire_id and fleet.get_system_id() >= 0:
+			by_system[fleet.get_system_id()] = by_system.get(fleet.get_system_id(), []) + [fleet_id]
+	var pair: Array = []
+	for fleets in by_system.values():
+		if fleets.size() >= 2:
+			pair = fleets
+			break
+	_test.assert_eq(pair.size() >= 2, true, "Two own fleets share a system")
+	if pair.size() < 2:
+		return
+	var dest: FOFleet = FOUniverse.get_fleet(pair[0])
+	var source: FOFleet = FOUniverse.get_fleet(pair[1])
+
+	var ship: FOShip = FOUniverse.get_ship(dest.get_ship_ids()[0])
+	_test.assert_false(ship.get_design_name().is_empty(), "Ship has a design")
+	_test.assert_gt(ship.get_max_structure(), 0.0, "Ship has structure")
+	_test.assert_eq(ship.get_fleet_id(), dest.get_id(), "Ship knows its fleet")
+
+	_test.assert_true(FOOrders.set_fleet_aggression(dest.get_id(), "passive"), "Set stance")
+	_test.assert_eq(dest.get_aggression(), "passive", "Stance applied")
+	_test.assert_true(FOOrders.rename(dest.get_id(), "Home Guard"), "Rename")
+	_test.assert_eq(dest.get_name(), "Home Guard", "Name applied")
+
+	var moved := source.get_ship_ids()
+	var before := dest.get_ship_ids().size()
+	_test.assert_true(FOOrders.merge_ships(dest.get_id(), moved), "Merge")
+	_test.assert_eq(dest.get_ship_ids().size(), before + moved.size(), "Ships merged")
+	var new_fleet := FOOrders.split_ships(PackedInt32Array([moved[0]]))
+	_test.assert_gt(new_fleet, -1, "Split into a new fleet")
+	var split: FOFleet = FOUniverse.get_fleet(new_fleet)
+	_test.assert_not_null(split, "New fleet is known")
+	if split:
+		_test.assert_eq(
+			split.get_ship_ids(), PackedInt32Array([moved[0]]), "New fleet has the ship"
+		)
+		_test.assert_eq(split.get_aggression(), "passive", "Split keeps the stance")
+	_test.assert_eq(FOOrders.split_ships(PackedInt32Array()), -1, "Empty split refused")
+	_test.assert_false(FleetPanel.from_universe(dest.get_id()).is_empty(), "Panel data")
 
 
 func _check_snapshot() -> void:

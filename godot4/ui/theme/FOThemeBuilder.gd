@@ -68,7 +68,7 @@ static func _labels(theme: Theme, t: FOTokens) -> void:
 static func _buttons(theme: Theme, t: FOTokens) -> void:
 	var pad_x := t.space_4
 	var pad_y := t.space_2
-	for type in ["Button", "OptionButton", "MenuButton", "CheckBox", "CheckButton"]:
+	for type in ["Button", "OptionButton", "MenuButton"]:
 		theme.set_stylebox("normal", type, box(t, t.surface_raised, t.border, pad_x, pad_y))
 		theme.set_stylebox("hover", type, box(t, t.surface_overlay, t.border_strong, pad_x, pad_y))
 		theme.set_stylebox("pressed", type, box(t, t.surface_overlay, t.accent, pad_x, pad_y))
@@ -84,6 +84,21 @@ static func _buttons(theme: Theme, t: FOTokens) -> void:
 		theme.set_color("icon_disabled_color", type, t.text_disabled)
 		theme.set_constant("h_separation", type, t.space_2)
 
+	# Check boxes and switches: no box of their own, a light hover only.
+	for type in ["CheckBox", "CheckButton"]:
+		var clear := box(t, Color(0, 0, 0, 0), Color(0, 0, 0, 0), t.space_1, t.space_1)
+		var hover := box(t, t.surface_overlay, Color(0, 0, 0, 0), t.space_1, t.space_1)
+		for state in ["normal", "pressed", "disabled", "hover_pressed"]:
+			theme.set_stylebox(state, type, clear)
+		theme.set_stylebox("hover", type, hover)
+		theme.set_stylebox("focus", type, focus_box(t))
+		theme.set_color("font_color", type, t.text_primary)
+		theme.set_color("font_hover_color", type, t.text_primary)
+		theme.set_color("font_pressed_color", type, t.text_primary)
+		theme.set_color("font_hover_pressed_color", type, t.text_primary)
+		theme.set_color("font_disabled_color", type, t.text_disabled)
+		theme.set_constant("h_separation", type, t.space_2)
+
 	# Primary call to action, e.g. End Turn: theme_type_variation = "PrimaryButton".
 	theme.set_type_variation("PrimaryButton", "Button")
 	theme.set_stylebox("normal", "PrimaryButton", box(t, t.accent, t.accent, pad_x, pad_y))
@@ -95,6 +110,18 @@ static func _buttons(theme: Theme, t: FOTokens) -> void:
 	)
 	for color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		theme.set_color(color, "PrimaryButton", t.text_on_accent)
+
+	# One option of a segmented control: compact padding, small text.
+	theme.set_type_variation("SegmentButton", "Button")
+	var seg_x := t.space_1
+	theme.set_stylebox("normal", "SegmentButton", box(t, t.surface_raised, t.border, seg_x, pad_y))
+	theme.set_stylebox(
+		"hover", "SegmentButton", box(t, t.surface_overlay, t.border_strong, seg_x, pad_y)
+	)
+	theme.set_stylebox(
+		"pressed", "SegmentButton", box(t, t.surface_overlay, t.accent, seg_x, pad_y)
+	)
+	theme.set_font_size("font_size", "SegmentButton", t.font_size_small)
 
 	# Low-emphasis button with no box until hovered: "GhostButton".
 	theme.set_type_variation("GhostButton", "Button")

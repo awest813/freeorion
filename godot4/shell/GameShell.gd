@@ -11,6 +11,7 @@ var follow_game := true
 var map_view: GalaxyMapView
 var top_bar: TopBar
 var system_panel: SystemPanel
+var fleet_panel: FleetPanel
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
@@ -96,13 +97,19 @@ func _ready() -> void:
 	panel_margin.add_child(column)
 	system_panel = SystemPanel.new()
 	column.add_child(system_panel)
+	fleet_panel = FleetPanel.new()
+	column.add_child(fleet_panel)
+	fleet_panel.rename_requested.connect(_on_fleet_rename)
+	fleet_panel.aggression_requested.connect(_on_fleet_aggression)
+	fleet_panel.split_requested.connect(_on_fleet_split)
+	fleet_panel.merge_requested.connect(_on_fleet_merge)
 
 	top_bar.resized.connect(_update_frame_margins)
 
 	map_view.system_selected.connect(_on_system_selected)
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
 	system_panel.close_requested.connect(map_view.map.select_system.bind(GalaxyMap.NO_SYSTEM))
-	system_panel.fleet_selected.connect(_show_route)
+	system_panel.fleet_selected.connect(_on_fleet_selected)
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
 
@@ -172,8 +179,45 @@ func _on_system_context_requested(system_id: int) -> void:
 	_show_route(fleet_id)
 
 
+func _on_fleet_selected(fleet_id: int) -> void:
+	_show_route(fleet_id)
+	if follow_game:
+		fleet_panel.show_fleet(fleet_id)
+	elif fleet_id < 0:
+		fleet_panel.show_data({})
+
+
+func _on_fleet_rename(fleet_id: int, new_name: String) -> void:
+	if FOOrders.rename(fleet_id, new_name):
+		_refresh_fleet_views(fleet_id)
+
+
+func _on_fleet_aggression(fleet_id: int, aggression: String) -> void:
+	FOOrders.set_fleet_aggression(fleet_id, aggression)
+	_refresh_fleet_views(fleet_id)
+
+
+func _on_fleet_split(ship_ids: PackedInt32Array) -> void:
+	var new_fleet := FOOrders.split_ships(ship_ids)
+	_refresh_fleet_views(new_fleet if new_fleet >= 0 else fleet_panel.fleet_id)
+
+
+func _on_fleet_merge(dest_fleet_id: int, ship_ids: PackedInt32Array) -> void:
+	if FOOrders.merge_ships(dest_fleet_id, ship_ids):
+		_refresh_fleet_views(dest_fleet_id)
+
+
+# After a fleet order: re-read the system panel and show \a fleet_id.
+func _refresh_fleet_views(fleet_id: int) -> void:
+	system_panel.refresh()
+	system_panel.select_fleet(fleet_id)
+	fleet_panel.show_fleet(fleet_id)
+
+
 func _on_turn_update() -> void:
 	system_panel.refresh()
+	if fleet_panel.visible:
+		fleet_panel.refresh()
 	if production_screen.visible:
 		production_screen.refresh()
 	if research_screen.visible:

@@ -1947,6 +1947,51 @@ Right-click a system on the map to send the selected fleet there.
 SYSTEM_PANEL_ORDER_REFUSED
 The selected fleet can't move to that system.
 
+FLEET_PANEL_STATIONARY
+Not moving
+
+FLEET_PANEL_RENAME
+Fleet name. Press Enter to rename.
+
+FLEET_PANEL_SPLIT
+Split
+
+FLEET_PANEL_SPLIT_DESC
+Move the checked ships into a new fleet.
+
+FLEET_PANEL_MERGE
+Merge
+
+FLEET_PANEL_MERGE_DESC
+Move all ships of this fleet into the chosen fleet.
+
+FLEET_PANEL_SELECT_SHIP
+Check to include this ship when splitting.
+
+FLEET_PANEL_ARMED
+armed
+
+FLEET_PANEL_COLONY
+colony
+
+FLEET_PANEL_TROOPS
+troops
+
+FLEET_PANEL_STRUCTURE
+Structure
+
+FLEET_STANCE_PASSIVE
+Passive
+
+FLEET_STANCE_DEFENSIVE
+Defend
+
+FLEET_STANCE_OBSTRUCTIVE
+Block
+
+FLEET_STANCE_AGGRESSIVE
+Attack
+
 MAP_ROUTE_ETA
 %1% turns
 
