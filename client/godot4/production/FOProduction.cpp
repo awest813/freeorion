@@ -44,6 +44,12 @@ namespace {
             const auto* hull = design ? GetShipHull(design->Hull()) : nullptr;
             out["icon"] = design && !design->Icon().empty() ? ToGodot(design->Icon())
                         : hull ? ToGodot(hull->Icon()) : godot::String();
+        } else if (item.build_type == BuildType::BT_STOCKPILE) {
+            out["build_type"] = "stockpile";
+            out["name"] = "PROJECT_BT_STOCKPILE";
+            out["design_id"] = -1;
+            out["label"] = "PROJECT_BT_STOCKPILE";
+            out["icon"] = "icons/meter/stockpile.png";
         } else {
             out["build_type"] = "other";
             out["name"] = ToGodot(item.name);
@@ -92,6 +98,11 @@ void FOProduction::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("remove", "index"), &FOProduction::remove);
     ClassDB::bind_static_method(cls, D_METHOD("move", "index", "new_index"), &FOProduction::move);
     ClassDB::bind_static_method(cls, D_METHOD("set_quantity", "index", "quantity"), &FOProduction::set_quantity);
+    ClassDB::bind_static_method(cls, D_METHOD("set_paused", "index", "paused"), &FOProduction::set_paused);
+    ClassDB::bind_static_method(cls, D_METHOD("set_stockpile_allowed", "index", "allowed"),
+                                &FOProduction::set_stockpile_allowed);
+    ClassDB::bind_static_method(cls, D_METHOD("enqueue_stockpile_project", "location_id"),
+                                &FOProduction::enqueue_stockpile_project);
 }
 
 godot::Array FOProduction::get_queue() {
@@ -120,6 +131,7 @@ godot::Array FOProduction::get_queue() {
         entry["allocated_pp"] = element.allocated_pp;
         entry["turns_left"] = element.turns_left_to_completion;
         entry["paused"] = element.paused;
+        entry["stockpile_allowed"] = element.allowed_imperial_stockpile_use;
         result.push_back(entry);
     }
     return result;
@@ -128,9 +140,20 @@ godot::Array FOProduction::get_queue() {
 godot::Dictionary FOProduction::get_points() {
     godot::Dictionary points;
     const auto* empire = PlayerEmpire();
-    points["available"] = empire ? empire->GetIndustryPool().TotalAvailable() : 0.0f;
+    // This turn's output; the stockpile is reported apart, as only a little
+    // of it can be drawn each turn.
+    points["available"] = empire ? empire->GetIndustryPool().TotalOutput() : 0.0f;
     points["spent"] = empire ? empire->GetProductionQueue().TotalPPsSpent() : 0.0f;
     points["stockpile"] = empire ? empire->GetIndustryPool().Stockpile() : 0.0f;
+    if (const auto* app = ClientApp::GetApp(); app && empire) {
+        const auto& queue = empire->GetProductionQueue();
+        float used = 0.0f;
+        for (const auto& [group, pp] : queue.AllocatedStockpilePP())
+            used += pp;
+        points["stockpile_used"] = used;
+        points["stockpile_capacity"] = queue.StockpileCapacity(app->GetUniverse().Objects());
+        points["stockpile_expected"] = queue.ExpectedNewStockpileAmount();
+    }
     return points;
 }
 
@@ -151,6 +174,9 @@ godot::Array FOProduction::get_buildable(int location_id) {
         result.push_back(entry);
     };
     try {
+    // The imperial stockpile transfer project, where it can be built.
+    if (empire->ProducibleItem(BuildType::BT_STOCKPILE, location_id, context))
+        add(ProductionQueue::ProductionItem(BuildType::BT_STOCKPILE));
     for (const auto& name : empire->AvailableBuildingTypes()) {
         if (empire->ProducibleItem(BuildType::BT_BUILDING, name, location_id, context) &&
             empire->EnqueuableItem(BuildType::BT_BUILDING, name, location_id, context))
@@ -244,4 +270,27 @@ bool FOProduction::set_quantity(int index, int quantity) {
     const auto* element = ElementAt(index);
     return element && quantity >= 1 &&
         IssueQueueOrder(Action::SET_QUANTITY, PlayerEmpire()->EmpireID(), element->uuid, quantity);
+}
+
+bool FOProduction::set_paused(int index, bool paused) {
+    const auto* element = ElementAt(index);
+    return element && element->paused != paused &&
+        IssueQueueOrder(paused ? Action::PAUSE_PRODUCTION : Action::RESUME_PRODUCTION,
+                        PlayerEmpire()->EmpireID(), element->uuid);
+}
+
+bool FOProduction::set_stockpile_allowed(int index, bool allowed) {
+    const auto* element = ElementAt(index);
+    return element && element->allowed_imperial_stockpile_use != allowed &&
+        IssueQueueOrder(allowed ? Action::ALLOW_STOCKPILE_USE : Action::DISALLOW_STOCKPILE_USE,
+                        PlayerEmpire()->EmpireID(), element->uuid);
+}
+
+bool FOProduction::enqueue_stockpile_project(int location_id) {
+    auto* empire = PlayerEmpire();
+    const auto* app = ClientApp::GetApp();
+    if (!empire || !app || !empire->ProducibleItem(BuildType::BT_STOCKPILE, location_id, app->GetContext()))
+        return false;
+    return IssueQueueOrder(Action::PLACE_IN_QUEUE, empire->EmpireID(),
+                           ProductionQueue::ProductionItem(BuildType::BT_STOCKPILE), 1, location_id);
 }

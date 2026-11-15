@@ -21,7 +21,9 @@ class FOProduction : public godot::Object {
     GDCLASS(FOProduction, Object)
 public:
     static godot::Array get_queue();
-    static godot::Dictionary get_points();          ///< {available, spent, stockpile}
+    /** {available, spent, stockpile, stockpile_used, stockpile_capacity
+      * (PP a turn can draw from it), stockpile_expected (next turn)} */
+    static godot::Dictionary get_points();
     static godot::Array get_buildable(int location_id);
     /** Locations (planet IDs) where the player can produce anything. */
     static godot::PackedInt32Array get_production_locations();
@@ -31,6 +33,12 @@ public:
     static bool remove(int index);
     static bool move(int index, int new_index);
     static bool set_quantity(int index, int quantity);
+    /** Pause or resume queue item \a index (paused items get no PP). */
+    static bool set_paused(int index, bool paused);
+    /** Let queue item \a index draw on the imperial stockpile, or not. */
+    static bool set_stockpile_allowed(int index, bool allowed);
+    /** Queue the project that moves PP into the imperial stockpile. */
+    static bool enqueue_stockpile_project(int location_id);
 
 protected:
     static void _bind_methods();
