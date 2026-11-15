@@ -164,6 +164,9 @@ public:
     /** One ship: design, species, owner, meters (as get_planet_detail()),
       * combat and cargo stats, and parts grouped by name. */
     static godot::Dictionary get_ship_detail(int ship_id);
+    /** Empire statistics over time: stat name -> [{empire_id, name, color,
+      * turns, values}], one entry per empire the client has records of. */
+    static godot::Dictionary get_stat_records();
 
     /** Why meter \a meter_name of object \a object_id has its value: the
       * effects that changed it this turn, as the GG meter tooltips list them.

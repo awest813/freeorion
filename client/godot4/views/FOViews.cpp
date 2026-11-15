@@ -447,6 +447,7 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_resources"), &FOUniverse::get_empire_resources);
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_detail", "planet_id"), &FOUniverse::get_planet_detail);
     ClassDB::bind_static_method(cls, D_METHOD("get_ship_detail", "ship_id"), &FOUniverse::get_ship_detail);
+    ClassDB::bind_static_method(cls, D_METHOD("get_stat_records"), &FOUniverse::get_stat_records);
     ClassDB::bind_static_method(cls, D_METHOD("get_meter_accounting", "object_id", "meter_name"),
                                 &FOUniverse::get_meter_accounting);
     ClassDB::bind_static_method(cls, D_METHOD("get_playable_species"), &FOUniverse::get_playable_species);
@@ -906,6 +907,40 @@ godot::Dictionary FOUniverse::get_ship_detail(int ship_id) {
         }
     }
     result["parts"] = parts;
+    return result;
+}
+
+godot::Dictionary FOUniverse::get_stat_records() {
+    godot::Dictionary result;
+    const auto* app = ClientApp::GetApp();
+    if (!app)
+        return result;
+    const auto& context = app->GetContext();
+    for (const auto& [stat_name, empire_lines] : context.ContextUniverse().GetStatRecords()) {
+        godot::Array lines;
+        for (const auto& [empire_id, values_by_turn] : empire_lines) {
+            godot::Dictionary line;
+            line["empire_id"] = empire_id;
+            const auto empire = context.GetEmpire(empire_id);
+            line["name"] = empire ? ToGodot(empire->Name()) : godot::String();
+            if (empire) {
+                const auto c = empire->Color();
+                line["color"] = godot::Color::from_rgba8(c[0], c[1], c[2], c[3]);
+            } else {
+                line["color"] = godot::Color(0.8f, 0.8f, 0.8f, 1.0f);
+            }
+            godot::PackedInt32Array turns;
+            godot::PackedFloat64Array values;
+            for (const auto& [turn, value] : values_by_turn) {
+                turns.push_back(turn);
+                values.push_back(value);
+            }
+            line["turns"] = turns;
+            line["values"] = values;
+            lines.push_back(line);
+        }
+        result[ToGodot(stat_name)] = lines;
+    }
     return result;
 }
 

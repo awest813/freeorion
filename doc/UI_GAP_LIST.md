@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 4 | Tech tree graph; graphs; Pedia extras; hotkey rebinding |
+| P2 | 3 | Tech tree graph; Pedia extras; hotkey rebinding |
 | P3 | 18 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -97,12 +97,12 @@ Closed:
 - **Ship detail:** a ship's name in the fleet panel opens its details below: design, hull and species (linked to the Pedia), damage, fighters shot down, fighters, troops and colonists as the GG ship rows show them, its meters with next turn's change, maximum and effect breakdown, and its parts with their capacities. Ship links in turn events select the fleet and open the ship.
 - **Where can I build this:** ⌖ on each item in the production list lists every planet that can build it now, ticked where you are; one Add queues it at all the ticked ones. Highlighting those planets on the map is still open (P3).
 - **Drag ships between fleets:** drag a ship from the fleet panel onto another of your fleets in the system panel to move it there, or onto Split for a new fleet. Dragging a ticked ship takes all the ticked ships along.
+- **Graphs:** the Empires screen (F9) has a Statistics tab charting every empire statistic the server records (output, stockpiles, ships, planets, military strength, ...) turn by turn: one line per empire in its colour, yours thicker. Hovering shows every empire's value at that turn; the legend hides lines.
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Tech tree graph | `TechTreeWnd`, `TechTreeLayout`, `TechTreeArcs` | L | The fork has the list view only. |
-| Graphs | `ui.map.graphs`, `GraphControl` | M | Empire statistics over time. |
-| Pedia extras | `EncyclopediaDetailPanel` | M | Graphs, the planet suitability table, "show on map". |
+| Pedia extras | `EncyclopediaDetailPanel` | M | The planet suitability table, "show on map". (Graphs are in the Empires screen.) |
 | Hotkey rebinding | `OptionsWnd` hotkeys page | M | Fork shortcuts are fixed in code. |
 
 ## P3: polish and cut-over

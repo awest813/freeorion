@@ -64,3 +64,39 @@ func test_shell_opens_options_and_save_by_key():
 	shell._unhandled_key_input(key)
 	assert_eq(shell.active_screen, "options")
 	assert_true(shell.top_bar._screen_buttons.has("empires"))
+
+
+func test_statistics_tab():
+	screen._tabs.current_tab = 1
+	await wait_process_frames(1)
+	assert_true(screen._statistics.visible)
+	assert_false(screen._diplomacy.visible)
+	var names: Array = screen._stat_list.get_children().map(func(b): return b.text)
+	assert_eq(names.size(), 2)
+	assert_has(names, tr("PP_OUTPUT"))
+	assert_eq(screen._chart.series.size(), 2, "One line per empire")
+	assert_eq(screen._chart.highlight, 0, "Own empire highlighted")
+	screen.show_statistic("SHIP_COUNT")
+	assert_eq(screen._stat_title.text, tr("SHIP_COUNT"))
+	assert_eq(screen._chart.series.size(), 1)
+	var legend: Array = screen._legend.get_children()
+	legend[0].button_pressed = false
+	assert_true(screen._chart.hidden_series.has(0), "Legend hides a line")
+
+
+func test_chart_helpers():
+	assert_eq(LineChart.nice_ticks(0.0, 13.0), PackedFloat64Array([0, 5, 10, 15]))
+	assert_eq(LineChart.nice_ticks(0.0, 154752.0)[-1], 200000.0)
+	assert_eq(LineChart.short_number(154752.0), "154.8k")
+	assert_eq(LineChart.short_number(12.0), "12")
+	assert_eq(LineChart.short_number(10.906), "10.9")
+	var line: Dictionary = fake.stat_records["PP_OUTPUT"][0]
+	assert_eq(LineChart.value_at(line, 3), 11.0)
+	assert_true(is_nan(LineChart.value_at(line, 9)))
+	screen.show_statistic("PP_OUTPUT")
+	await wait_process_frames(1)
+	var chart: LineChart = screen._chart
+	chart.size = Vector2(600, 300)
+	var plot: Rect2 = chart._plot_rect()
+	assert_eq(chart.turn_at(plot.position.x), 1)
+	assert_eq(chart.turn_at(plot.end.x), 4)

@@ -2180,6 +2180,19 @@ Empires
 EMPIRES_TITLE
 Empires and diplomacy
 
+EMPIRES_TAB_DIPLOMACY
+Diplomacy
+
+EMPIRES_TAB_STATISTICS
+Statistics
+
+EMPIRES_NO_STATISTICS
+No statistics recorded yet.
+
+# %1% turn number, over the values listed in a chart
+CHART_TURN
+Turn %1%
+
 DIPLOMACY_YOU
 Your empire
 
