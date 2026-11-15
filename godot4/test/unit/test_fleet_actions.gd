@@ -71,7 +71,7 @@ func test_totals_shown_with_icons():
 
 func test_menu_offers_what_applies():
 	var panel := _panel(_fleet())
-	assert_eq(panel.menu_actions(), [0, 1, 2, 3, 4, 5, 6])
+	assert_eq(panel.menu_actions(), [11, 0, 1, 2, 3, 4, 5, 6], "explore first")
 	var alone := _fleet()
 	alone["merge_targets"] = []
 	alone["in_system"] = false
@@ -126,7 +126,7 @@ func test_new_fleet_stance_from_the_menu():
 	watch_signals(panel)
 	panel._fill_menu()
 	var popup := panel._menu.get_popup()
-	assert_eq(popup.item_count, 9, "seven actions, a separator and the stance submenu")
+	assert_eq(popup.item_count, 10, "eight actions, a separator and the stance submenu")
 	panel._on_menu_id(FleetPanel.STANCE_MENU_BASE + 1)
 	assert_eq(panel.new_fleet_stance, "passive")
 	assert_signal_emitted_with_parameters(panel, "new_fleet_stance_changed", ["passive"])

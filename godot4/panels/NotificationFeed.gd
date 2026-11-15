@@ -8,7 +8,9 @@ extends PanelContainer
 ##
 ## As in the GG sitrep panel, whole types of report can be hidden (☰, kept
 ## in option ui.map.sitrep.hidden.stringlist), and right-clicking a report
-## hides that one for some turns or for the rest of the session.
+## hides that one for some turns or for the rest of the session;
+## double-clicking dismisses it. Reports come in GG's order of importance;
+## ‹ › skip turns with nothing to show, and ⇥ goes back to the latest turn.
 
 signal link_activated(kind: String, arg: String)
 
@@ -37,6 +39,9 @@ var _latest_turn := 0
 var _prev: Button
 var _next: Button
 var _filter: Button
+var _latest: Button
+## Report types seen on any turn: label -> true.
+var _seen_labels := {}
 ## Snoozed reports: text -> [first turn, last turn].
 var _snoozed := {}
 var _all_entries: Array = []
@@ -77,6 +82,10 @@ func show_turn(turn: int) -> void:
 
 func _show(entries: Array, turn: int) -> void:
 	var was_visible := visible
+	entries = sorted_by_importance(entries)
+	for entry: Dictionary in entries:
+		if not str(entry.get("label", "")).is_empty():
+			_seen_labels[entry["label"]] = true
 	_all_entries = entries
 	_entries = entries.filter(func(e): return not is_hidden(e, turn))
 	entries = _entries
@@ -90,6 +99,40 @@ func _show(entries: Array, turn: int) -> void:
 	_update_header()
 	if visible and not was_visible:
 		FOUi.fade_in(self)
+
+
+## \a entries in GG's order of importance (FUNCTIONAL_SITREP_PRIORITY_ORDER),
+## types it doesn't name last; the order within a type is kept.
+static func sorted_by_importance(entries: Array) -> Array:
+	var order := {}
+	var names := (
+		TranslationServer
+		. translate("FUNCTIONAL_SITREP_PRIORITY_ORDER")
+		. replace("\n", " ")
+		. replace("\t", " ")
+		. split(" ", false)
+	)
+	for i in names.size():
+		order[names[i].strip_edges()] = i
+	var indexed := []
+	for i in entries.size():
+		indexed.push_back([order.get(entries[i].get("label", ""), names.size()), i, entries[i]])
+	indexed.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
+	return indexed.map(func(e): return e[2])
+
+
+## The nearest turn from the shown one in \a direction (1 or -1) with a
+## report to show, or the last one tried at the ends.
+func step_turn(direction: int) -> void:
+	var turn := _turn + direction
+	while turn > 1 and turn < _latest_turn:
+		var shown: Array = entries_provider.call(turn).filter(
+			func(e): return not is_hidden(e, turn)
+		)
+		if not shown.is_empty():
+			break
+		turn += direction
+	show_turn(turn)
 
 
 ## Whether \a entry is left out on \a turn: its type hidden, or snoozed.
@@ -146,10 +189,13 @@ func _save_hidden_labels() -> void:
 # The ☰ menu: every report type seen this turn or hidden, ticked when shown.
 func open_filter_menu() -> PopupMenu:
 	var menu := _new_menu()
-	var labels := {}
-	for entry: Dictionary in _all_entries:
-		if not str(entry.get("label", "")).is_empty():
-			labels[entry["label"]] = true
+	# Every type seen on any turn (as GG's filter), and the hidden ones.
+	if _seen_labels.size() < 2:
+		for turn in range(1, _latest_turn + 1):
+			for entry: Dictionary in entries_provider.call(turn):
+				if not str(entry.get("label", "")).is_empty():
+					_seen_labels[entry["label"]] = true
+	var labels := _seen_labels.duplicate()
 	labels.merge(hidden_labels)
 	var sorted: Array = labels.keys()
 	sorted.sort_custom(func(a, b): return _label_text(a) < _label_text(b))
@@ -160,6 +206,8 @@ func open_filter_menu() -> PopupMenu:
 		menu.set_item_metadata(index, label)
 	if not sorted.is_empty():
 		menu.add_separator()
+	menu.add_item(tr("NOTIFICATIONS_HIDE_ALL"))
+	menu.set_item_metadata(menu.item_count - 1, "__hide_all")
 	menu.add_item(tr("SITREP_SHOWALL_TEMPLATES"))
 	menu.set_item_metadata(menu.item_count - 1, "__show_all")
 	menu.set_item_disabled(menu.item_count - 1, hidden_labels.is_empty())
@@ -176,6 +224,11 @@ func open_filter_menu() -> PopupMenu:
 					_show(_all_entries, _turn)
 				"__unsnooze":
 					clear_snoozed()
+				"__hide_all":
+					for label: String in labels:
+						hidden_labels[label] = true
+					_save_hidden_labels()
+					_show(_all_entries, _turn)
 				_:
 					set_label_hidden(meta, not hidden_labels.has(meta))
 	)
@@ -255,11 +308,14 @@ func _build() -> void:
 	_header.pressed.connect(func(): set_expanded(not is_expanded()))
 	header_row.add_child(_header)
 	_prev = ScreenKit.small_button("‹", "NOTIFICATIONS_PREVIOUS_TURN")
-	_prev.pressed.connect(func(): show_turn(_turn - 1))
+	_prev.pressed.connect(step_turn.bind(-1))
 	header_row.add_child(_prev)
 	_next = ScreenKit.small_button("›", "NOTIFICATIONS_NEXT_TURN")
-	_next.pressed.connect(func(): show_turn(_turn + 1))
+	_next.pressed.connect(step_turn.bind(1))
 	header_row.add_child(_next)
+	_latest = ScreenKit.small_button("⇥", "NOTIFICATIONS_LATEST")
+	_latest.pressed.connect(func(): show_turn(_latest_turn))
+	header_row.add_child(_latest)
 	_filter = ScreenKit.small_button("☰", "NOTIFICATIONS_FILTER")
 	_filter.pressed.connect(open_filter_menu)
 	header_row.add_child(_filter)
@@ -293,12 +349,14 @@ func _entry_row(entry: Dictionary) -> Control:
 	for target: Control in [row, text]:
 		target.gui_input.connect(
 			func(event: InputEvent):
-				if (
-					event is InputEventMouseButton
-					and event.button_index == MOUSE_BUTTON_RIGHT
-					and event.pressed
-				):
+				if not event is InputEventMouseButton or not event.pressed:
+					return
+				if event.button_index == MOUSE_BUTTON_RIGHT:
 					open_entry_menu(entry, event.global_position)
+					target.accept_event()
+				elif event.button_index == MOUSE_BUTTON_LEFT and event.double_click:
+					# Double-click dismisses the report (this turn).
+					snooze(entry, 1)
 					target.accept_event()
 		)
 	return row
@@ -327,3 +385,4 @@ func _update_header() -> void:
 	_header.text = "%s  %s" % [arrow, title]
 	_prev.disabled = _turn <= 1
 	_next.disabled = _turn >= _latest_turn
+	_latest.disabled = _turn >= _latest_turn

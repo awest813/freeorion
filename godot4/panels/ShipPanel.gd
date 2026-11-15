@@ -183,6 +183,9 @@ func _fill_stats(stats: Array) -> void:
 			continue
 		var chip := HBoxContainer.new()
 		chip.tooltip_text = "%s\n%s" % [tr(entry[0][2]), tr(entry[0][3])]
+		# Per weapon or hangar and bay, as GG's damage and fighters tooltips.
+		for line: Array in stat.get("breakdown", []):
+			chip.tooltip_text += "\n%s: %s" % [line[0], line[1]]
 		chip.mouse_filter = Control.MOUSE_FILTER_PASS
 		var icon := ScreenKit.icon("icons/meter/%s.png" % entry[0][1], FOUi.tokens.icon_small)
 		icon.mouse_filter = Control.MOUSE_FILTER_PASS

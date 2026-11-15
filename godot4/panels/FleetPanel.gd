@@ -25,6 +25,8 @@ signal new_fleet_stance_changed(stance: String)
 signal give_requested(fleet_id: int, empire_id: int)
 ## Forget sensor ghost \a fleet_id.
 signal forget_requested(fleet_id: int)
+## Send the fleet exploring on its own, or stop it.
+signal explore_requested(fleet_id: int, exploring: bool)
 
 ## Type of the drag data ship rows give: {type, fleet_id, ship_ids}.
 const SHIP_DRAG := "fo_ships"
@@ -43,6 +45,8 @@ const STANCES := [
 
 ## Fleet menu entries: id, label key.
 const MENU := [
+	[11, "ORDER_FLEET_EXPLORE"],
+	[12, "ORDER_CANCEL_FLEET_EXPLORE"],
 	[0, "FW_MERGE_SYSTEM_FLEETS"],
 	[1, "FW_SPLIT_DAMAGED_FLEET"],
 	[2, "FW_SPLIT_UNFUELED_FLEET"],
@@ -147,6 +151,8 @@ func show_data(data: Dictionary) -> void:
 		if not destination.is_empty()
 		else tr("FLEET_PANEL_STATIONARY")
 	)
+	if data.get("exploring", false):
+		_route.text += "  ·  " + tr("FLEET_PANEL_EXPLORING")
 	var blockade: Dictionary = data.get("blockade", {})
 	_route.tooltip_text = ""
 	if blockade.get("blockaded", false):
@@ -240,6 +246,7 @@ static func from_universe(id: int) -> Dictionary:
 		"id": id,
 		"own": owner_id >= 0 and owner_id == FOUniverse.get_empire_id(),
 		"ghost": FOOrders.is_sensor_ghost(id),
+		"exploring": FOExplore.is_exploring(id),
 		"blockade": fleet.get_blockade(),
 		"in_system": fleet.get_system_id() >= 0,
 		"owner_name":
@@ -554,9 +561,13 @@ func menu_actions() -> Array:
 		if _data.get("ghost", false):
 			actions.push_back(10)
 		return actions
+	var in_system: bool = _data.get("in_system", true)
+	if _data.get("exploring", false):
+		actions.push_back(12)
+	elif in_system:
+		actions.push_back(11)
 	if not _data.get("merge_targets", []).is_empty():
 		actions.push_back(0)
-	var in_system: bool = _data.get("in_system", true)
 	if in_system and ships.size() > 1:
 		var groups := split_groups(ships)
 		for entry in [[1, "damaged"], [2, "unfueled"], [3, "fighters"]]:
@@ -597,6 +608,8 @@ func run_menu_action(id: int) -> void:
 			for design in groups["designs"].keys().slice(1):
 				per_design.push_back(PackedInt32Array(groups["designs"][design]))
 			split_groups_requested.emit(per_design)
+		11, 12:
+			explore_requested.emit(fleet_id, id == 11)
 		9:
 			give_requested.emit(fleet_id, -1)
 		10:

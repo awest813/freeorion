@@ -20,6 +20,7 @@
 #include "rules/FOGameRules.h"
 #include "options/FOOptions.h"
 #include "orders/FOOrders.h"
+#include "orders/FOExplore.h"
 #include "pedia/FOPedia.h"
 #include "production/FOProduction.h"
 #include "research/FOResearch.h"
@@ -45,6 +46,7 @@ void initialize_freeorion_module(godot::ModuleInitializationLevel p_level) {
     GDREGISTER_CLASS(FOShip);
     GDREGISTER_ABSTRACT_CLASS(FOUniverse);
     GDREGISTER_ABSTRACT_CLASS(FOOrders);
+    GDREGISTER_ABSTRACT_CLASS(FOExplore);
     GDREGISTER_ABSTRACT_CLASS(FOCombat);
     GDREGISTER_ABSTRACT_CLASS(FODesigner);
     GDREGISTER_ABSTRACT_CLASS(FODiplomacy);

@@ -14,6 +14,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/rules/FOGameRules.h
         ${CMAKE_CURRENT_LIST_DIR}/options/FOOptions.h
         ${CMAKE_CURRENT_LIST_DIR}/orders/FOOrders.h
+        ${CMAKE_CURRENT_LIST_DIR}/orders/FOExplore.h
         ${CMAKE_CURRENT_LIST_DIR}/pedia/FOPedia.h
         ${CMAKE_CURRENT_LIST_DIR}/production/FOProduction.h
         ${CMAKE_CURRENT_LIST_DIR}/research/FOResearch.h
@@ -35,6 +36,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/rules/FOGameRules.cpp
         ${CMAKE_CURRENT_LIST_DIR}/options/FOOptions.cpp
         ${CMAKE_CURRENT_LIST_DIR}/orders/FOOrders.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/orders/FOExplore.cpp
         ${CMAKE_CURRENT_LIST_DIR}/pedia/FOPedia.cpp
         ${CMAKE_CURRENT_LIST_DIR}/production/FOProduction.cpp
         ${CMAKE_CURRENT_LIST_DIR}/research/FOResearch.cpp

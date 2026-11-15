@@ -250,6 +250,13 @@ func _ready() -> void:
 				system_panel.refresh()
 	)
 	planet_panel.give_requested.connect(panel_orders.on_give)
+	fleet_panel.explore_requested.connect(
+		func(fleet_id: int, exploring: bool):
+			if follow_game:
+				FOExplore.set_exploring(fleet_id, exploring)
+				refresh_fleet_views(fleet_id)
+				_show_route(fleet_id)
+	)
 	planet_panel.rename_requested.connect(panel_orders.on_rename)
 	system_panel.rename_requested.connect(panel_orders.on_rename)
 	system_panel.system_requested.connect(func(id: int): map_view.map.focus_system(id))

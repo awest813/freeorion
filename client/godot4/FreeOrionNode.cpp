@@ -11,6 +11,7 @@
 #include "GodotI18n.h"
 #include "designer/FODesigner.h"
 #include "multiplayer/FOMultiplayer.h"
+#include "orders/FOExplore.h"
 
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/algorithm/string/replace.hpp>
@@ -289,6 +290,7 @@ void FreeOrionNode::start_turn() {
     }
     for (const int id : FODesigner::ObsoleteDesigns())
         designs.emplace_back(id, std::pair{true, 0});
+    m_ui_data.fleets_exploring = FOExplore::Exploring();
     m_app->StartTurn(m_ui_data);
 }
 
@@ -453,9 +455,11 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_loaded_ui_data.reset();
             m_ui_data = SaveGameUIData{};
             FODesigner::ObsoleteDesigns().clear();
+            FOExplore::Exploring().clear();
             if (loaded_game_data && ui_data_available) {
                 m_loaded_ui_data = ui_data;
                 m_ui_data = ui_data;
+                FOExplore::Exploring() = ui_data.fleets_exploring;
                 // Designs the player put aside, as the GG client saves them.
                 for (const auto& [design_id, obsolete] : ui_data.ordered_ship_design_ids_and_obsolete)
                     if (obsolete && obsolete->first)
@@ -464,6 +468,7 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
 
             bool is_new_game = !(loaded_game_data && ui_data_available);
             m_app->StartGame(is_new_game);
+            FOExplore::dispatch();
             if (is_new_game)
                 m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
             call_deferred("emit_signal", "start_game", is_new_game);
@@ -497,6 +502,7 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                                          GetCombatLogManager(), GetSupplyManager(),  m_app->Players());
             m_app->SetCurrentTurn(current_turn);
             InitTurnState();
+            FOExplore::dispatch();  // exploring fleets go on to their next systems
             m_app->RequestCombatLogs();
             m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
             call_deferred("emit_signal", "turn_update");

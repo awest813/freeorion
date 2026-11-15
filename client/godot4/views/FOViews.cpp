@@ -662,6 +662,8 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     godot::PackedVector2Array fleet_positions;
     godot::PackedInt32Array fleet_owner_ids;
     godot::PackedByteArray fleet_blockaded;
+    godot::PackedStringArray fleet_heads;
+    godot::PackedInt32Array fleet_ship_counts;
     godot::PackedByteArray fleet_stale;
     godot::PackedInt32Array system_owner_ids;
     godot::Array fleet_paths;
@@ -739,6 +741,20 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
             }
             fleet_paths.push_back(points);
             fleet_turn_ends.push_back(turn_ends);
+            // The fleet's icon, as GG's FleetButton picks it: monster,
+            // warship, colony, outpost, lander, else scout.
+            {
+                const auto& u = context.ContextUniverse();
+                const bool armed = fleet->CanDamageShips(context);
+                const char* head = "scout";
+                if (fleet->HasMonsters(u))           head = armed ? "monster" : "monster-harmless";
+                else if (armed)                      head = "warship";
+                else if (fleet->HasColonyShips(u))   head = "colony";
+                else if (fleet->HasOutpostShips(u))  head = "outpost";
+                else if (fleet->HasTroopShips(u))    head = "lander";
+                fleet_heads.push_back(head);
+                fleet_ship_counts.push_back(static_cast<int>(fleet->NumShips()));
+            }
             fleet_blockaded.push_back(fleet->SystemID() != INVALID_OBJECT_ID && fleet->Blockaded(context) ? 1 : 0);
             // Not seen this turn: drawn as a ghost.
             const int seen = app->GetUniverse().GetObjectVisibilityTurnByEmpire(fleet->ID(), app->EmpireID());
@@ -821,6 +837,8 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["fleet_owner_ids"] = fleet_owner_ids;
     snapshot["fleet_paths"] = fleet_paths;
     snapshot["fleet_blockaded"] = fleet_blockaded;
+    snapshot["fleet_heads"] = fleet_heads;
+    snapshot["fleet_ship_counts"] = fleet_ship_counts;
     snapshot["fleet_stale"] = fleet_stale;
     snapshot["system_owner_ids"] = system_owner_ids;
     snapshot["fleet_turn_ends"] = fleet_turn_ends;
@@ -1172,18 +1190,57 @@ godot::Dictionary FOUniverse::get_ship_detail(int ship_id) {
 
     // Combat and cargo, as UI/FleetWnd.cpp's ShipDataPanel::StatValue().
     godot::Array stats;
-    const auto stat = [&stats](const char* key, double value) {
+    // Each stat's breakdown, as GG's ship damage and fighters tooltips:
+    // lines of [label, value text].
+    godot::Array weapon_lines, fighter_lines;
+    if (design) {
+        const ScriptingContext source_context{context, ScriptingContext::Source{}, ship};
+        std::map<std::string, int> counted;
+        for (const auto& part_name : design->Parts())
+            if (!part_name.empty())
+                ++counted[part_name];
+        for (const auto& [part_name, count] : counted) {
+            const auto* part = GetShipPart(part_name);
+            if (!part)
+                continue;
+            godot::Array line;
+            const auto label = (count > 1 ? std::to_string(count) + " × " : std::string{}) + UserString(part_name);
+            if (part->Class() == ShipPartClass::PC_DIRECT_WEAPON) {
+                const float damage = ship->WeaponPartShipDamage(part, source_context);
+                const float shot = ship->WeaponPartFighterDamage(part, source_context);
+                line.push_back(ToGodot(label));
+                line.push_back(ToGodot(DoubleToString(damage * count, 3, false) + " / " +
+                                       std::to_string(static_cast<int>(shot * count))));
+                weapon_lines.push_back(line);
+            } else if (part->Class() == ShipPartClass::PC_FIGHTER_HANGAR) {
+                const float capacity = ship->CurrentPartMeterValue(MeterType::METER_MAX_CAPACITY, part_name);
+                const float damage = ship->CurrentPartMeterValue(MeterType::METER_SECONDARY_STAT, part_name);
+                line.push_back(ToGodot(label));
+                line.push_back(ToGodot(boost::io::str(FlexibleFormat(UserString("SHIP_PANEL_HANGAR_LINE")) %
+                                                      static_cast<int>(capacity * count) % DoubleToString(damage, 3, false))));
+                fighter_lines.push_back(line);
+            } else if (part->Class() == ShipPartClass::PC_FIGHTER_BAY) {
+                const float launch = ship->CurrentPartMeterValue(MeterType::METER_CAPACITY, part_name);
+                line.push_back(ToGodot(label));
+                line.push_back(ToGodot(boost::io::str(FlexibleFormat(UserString("SHIP_PANEL_BAY_LINE")) %
+                                                      static_cast<int>(launch * count))));
+                fighter_lines.push_back(line);
+            }
+        }
+    }
+    const auto stat = [&stats](const char* key, double value, const godot::Array& lines = {}) {
         godot::Dictionary entry;
         entry["stat"] = key;
         entry["value"] = value;
+        entry["breakdown"] = lines;
         stats.push_back(entry);
     };
     if (ship->IsArmed(context)) {
-        stat("damage", ship->TotalWeaponsShipDamage(context, 0.0f, true));
+        stat("damage", ship->TotalWeaponsShipDamage(context, 0.0f, true), weapon_lines);
         stat("destroy", ship->TotalWeaponsFighterDamage(context, true));
     }
     if (ship->HasFighters(universe))
-        stat("fighters", ship->FighterCount());
+        stat("fighters", ship->FighterCount(), fighter_lines);
     if (ship->HasTroops(universe))
         stat("troops", ship->TroopCapacity(universe));
     if (ship->CanColonize(universe, context.species))

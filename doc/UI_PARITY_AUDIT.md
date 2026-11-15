@@ -21,7 +21,7 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 
 - [x] Turn button menu: send orders and start, revoke all orders — S
 - [x] Auto end-turn toggle — S
-- [ ] Auto-explore for fleets — M
+- [x] Auto-explore for fleets — M
 - [x] Double-click a system or planet: production there — S
 - [x] Route and ETA preview when hovering a system with a fleet selected — S
 - [x] Movement lines for all visible fleets, with ETA markers per turn — M
@@ -33,7 +33,7 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] Map options menu (system circles, empire-coloured lanes, fleet supply lines, ...) — S
 - [x] Zoom slider; rebindable zoom and pan keys; sitrep panel key — S
 - [x] System names and circles in their owners' colours — S
-- [ ] Fleet icons by role and size, selection mark — M
+- [x] Fleet icons by role and size, selection mark — M
 - [x] Blockade marker and tooltip — S
 - [x] System picker drop-down with ◀ ▶ — S
 - [x] Rename own system or planet — S
@@ -49,7 +49,7 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 
 ## Fleets and ships (`FleetWnd`, `MeterBrowseWnd`)
 
-- [ ] Explore order (with auto-explore above) — M
+- [x] Explore order (with auto-explore above) — M
 - [x] Merge all own fleets at the system — S
 - [x] Split damaged, unfueled, or without full fighters — S
 - [x] Split one fleet per ship, or by design — S
@@ -59,7 +59,7 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 - [x] Per-ship stat icons in the fleet's ship rows — S
 - [x] New fleets' stance, including Auto (`ui.fleet.aggression`) — S
 - [x] Drag a whole fleet onto another to merge — S
-- [ ] Ship damage breakdown per weapon; fighter breakdown — M
+- [x] Ship damage breakdown per weapon; fighter breakdown — M
 
 ## Objects list (`ObjectListWnd`)
 
@@ -72,12 +72,12 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 
 ## Combat reports and turn events (`CombatReport`, `SitRepPanel`)
 
-- [ ] Graphical summary: a bar per unit, with GG's four display toggles — M
-- [ ] Initial forces and losses per empire in collapsible sections — S
-- [ ] Turn events sorted by importance — S
-- [ ] "Latest" button; ‹ › skip turns with nothing shown — S
-- [ ] Double-click to dismiss a report — S
-- [ ] Filter menu with every report type seen, and "hide all" — S
+- [x] Graphical summary: a bar per unit, with GG's four display toggles — M
+- [x] Initial forces and losses per empire in collapsible sections — S
+- [x] Turn events sorted by importance — S
+- [x] "Latest" button; ‹ › skip turns with nothing shown — S
+- [x] Double-click to dismiss a report — S
+- [x] Filter menu with every report type seen, and "hide all" — S
 
 ## Production, research, government, designer
 

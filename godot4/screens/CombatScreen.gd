@@ -207,6 +207,13 @@ func _build_detail(combat: Dictionary) -> void:
 	for side: Dictionary in combat.get("sides", []):
 		sides.add_child(_side_card(side))
 
+	# GG's graphical summary: a bar per unit.
+	_detail.add_child(ScreenKit.label(tr("COMBAT_SUMMARY"), "TitleLabel"))
+	var summary := CombatSummary.new()
+	summary.persist = source is CombatSource
+	summary.sides = combat.get("sides", [])
+	_detail.add_child(summary)
+
 	_bouts = combat.get("bouts", 0)
 	if _bouts > 0:
 		_detail.add_child(_health_chart(combat.get("sides", [])))
@@ -348,15 +355,44 @@ func _side_card(side: Dictionary) -> Control:
 		tr("COMBAT_REPORT_DAMAGE").replace("%1%", "%.0f" % side.get("damage_dealt", 0.0)),
 	]
 	box.add_child(ScreenKit.label("  ·  ".join(facts), "SecondaryLabel"))
+	# Initial forces and losses, each a section that folds (as GG's report).
 	var units: Array = side.get("unit_list", [])
+	var losses := units.filter(func(u): return u.get("destroyed", false))
 	if not units.is_empty():
 		box.add_child(HSeparator.new())
-	for unit: Dictionary in units:
-		box.add_child(_unit_row(unit, color))
+		var forces := _section(
+			box, tr("COMBAT_INITIAL_FORCES").replace("%1%", str(units.size())), true
+		)
+		for unit: Dictionary in units:
+			forces.add_child(_unit_row(unit, color))
+	if not losses.is_empty():
+		var lost := _section(box, tr("COMBAT_LOSSES").replace("%1%", str(losses.size())), false)
+		for unit: Dictionary in losses:
+			lost.add_child(_unit_row(unit, color, false))
 	return card
 
 
-func _unit_row(unit: Dictionary, color: Color) -> Control:
+# A foldable section of \a parent titled \a title; returns its content.
+func _section(parent: Control, title: String, expanded: bool) -> VBoxContainer:
+	var header := Button.new()
+	header.theme_type_variation = "GhostButton"
+	header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	parent.add_child(header)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", FOUi.tokens.space_1)
+	content.visible = expanded
+	parent.add_child(content)
+	var label := func(): header.text = ("▾ " if content.visible else "▸ ") + title
+	label.call()
+	header.pressed.connect(
+		func():
+			content.visible = not content.visible
+			label.call()
+	)
+	return content
+
+
+func _unit_row(unit: Dictionary, color: Color, replayed := true) -> Control:
 	var row := HBoxContainer.new()
 	var art: Texture2D = null
 	if unit.get("type", "") == "planet":
@@ -380,7 +416,8 @@ func _unit_row(unit: Dictionary, color: Color) -> Control:
 		lost.add_theme_color_override("font_color", FOUi.tokens.negative)
 		text.add_child(lost)
 		# In the replay, "destroyed" shows from the bout it happened in.
-		_replay_losses.push_back([lost, health])
+		if replayed:
+			_replay_losses.push_back([lost, health])
 	if unit.get("max_health", 0.0) > 0.0 and (not destroyed or not health.is_empty()):
 		var bar := _health_bar(
 			unit.get("health", 0.0), unit["max_health"], color, FOUi.tokens.space_1
@@ -389,7 +426,8 @@ func _unit_row(unit: Dictionary, color: Color) -> Control:
 			"%s %.0f / %.0f" % [tr("FLEET_PANEL_STRUCTURE"), unit["health"], unit["max_health"]]
 		)
 		text.add_child(bar)
-		_replay_bars.push_back([bar, health])
+		if replayed:
+			_replay_bars.push_back([bar, health])
 	return row
 
 

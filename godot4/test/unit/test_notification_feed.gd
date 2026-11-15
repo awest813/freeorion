@@ -73,11 +73,14 @@ func test_history_steps_through_earlier_turns():
 	assert_eq(feed._turn, 11)
 	assert_eq(feed._entries[0]["text"], "Turn 11 report")
 	feed._prev.pressed.emit()
+	assert_eq(feed._turn, 9, "Turns with nothing to show are skipped")
+	feed.show_turn(10)
 	assert_true(feed.visible, "A quiet past turn keeps the feed open")
 	assert_eq(feed._entries, [])
 	feed._next.pressed.emit()
-	feed._next.pressed.emit()
-	assert_eq(feed._turn, 12)
+	assert_eq(feed._turn, 11)
+	feed._latest.pressed.emit()
+	assert_eq(feed._turn, 12, "Back to the latest")
 	assert_true(feed._next.disabled)
 	feed.show_turn(0)
 	assert_eq(feed._turn, 1, "Clamped to the first turn")
@@ -124,3 +127,40 @@ func test_snooze_a_report():
 
 func test_plain_text_for_copying():
 	assert_eq(FORichText.plain_text(ENTRIES[0]["text"]), "New colony on Hegira β II.")
+
+
+func test_reports_sorted_by_importance():
+	var order := (
+		TranslationServer
+		. translate("FUNCTIONAL_SITREP_PRIORITY_ORDER")
+		. replace("\n", " ")
+		. split(" ", false)
+	)
+	if order.size() < 2:
+		pending("No priority order in the stringtable")
+		return
+	var entries := [
+		{"text": "b", "label": order[1].strip_edges()},
+		{"text": "z", "label": "NOT_IN_THE_ORDER"},
+		{"text": "a", "label": order[0].strip_edges()},
+	]
+	var sorted := NotificationFeed.sorted_by_importance(entries)
+	assert_eq(sorted.map(func(e): return e["text"]), ["a", "b", "z"])
+
+
+func test_double_click_dismisses_and_hide_all():
+	feed.hidden_labels = {}
+	feed.show_entries(ENTRIES, 7)
+	var before: int = feed._entries.size()
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.double_click = true
+	feed._list.get_child(0).gui_input.emit(click)
+	assert_eq(feed._entries.size(), before - 1)
+	var menu := feed.open_filter_menu()
+	for i in menu.item_count:
+		if menu.get_item_metadata(i) == "__hide_all":
+			menu.index_pressed.emit(i)
+	assert_eq(feed._entries.size(), 0, "every type hidden")
+	feed.hidden_labels = {}

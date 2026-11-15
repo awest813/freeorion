@@ -7,7 +7,13 @@ extends Node2D
 ## the fleet under the cursor.
 
 ## Screen pixels around a marker that still pick it.
-const PICK_PX := 8.0
+const PICK_PX := 10.0
+## Fleet icons (GG's FleetButton art): head by role, tail by size.
+const ICON_DIR := "icons/fleet/med-"
+## Screen size of a fleet icon, and the step between fleets stacked at one
+## place.
+const ICON_PX := 20.0
+const STACK_PX := 18.0
 
 var map: GalaxyMap
 ## The selected fleet, ringed (-1 for none).
@@ -28,6 +34,8 @@ var _colors := PackedColorArray()
 var _stack := PackedInt32Array()
 var _paths: Array = []
 var _blockaded := PackedByteArray()
+var _heads := PackedStringArray()
+var _ship_counts := PackedInt32Array()
 var _stale := PackedByteArray()
 var _turn_ends: Array = []
 ## Fleets marked as selected together (box selection): id -> true.
@@ -49,6 +57,8 @@ func set_fleets(snapshot: Dictionary, colors: PackedColorArray) -> void:
 	_paths = snapshot.get("fleet_paths", [])
 	_turn_ends = snapshot.get("fleet_turn_ends", [])
 	_blockaded = snapshot.get("fleet_blockaded", PackedByteArray())
+	_heads = snapshot.get("fleet_heads", PackedStringArray())
+	_ship_counts = snapshot.get("fleet_ship_counts", PackedInt32Array())
 	_stale = snapshot.get("fleet_stale", PackedByteArray())
 	_colors = colors
 	_stack.resize(_positions.size())
@@ -104,7 +114,7 @@ func pick(world_pos: Vector2, px: float) -> int:
 ## position, the next fleet at the same place below it.
 func marker_origin(index: int, px: float) -> Vector2:
 	var stack := _stack[index] if index < _stack.size() else 0
-	return _positions[index] + Vector2(12.0, -10.0 + 9.0 * stack) * px
+	return _positions[index] + Vector2(20.0, -14.0 + STACK_PX * stack) * px
 
 
 ## The world position of fleet \a fleet_id's marker (tests), or INF.
@@ -188,6 +198,17 @@ func _draw_preview(px: float) -> void:
 	draw_arc(_preview[_preview.size() - 1], 5.0 * px, 0, TAU, 20, accent, 1.5 * px, true)
 
 
+## Index of GG's size mark for \a ships ships: 0 for one, one more for
+## each doubling, at most 7.
+static func size_mark(ships: int) -> int:
+	var mark := 0
+	var count := maxi(ships, 1)
+	while count >= 2 and mark < 7:
+		count /= 2
+		mark += 1
+	return mark
+
+
 func _draw_markers(px: float, view: Rect2) -> void:
 	var size := MapStyle.FLEET_PX * px
 	var tip := Vector2(size, 0)
@@ -214,9 +235,25 @@ func _draw_markers(px: float, view: Rect2) -> void:
 				true
 			)
 		if _marked.has(fleet_id) or fleet_id == selected_fleet:
-			draw_arc(origin, size * 1.1, 0, TAU, 20, accent, 1.5 * px, true)
-		draw_primitive(
-			PackedVector2Array([origin + tip, origin + top, origin + bottom]),
-			PackedColorArray([color, color, color]),
-			PackedVector2Array()
+			draw_arc(origin, ICON_PX * 0.62 * px, 0, TAU, 24, accent, 1.5 * px, true)
+		var head: Texture2D = (
+			FOArt.icon(ICON_DIR + "head-" + _heads[i] + ".png") if i < _heads.size() else null
 		)
+		if head == null:
+			draw_primitive(
+				PackedVector2Array([origin + tip, origin + top, origin + bottom]),
+				PackedColorArray([color, color, color]),
+				PackedVector2Array()
+			)
+			continue
+		# Pointing where the fleet goes (right when it stays).
+		var path: PackedVector2Array = _paths[i] if i < _paths.size() else PackedVector2Array()
+		var angle := (path[1] - path[0]).angle() if path.size() > 1 else 0.0
+		var rect := Rect2(Vector2.ONE * -ICON_PX * 0.5 * px, Vector2.ONE * ICON_PX * px)
+		draw_set_transform(origin, angle)
+		var ships := _ship_counts[i] if i < _ship_counts.size() else 1
+		var tail := FOArt.icon(ICON_DIR + "tail-%d.png" % size_mark(ships))
+		if tail:
+			draw_texture_rect(tail, rect, false, color)
+		draw_texture_rect(head, rect, false, color)
+		draw_set_transform(Vector2.ZERO)

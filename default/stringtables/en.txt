@@ -2845,6 +2845,46 @@ By species
 TOPBAR_CENSUS_TAGS
 By species trait
 
+# %1% fighters, %2% damage each
+SHIP_PANEL_HANGAR_LINE
+%1% fighters, %2% damage each
+
+# %1% fighters launched a bout
+SHIP_PANEL_BAY_LINE
+launches %1% a bout
+
+FLEET_PANEL_EXPLORING
+Exploring
+
+NOTIFICATIONS_LATEST
+Back to the latest turn
+
+NOTIFICATIONS_HIDE_ALL
+Hide all types
+
+COMBAT_SUMMARY
+Summary
+
+COMBAT_SUMMARY_BAR_HEIGHT
+Bar height by size
+
+COMBAT_SUMMARY_BAR_WIDTH
+Bar width by size
+
+COMBAT_SUMMARY_SMOOTH
+No gaps
+
+COMBAT_SUMMARY_GRAPH_HEIGHT
+Row height by side
+
+# %1% number of units
+COMBAT_INITIAL_FORCES
+Initial forces (%1%)
+
+# %1% number of units
+COMBAT_LOSSES
+Losses (%1%)
+
 OPTIONS_LANGUAGE_NAME
 Language
 
