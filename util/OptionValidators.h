@@ -55,16 +55,11 @@ struct Validator : public ValidatorBase
             return boost::any(boost::lexical_cast<T>(str));
     }
 
-    boost::any Validate(std::string_view str) const override {
-        if constexpr (std::is_same_v<T, std::vector<std::string>>)
-            return boost::any(StringToList(str));
-        else if constexpr (std::is_same_v<T, std::string>)
-            return boost::any(std::string{str});
-        else if constexpr (std::is_same_v<T, std::filesystem::path>)
-            return boost::any(XMLTextToPath(str));
-        else
-            return boost::any(boost::lexical_cast<T>(str));
-    }
+    // Derived validators (ranged, step, discrete, ...) only override the
+    // std::string overload, so forward to it: validating a string_view must
+    // apply their constraints too, not just the type conversion.
+    boost::any Validate(std::string_view str) const override
+    { return Validate(std::string{str}); }
 
     [[nodiscard]] std::string String(const boost::any& value) const override {
         if constexpr (std::is_same_v<T, std::string>) {

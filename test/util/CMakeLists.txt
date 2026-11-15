@@ -23,6 +23,7 @@ add_dependencies(unittest
 )
 
 set(FO_TEST_UTIL
+    TestOptionValidators
     TestPathOptions
 )
 
