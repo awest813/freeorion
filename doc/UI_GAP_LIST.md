@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 11 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P3 | 10 | Map modes, combat replay, moderator tools, onboarding, translations, scaled and localised goldens, TSan, packaging, CI, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -116,6 +116,7 @@ Closed:
 - **Objects list:** filter presets per kind (populated or outpost planets, moving or idle fleets, damaged ships); grouping by location, owner, species, fleet, design or building type with totals per group; a column chooser on right-clicking a title, with optional columns (planet type, size, shield; colony ships), remembered in `ui.objects.columns`; and a row menu to show the object on the map, open its species or building in the Pedia, or build at an own planet.
 - **Designs kept between games, renaming:** your designs' ⋯ menu can keep a design for later games (written to `<user data>/shipdesigns` in the GG client's format, so both clients share them), rename it (designs your empire made) or put it aside. The Saved list adds a kept design to the empire or deletes it, and new games start with the kept designs, following `resource.shipdesign.saved.enabled`. New designs now get a UUID, as in the GG designer. The design lists use a picker instead of tabs and the part filter no longer widens its column, so the designer fits at 1280 px.
 - **Theme-literal lint rule:** `godot4/tools/check_theme_literals.py`, run by the GDScript lint workflow, rejects theme overrides in scenes outside `ui/theme/` (upstream's root scenes exempt), numeric size and colour-literal overrides in UI scripts, and hex colours outside the style files; `# lint-ok: theme-literal` waives a line. The one offender (a 2 px gap in combat reports) now uses a token.
+- **Scaled and localised screenshot tests:** the options, production and designer screens and the game shell also have goldens at 150% (1920×1080 window, 1280×720 layout) and 200% (2560×1600), rendered in the window as players see them, and in German and Russian. CI runs each variant (`VISUAL_VARIANT`); `FOOptions.set_language()` switches the stringtable. The visual tests share `visual_base.gd`. Note: the Russian shots show the fork's new strings in English (the translations item).
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
@@ -124,7 +125,6 @@ Closed:
 | Moderator tools | `ModeratorActionsWnd` | M | |
 | Onboarding hints | Plan, phase 5 | M | |
 | Translations of the fork's new strings | `default/stringtables/*.txt` | S | New keys exist in English only; other languages fall back to English. |
-| Screenshot tests at 150% and 200% scale and in de/ru | Plan §7.1 | M | Goldens run at 100% in English only. |
 | TSan job | Plan §7.1 | S | Build the bridge with `-fsanitize=thread` and run the integration test with libtsan preloaded into Godot. |
 | Packaging | `CMakeLists.txt`, `packaging/` | M | The Godot client runs from the source tree only; installers and the desktop entry still ship the GG client. |
 | Windows, macOS and Docker CI | `.github/workflows` | S | Changed but never run. |

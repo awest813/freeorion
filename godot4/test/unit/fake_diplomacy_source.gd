@@ -53,12 +53,6 @@ var empires: Array = [
 	},
 ]
 var accept := true
-
-
-func get_empires() -> Array:
-	return empires
-
-
 var stat_records := {
 	"PP_OUTPUT":
 	[
@@ -88,6 +82,10 @@ var stat_records := {
 		},
 	],
 }
+
+
+func get_empires() -> Array:
+	return empires
 
 
 func get_stat_records() -> Dictionary:

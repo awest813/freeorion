@@ -7,6 +7,7 @@
 
 #include "../../../util/Directories.h"
 #include "../../../util/Logger.h"
+#include "../../../util/i18n.h"
 #include "../../../util/OptionsDB.h"
 #include "../../../util/XMLDoc.h"
 
@@ -105,6 +106,9 @@ void FOOptions::_bind_methods() {
                          &FOOptions::add_option);
     ClassDB::bind_method(D_METHOD("watch", "name"), &FOOptions::watch);
     ClassDB::bind_method(D_METHOD("commit"), &FOOptions::commit);
+    ClassDB::bind_method(D_METHOD("get_languages"), &FOOptions::get_languages);
+    ClassDB::bind_method(D_METHOD("get_language"), &FOOptions::get_language);
+    ClassDB::bind_method(D_METHOD("set_language", "code"), &FOOptions::set_language);
 
     ADD_SIGNAL(godot::MethodInfo("option_changed", godot::PropertyInfo(godot::Variant::STRING, "name")));
 }
@@ -238,3 +242,45 @@ void FOOptions::watch(const godot::String& name) {
 
 bool FOOptions::commit()
 { return GetOptionsDB().Commit(); }
+
+namespace {
+    // Stringtables are <resources>/stringtables/<code>.txt, e.g. de.txt.
+    std::filesystem::path StringtableDir() { return GetResourceDir() / "stringtables"; }
+
+    bool IsLanguageCode(const std::string& stem)
+    { return stem.size() >= 2 && stem.size() <= 5 && std::all_of(stem.begin(), stem.end(), ::islower); }
+}
+
+godot::PackedStringArray FOOptions::get_languages() const {
+    std::vector<std::string> codes;
+    std::error_code ec;
+    for (const auto& entry : std::filesystem::directory_iterator(StringtableDir(), ec)) {
+        if (entry.path().extension() == ".txt" && IsLanguageCode(entry.path().stem().string()))
+            codes.push_back(entry.path().stem().string());
+    }
+    std::sort(codes.begin(), codes.end());
+    godot::PackedStringArray result;
+    for (const auto& code : codes)
+        result.push_back(godot::String::utf8(code.c_str()));
+    return result;
+}
+
+godot::String FOOptions::get_language() const
+{ return godot::String::utf8(Language().c_str()); }
+
+bool FOOptions::set_language(const godot::String& code) {
+    const std::string stem = code.utf8().get_data();
+    const auto path = StringtableDir() / (stem + ".txt");
+    if (!IsLanguageCode(stem) || !std::filesystem::exists(path))
+        return false;
+    try {
+        // The option holds a path; GodotI18n reads through UserString(), so
+        // flushing the tables is all Godot's translation needs.
+        GetOptionsDB().Set<std::filesystem::path>("resource.stringtable.path", std::filesystem::path{path});
+        FlushLoadedStringTables();
+        return true;
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOOptions::set_language: " << e.what();
+    }
+    return false;
+}

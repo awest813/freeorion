@@ -50,6 +50,14 @@ public:
     /** Save changed options to the config file. */
     bool commit();
 
+    /** Languages with a stringtable: codes such as "en", "de". */
+    godot::PackedStringArray get_languages() const;
+    /** The language in use ("en", ...). */
+    godot::String get_language() const;
+    /** Switch the stringtable to language \a code (a get_languages() entry)
+      * for everything translated from now on. */
+    bool set_language(const godot::String& code);
+
 protected:
     static void _bind_methods();
 
