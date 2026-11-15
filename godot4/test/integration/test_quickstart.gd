@@ -54,7 +54,7 @@ func test_quickstart():
 	await wait_for_signal(signaler.turn_update, 100.0, "Turn update")
 	assert_signal_emitted(signaler, "turn_update", "Turn update")
 
-	game_loop_checks.after_turn()
+	await game_loop_checks.after_turn()
 
 	GlobalFreeOrionNode.queue_free()
 	signaler.free()

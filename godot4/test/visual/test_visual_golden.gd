@@ -92,6 +92,17 @@ func test_galaxy_setup_screen():
 	await _check_scene(setup, "galaxy_setup_screen", func(s): s.refresh())
 
 
+func test_load_screen():
+	var screen := SaveLoadScreen.new()
+	screen.source = preload("res://test/unit/fake_saves_source.gd").new()
+	await _check_scene(screen, "load_screen", _select_first_save)
+
+
+func _select_first_save(screen: SaveLoadScreen) -> void:
+	screen.refresh()
+	screen._list.get_child(0).pressed.emit()
+
+
 func _fill_shell(shell: GameShell) -> void:
 	_fill_galaxy(shell.map_view)
 	shell.top_bar.set_state("Empire Blue", Color("#3d9bff"), 12, false)

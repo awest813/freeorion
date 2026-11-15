@@ -56,6 +56,7 @@ func before_turn() -> void:
 
 ## Call after the first turn update arrived.
 func after_turn() -> void:
+	await _check_save()
 	if _fleet_id == -1:
 		return
 	var fleet: FOFleet = FOUniverse.get_fleet(_fleet_id)
@@ -324,6 +325,35 @@ func _check_government() -> void:
 	_test.add_child_autofree(screen)
 	screen.refresh()
 	_test.assert_gt(screen._catalog.get_child_count(), 0, "Screen lists real policies")
+
+
+# Save through the server, wait for save_completed, find it in the list,
+# then delete it again.
+func _check_save() -> void:
+	var signaler := _SaveSignal.new()
+	GlobalFreeOrionNode.save_completed.connect(signaler.on_completed)
+	var path := FOSaves.save_game("godot_integration_test")
+	_test.assert_false(path.is_empty(), "Save requested")
+	if path.is_empty():
+		return
+	await _test.wait_for_signal(signaler.completed, 30.0, "Save completed")
+	_test.assert_eq(signaler.filename, path, "Server saved the requested file")
+	var found: Array = FOSaves.list_saves().filter(func(s): return s["path"] == path)
+	_test.assert_eq(found.size(), 1, "Save listed")
+	if found.size() == 1:
+		_test.assert_eq(found[0]["turn"], GlobalFreeOrionNode.get_current_turn(), "Save turn")
+		_test.assert_false(found[0]["empire"].is_empty(), "Save names the empire")
+	DirAccess.remove_absolute(path)
+	GlobalFreeOrionNode.save_completed.disconnect(signaler.on_completed)
+
+
+class _SaveSignal:
+	signal completed
+	var filename := ""
+
+	func on_completed(saved: String, _bytes: int) -> void:
+		filename = saved
+		completed.emit()
 
 
 func _check_snapshot() -> void:

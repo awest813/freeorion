@@ -15,6 +15,7 @@ const SCREENS := [
 	["research", "MAP_BTN_RESEARCH", KEY_F3],
 	["government", "GOVERNMENT_TAB", KEY_F4],
 	["pedia", "MAP_BTN_PEDIA", KEY_F1],
+	["save", "GAME_MENU_SAVE", KEY_F5],
 	["options", "OPTIONS_TITLE", KEY_F10],
 ]
 

@@ -6,6 +6,7 @@ extends Control
 var title: TitleScreen
 var setup: GalaxySetupScreen
 var options: OptionsScreen
+var saves: SaveLoadScreen
 var game: GameShell
 
 var _content_ready := false
@@ -24,10 +25,18 @@ func _ready() -> void:
 	options.visible = false
 	options.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(options)
+	saves = SaveLoadScreen.new()
+	saves.mode = "load"
+	saves.visible = false
+	saves.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(saves)
 
 	title.new_game_requested.connect(_show_setup)
 	title.quick_start_requested.connect(_start_game)
 	title.options_requested.connect(_show_options)
+	title.load_requested.connect(_show_saves)
+	saves.close_requested.connect(_show_title)
+	saves.load_started.connect(_on_load_started)
 	title.exit_requested.connect(get_tree().quit)
 	setup.back_requested.connect(_show_title)
 	setup.start_requested.connect(_start_game)
@@ -44,7 +53,20 @@ func _ready() -> void:
 func _show_title() -> void:
 	setup.visible = false
 	options.visible = false
+	saves.visible = false
 	title.visible = true
+
+
+func _show_saves() -> void:
+	saves.refresh()
+	title.visible = false
+	saves.visible = true
+	FOUi.fade_in(saves)
+
+
+func _on_load_started(_path: String) -> void:
+	_show_title()
+	title.set_busy(tr("TITLE_LOADING_GAME"))
 
 
 func _show_setup() -> void:
@@ -80,7 +102,7 @@ func _on_parsing_completed() -> void:
 func _on_start_game(_is_new_game: bool) -> void:
 	if game:
 		return
-	for child in [title, setup, options]:
+	for child in [title, setup, options, saves]:
 		child.queue_free()
 	game = GameShell.new()
 	add_child(game)

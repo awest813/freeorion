@@ -18,6 +18,7 @@ var research_screen: ResearchScreen
 var pedia_screen: PediaScreen
 var options_screen: OptionsScreen
 var government_screen: GovernmentScreen
+var save_screen: SaveLoadScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
 
@@ -61,12 +62,19 @@ func _ready() -> void:
 	pedia_screen = PediaScreen.new()
 	options_screen = OptionsScreen.new()
 	government_screen = GovernmentScreen.new()
+	save_screen = SaveLoadScreen.new()
+	save_screen.mode = "save"
 	government_screen.pedia_requested.connect(open_pedia)
 	pedia_screen.link_activated.connect(_on_link_activated)
 	research_screen.pedia_requested.connect(open_pedia)
 	production_screen.pedia_requested.connect(open_pedia)
 	for screen in [
-		production_screen, research_screen, government_screen, pedia_screen, options_screen
+		production_screen,
+		research_screen,
+		government_screen,
+		pedia_screen,
+		options_screen,
+		save_screen
 	]:
 		screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		screen.visible = false
@@ -119,6 +127,7 @@ func _ready() -> void:
 	system_panel.fleet_selected.connect(_on_fleet_selected)
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
 		GlobalFreeOrionNode.turn_update.connect(_on_turn_update)
+		GlobalFreeOrionNode.save_completed.connect(_on_save_completed)
 
 
 ## Show the full screen \a screen_name ("production", "research") over the
@@ -126,42 +135,50 @@ func _ready() -> void:
 func show_screen(screen_name: String) -> void:
 	active_screen = screen_name
 	top_bar.set_active_screen(screen_name)
-	production_screen.visible = screen_name == "production"
-	research_screen.visible = screen_name == "research"
-	pedia_screen.visible = screen_name == "pedia"
-	options_screen.visible = screen_name == "options"
-	government_screen.visible = screen_name == "government"
-	if screen_name == "government" and follow_game:
-		government_screen.refresh()
-	if screen_name == "options" and follow_game:
-		options_screen.refresh()
-	if screen_name == "production" and follow_game:
-		production_screen.refresh()
-		# Build at the selected system's own planet, if there is one.
-		var system: FOSystem = FOUniverse.get_system(map_view.map.selected_system_id())
-		if system:
-			for planet_id in system.get_planet_ids():
-				production_screen.select_location(planet_id)
-	elif screen_name == "research" and follow_game:
-		research_screen.refresh()
-	var shown := _screen_node(screen_name)
-	if shown:
-		FOUi.fade_in(shown)
+	var screens := _screens()
+	for key in screens:
+		screens[key].visible = key == screen_name
+	if not screens.has(screen_name):
+		return
+	if follow_game:
+		_prepare_screen(screen_name)
+	FOUi.fade_in(screens[screen_name])
 
 
-func _screen_node(screen_name: String) -> Control:
+func _screens() -> Dictionary:
+	return {
+		"production": production_screen,
+		"research": research_screen,
+		"government": government_screen,
+		"pedia": pedia_screen,
+		"options": options_screen,
+		"save": save_screen,
+	}
+
+
+# Load fresh game data into \a screen_name before it shows.
+func _prepare_screen(screen_name: String) -> void:
 	match screen_name:
 		"production":
-			return production_screen
-		"research":
-			return research_screen
+			production_screen.refresh()
+			# Build at the selected system's own planet, if there is one.
+			var system: FOSystem = FOUniverse.get_system(map_view.map.selected_system_id())
+			if system:
+				for planet_id in system.get_planet_ids():
+					production_screen.select_location(planet_id)
+		"save":
+			save_screen.suggested_name = _suggested_save_name()
+			save_screen.refresh()
 		"pedia":
-			return pedia_screen
-		"options":
-			return options_screen
-		"government":
-			return government_screen
-	return null
+			pass
+		_:
+			_screens()[screen_name].refresh()
+
+
+# "<empire>_turn_<n>", a default name for a new save.
+func _suggested_save_name() -> String:
+	var empire := FOUniverse.get_empire_name(FOUniverse.get_empire_id()).validate_filename()
+	return "%s_turn_%d" % [empire.replace(" ", "_"), GlobalFreeOrionNode.get_current_turn()]
 
 
 ## Show the Pedia article \a kind / \a article_name.
@@ -229,6 +246,10 @@ func _refresh_fleet_views(fleet_id: int) -> void:
 	system_panel.refresh()
 	system_panel.select_fleet(fleet_id)
 	fleet_panel.show_fleet(fleet_id)
+
+
+func _on_save_completed(filename: String, _bytes: int) -> void:
+	save_screen.on_save_completed(filename)
 
 
 func _on_turn_update() -> void:

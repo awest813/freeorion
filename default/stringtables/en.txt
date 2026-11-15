@@ -1992,6 +1992,36 @@ Back
 TITLE_START_GAME
 Start game
 
+TITLE_LOADING_GAME
+Loading the game…
+
+SAVES_EMPTY
+No saved games yet.
+
+SAVES_NAME
+Save name
+
+SAVES_SAVE
+Save
+
+SAVES_LOAD
+Load
+
+SAVES_SAVING
+Saving…
+
+SAVES_SAVED
+Saved %1%.
+
+SAVES_FAILED
+The game can't be saved right now.
+
+SAVES_LOAD_FAILED
+That save couldn't be loaded.
+
+SAVES_OVERWRITE
+Saving will replace this save.
+
 SYSTEM_PANEL_PLANETS
 Planets
 
