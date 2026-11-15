@@ -47,7 +47,7 @@ func apply_theme(theme_name: String) -> void:
 func set_scale_setting(value: String) -> void:
 	_scale_setting = value
 	if _options_available():
-		GlobalFreeOrionNode.options_set_string(OPTION_SCALE, value)
+		Engine.get_singleton("FOOptions").set_value(OPTION_SCALE, value)
 	_apply_scale()
 
 
@@ -86,17 +86,28 @@ func _adapt_scene(scene: Node) -> void:
 func _read_options() -> void:
 	if not _options_available():
 		return
-	if not GlobalFreeOrionNode.options_exists(OPTION_SCALE):
-		GlobalFreeOrionNode.options_add_string(OPTION_SCALE, "OPTIONS_DB_UI_SCALE", "auto")
-	if not GlobalFreeOrionNode.options_exists(OPTION_THEME):
-		GlobalFreeOrionNode.options_add_string(OPTION_THEME, "OPTIONS_DB_UI_THEME", "default")
-	_scale_setting = GlobalFreeOrionNode.options_get_string(OPTION_SCALE)
-	_theme_name = GlobalFreeOrionNode.options_get_string(OPTION_THEME)
+	var options := Engine.get_singleton("FOOptions")
+	options.add_option(OPTION_SCALE, "OPTIONS_DB_UI_SCALE", "auto")
+	options.add_option(OPTION_THEME, "OPTIONS_DB_UI_THEME", "default")
+	_scale_setting = options.get_value(OPTION_SCALE)
+	_theme_name = options.get_value(OPTION_THEME)
+	# React live when the options screen (or anything else) changes them.
+	options.watch(OPTION_SCALE)
+	options.watch(OPTION_THEME)
+	options.option_changed.connect(_on_option_changed)
+
+
+func _on_option_changed(option_name: String) -> void:
+	var options := Engine.get_singleton("FOOptions")
+	match option_name:
+		OPTION_SCALE:
+			_scale_setting = options.get_value(OPTION_SCALE)
+			_apply_scale()
+		OPTION_THEME:
+			var theme_name: String = options.get_value(OPTION_THEME)
+			if theme_name != _theme_name:
+				apply_theme(theme_name)
 
 
 func _options_available() -> bool:
-	return (
-		is_instance_valid(GlobalFreeOrionNode)
-		and GlobalFreeOrionNode.has_method("options_exists")
-		and not Engine.is_editor_hint()
-	)
+	return Engine.has_singleton("FOOptions") and not Engine.is_editor_hint()
