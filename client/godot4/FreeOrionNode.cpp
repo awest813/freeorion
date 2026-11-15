@@ -21,6 +21,7 @@
 #include "../../util/Version.h"
 
 #include <chrono>
+#include <cmath>
 
 namespace {
     /// Maximum time spent dispatching queued server messages per frame. At least one
@@ -33,6 +34,7 @@ void FreeOrionNode::_bind_methods() {
     godot::ClassDB::bind_method(godot::D_METHOD("get_version"), &FreeOrionNode::get_version);
     godot::ClassDB::bind_method(godot::D_METHOD("get_user_data_dir"), &FreeOrionNode::get_user_data_dir);
     godot::ClassDB::bind_method(godot::D_METHOD("get_user_config_dir"), &FreeOrionNode::get_user_config_dir);
+    godot::ClassDB::bind_method(godot::D_METHOD("get_resource_dir"), &FreeOrionNode::get_resource_dir);
     godot::ClassDB::bind_method(godot::D_METHOD("get_current_turn"), &FreeOrionNode::get_current_turn);
     godot::ClassDB::bind_method(godot::D_METHOD("get_single_player_game"), &FreeOrionNode::get_single_player_game);
     godot::ClassDB::bind_method(godot::D_METHOD("parsing_thread"), &FreeOrionNode::parsing_thread);
@@ -40,6 +42,8 @@ void FreeOrionNode::_bind_methods() {
     godot::ClassDB::bind_method(godot::D_METHOD("start_parsing_thread"), &FreeOrionNode::start_parsing_thread);
     godot::ClassDB::bind_method(godot::D_METHOD("new_single_player_game"), &FreeOrionNode::new_single_player_game);
     godot::ClassDB::bind_method(godot::D_METHOD("start_turn"), &FreeOrionNode::start_turn);
+    godot::ClassDB::bind_method(godot::D_METHOD("set_view", "center", "zoom"), &FreeOrionNode::set_view);
+    godot::ClassDB::bind_method(godot::D_METHOD("get_saved_view"), &FreeOrionNode::get_saved_view);
     godot::ClassDB::bind_method(godot::D_METHOD("quit_game"), &FreeOrionNode::quit_game);
     godot::ClassDB::bind_method(godot::D_METHOD("revise_turn"), &FreeOrionNode::revise_turn);
     godot::ClassDB::bind_method(godot::D_METHOD("is_quitting"), &FreeOrionNode::is_quitting);
@@ -220,6 +224,9 @@ godot::String FreeOrionNode::get_version() const
 godot::String FreeOrionNode::get_user_data_dir() const
 { return godot::String::utf8(PathToString(GetUserDataDir()).c_str()); }
 
+godot::String FreeOrionNode::get_resource_dir() const
+{ return godot::String::utf8(PathToString(GetResourceDir()).c_str()); }
+
 godot::String FreeOrionNode::get_user_config_dir() const
 { return godot::String::utf8(PathToString(GetUserConfigDir()).c_str()); }
 
@@ -249,8 +256,26 @@ void FreeOrionNode::new_single_player_game()
 
 void FreeOrionNode::start_turn() {
     m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_END);
-    SaveGameUIData ui_data;
-    m_app->StartTurn(ui_data);
+    m_app->StartTurn(m_ui_data);
+}
+
+// The GG client stores the map window's screen offset in map_left/top; this
+// client stores the camera's world centre there. Zoom steps mean the same in
+// both: zoom = 2^(steps / 4).
+void FreeOrionNode::set_view(godot::Vector2 center, double zoom) {
+    m_ui_data.map_left = static_cast<int>(std::lround(center.x));
+    m_ui_data.map_top = static_cast<int>(std::lround(center.y));
+    m_ui_data.map_zoom_steps_in = zoom > 0.0 ? 4.0 * std::log2(zoom) : 0.0;
+}
+
+godot::Dictionary FreeOrionNode::get_saved_view() const {
+    godot::Dictionary view;
+    if (!m_loaded_ui_data)
+        return view;
+    view["center"] = godot::Vector2(static_cast<float>(m_loaded_ui_data->map_left),
+                                    static_cast<float>(m_loaded_ui_data->map_top));
+    view["zoom"] = std::pow(2.0, m_loaded_ui_data->map_zoom_steps_in / 4.0);
+    return view;
 }
 
 namespace {
@@ -389,6 +414,15 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             InitTurnState();
 
             m_app->RequestCombatLogs();
+
+            // Keep the saved UI data (the view, design lists) to send back
+            // with the next orders; the view is restored by GameShell.
+            m_loaded_ui_data.reset();
+            m_ui_data = SaveGameUIData{};
+            if (loaded_game_data && ui_data_available) {
+                m_loaded_ui_data = ui_data;
+                m_ui_data = ui_data;
+            }
 
             bool is_new_game = !(loaded_game_data && ui_data_available);
             m_app->StartGame(is_new_game);

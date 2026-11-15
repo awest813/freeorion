@@ -42,6 +42,7 @@ void FOSaves::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("list_saves"), &FOSaves::list_saves);
     ClassDB::bind_static_method(cls, D_METHOD("save_game", "name"), &FOSaves::save_game);
     ClassDB::bind_static_method(cls, D_METHOD("load_game", "path"), &FOSaves::load_game);
+    ClassDB::bind_static_method(cls, D_METHOD("delete_save", "path"), &FOSaves::delete_save);
 }
 
 godot::String FOSaves::get_save_dir()
@@ -114,6 +115,24 @@ bool FOSaves::load_game(const godot::String& path) {
         return app->LoadSinglePlayerGame(PathToString(file));
     } catch (const std::exception& e) {
         ErrorLogger() << "FOSaves::load_game: " << e.what();
+        return false;
+    }
+}
+
+bool FOSaves::delete_save(const godot::String& path) {
+    try {
+        const auto file = std::filesystem::weakly_canonical(ToPath(path));
+        const auto dir = std::filesystem::weakly_canonical(GetSaveDir());
+        const auto parent = file.parent_path();
+        if (file.extension() != SP_SAVE_FILE_EXTENSION ||
+            (parent != dir && parent != dir / "auto") || !std::filesystem::is_regular_file(file))
+        {
+            ErrorLogger() << "FOSaves::delete_save: refusing " << PathToString(file);
+            return false;
+        }
+        return std::filesystem::remove(file);
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOSaves::delete_save: " << e.what();
         return false;
     }
 }

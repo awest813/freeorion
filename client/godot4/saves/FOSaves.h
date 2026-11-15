@@ -26,6 +26,10 @@ public:
     static godot::String save_game(const godot::String& name);
     static bool load_game(const godot::String& path);
 
+    /** Delete the save at \a path; only files in the save directory (or its
+      * autosave directory) with the save extension. */
+    static bool delete_save(const godot::String& path);
+
 protected:
     static void _bind_methods();
 };
