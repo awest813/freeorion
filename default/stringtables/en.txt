@@ -2559,6 +2559,41 @@ Hulls
 DESIGNER_DESIGNS
 Your designs
 
+DESIGNER_KIND_EMPIRE
+Yours
+
+DESIGNER_KIND_OBSOLETE
+Put aside
+
+DESIGNER_KIND_PREMADE
+Premade
+
+DESIGNER_KIND_MONSTER
+Monsters
+
+DESIGNER_NO_DESIGNS
+No designs here.
+
+DESIGNER_OBSOLETE
+Put aside: production stops offering this design
+
+DESIGNER_RESTORE
+Bring back to production
+
+DESIGNER_ADD_PREMADE
+Add to your designs
+
+DESIGNER_DELETE
+Delete design
+
+# %1% design name.
+DESIGNER_DELETE_CONFIRM
+Delete the design %1%? Ships already built keep it.
+
+# %1% name of the design started from.
+DESIGNER_COMPARED_WITH
+Changes compared with %1%
+
 DESIGNER_NAME
 Design name
 

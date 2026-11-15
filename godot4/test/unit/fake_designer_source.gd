@@ -46,6 +46,40 @@ var parts: Array = [
 ]
 var created: Array = []
 
+var calls: Array = []
+var designs := {
+	"empire":
+	[
+		{
+			"id": 7,
+			"name": "Frigate Ms",
+			"hull": "SH_BASIC_MEDIUM",
+			"parts": PackedStringArray(["SR_WEAPON_1_1", "AR_STD_PLATE", ""]),
+			"producible": true,
+		},
+	],
+	"obsolete":
+	[
+		{
+			"id": 5,
+			"name": "Old Scout",
+			"hull": "SH_BASIC_SMALL",
+			"parts": PackedStringArray([""]),
+			"producible": true,
+		},
+	],
+	"premade":
+	[
+		{
+			"id": 30,
+			"name": "Comsat",
+			"hull": "SH_BASIC_SMALL",
+			"parts": PackedStringArray([""]),
+			"producible": true,
+		},
+	],
+}
+
 
 func get_hulls() -> Array:
 	return hulls
@@ -81,13 +115,20 @@ func create(design_name: String, hull: String, design_parts: PackedStringArray) 
 	return 42
 
 
-func get_designs() -> Array:
-	return [
-		{
-			"id": 7,
-			"name": "Frigate Ms",
-			"hull": "SH_BASIC_MEDIUM",
-			"parts": PackedStringArray(["SR_WEAPON_1_1", "AR_STD_PLATE", ""]),
-			"producible": true,
-		}
-	]
+func get_designs(kind: String) -> Array:
+	return designs.get(kind, [])
+
+
+func set_obsolete(design_id: int, obsolete: bool) -> bool:
+	calls.push_back(["set_obsolete", design_id, obsolete])
+	return true
+
+
+func delete_design(design_id: int) -> bool:
+	calls.push_back(["delete_design", design_id])
+	return true
+
+
+func add_premade(design_id: int) -> int:
+	calls.push_back(["add_premade", design_id])
+	return 99

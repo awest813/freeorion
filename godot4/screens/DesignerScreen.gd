@@ -1,7 +1,10 @@
 class_name DesignerScreen
 extends PanelContainer
 ## Ship designer: pick a hull (or start from an existing design), fill its
-## slots with parts, see the stats update, name it and create it.
+## slots with parts, see the stats update (against the design started from),
+## name it and create it. Designs are listed by kind: yours, put aside
+## (obsolete), premade and monsters; yours can be put aside or deleted,
+## premade ones added to your empire.
 ## Slots sit on the hull art at their positions; they're labelled with their
 ## type as well as coloured. Select a slot, then click a part (or click a
 ## part to fill the first free slot that fits); right-click a slot to empty
@@ -10,6 +13,15 @@ extends PanelContainer
 signal close_requested
 
 const SLOT_SIZE := 56
+## Design lists: kind for get_designs(), tab label key.
+const DESIGN_KINDS := [
+	["empire", "DESIGNER_KIND_EMPIRE"],
+	["obsolete", "DESIGNER_KIND_OBSOLETE"],
+	["premade", "DESIGNER_KIND_PREMADE"],
+	["monster", "DESIGNER_KIND_MONSTER"],
+]
+## Stats where less is better (their changes are coloured the other way).
+const LOWER_IS_BETTER := ["cost", "turns"]
 const SIDE_WIDTH := 300
 const STATS := [
 	["attack", "DESIGNER_STAT_ATTACK"],
@@ -36,6 +48,10 @@ var _parts: Array = []
 var _status: Label
 var _hull_list: VBoxContainer
 var _design_list: VBoxContainer
+var _design_tabs: TabBar
+var _compare_label: Label
+## The design started from, to compare against: {name, stats} or {}.
+var _baseline := {}
 var _art: TextureRect
 var _slot_layer: Control
 var _name: LineEdit
@@ -86,6 +102,7 @@ func select_hull(name_key: String) -> void:
 	var hull := _hull(name_key)
 	if hull.is_empty():
 		return
+	_baseline = {}
 	hull_name = name_key
 	parts = PackedStringArray()
 	parts.resize(hull.get("slots", []).size())
@@ -96,9 +113,14 @@ func select_hull(name_key: String) -> void:
 	_refresh_design()
 
 
-## Load an existing design into the editor.
+## Load an existing design into the editor; its stats become the ones the
+## new design is compared with.
 func load_design(design: Dictionary) -> void:
 	select_hull(design.get("hull", ""))
+	_baseline = {
+		"name": design.get("name", ""),
+		"stats": source.evaluate(design.get("hull", ""), design.get("parts", PackedStringArray())),
+	}
 	var design_parts: PackedStringArray = design.get("parts", PackedStringArray())
 	for i in mini(parts.size(), design_parts.size()):
 		parts[i] = design_parts[i]
@@ -150,6 +172,12 @@ func _build() -> void:
 	_hull_list = ScreenKit.list()
 	left.add_child(ScreenKit.scrolling(_hull_list))
 	left.add_child(ScreenKit.label(tr("DESIGNER_DESIGNS"), "TitleLabel"))
+	_design_tabs = TabBar.new()
+	_design_tabs.clip_tabs = false
+	for kind in DESIGN_KINDS:
+		_design_tabs.add_tab(tr(kind[1]))
+	_design_tabs.tab_changed.connect(func(_t): _rebuild_design_list())
+	left.add_child(_design_tabs)
 	_design_list = ScreenKit.list()
 	left.add_child(ScreenKit.scrolling(_design_list))
 
@@ -157,6 +185,8 @@ func _build() -> void:
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(center)
 	_status = ScreenKit.header(center, "MAP_BTN_DESIGN", close_requested.emit)
+	_compare_label = ScreenKit.label("", "SmallLabel")
+	center.add_child(_compare_label)
 	var stage := Control.new()
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stage.custom_minimum_size.y = 260
@@ -240,10 +270,64 @@ func _rebuild_hull_list() -> void:
 
 func _rebuild_design_list() -> void:
 	ScreenKit.clear(_design_list)
-	for design: Dictionary in source.get_designs():
-		var button := _list_button(design.get("name", ""), tr(design.get("hull", "")), "")
-		button.pressed.connect(load_design.bind(design))
-		_design_list.add_child(button)
+	var kind: String = DESIGN_KINDS[_design_tabs.current_tab][0]
+	var designs: Array = source.get_designs(kind)
+	for design: Dictionary in designs:
+		_design_list.add_child(_design_row(design, kind))
+	if designs.is_empty():
+		_design_list.add_child(ScreenKit.label(tr("DESIGNER_NO_DESIGNS"), "SecondaryLabel"))
+
+
+# A design: click to start from it; actions for the list it's in.
+func _design_row(design: Dictionary, kind: String) -> Control:
+	var row := HBoxContainer.new()
+	var button := _list_button(design.get("name", ""), tr(design.get("hull", "")), "")
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.pressed.connect(load_design.bind(design))
+	row.add_child(button)
+	var id: int = design.get("id", -1)
+	match kind:
+		"empire":
+			var aside := ScreenKit.small_button("⊘", "DESIGNER_OBSOLETE")
+			aside.pressed.connect(func(): _design_order(source.set_obsolete(id, true)))
+			row.add_child(aside)
+			row.add_child(_delete_button(design))
+		"obsolete":
+			var back := ScreenKit.small_button("↺", "DESIGNER_RESTORE")
+			back.pressed.connect(func(): _design_order(source.set_obsolete(id, false)))
+			row.add_child(back)
+			row.add_child(_delete_button(design))
+		"premade":
+			var add := ScreenKit.small_button("+", "DESIGNER_ADD_PREMADE")
+			add.pressed.connect(func(): _design_order(source.add_premade(id) >= 0))
+			row.add_child(add)
+	return row
+
+
+func _delete_button(design: Dictionary) -> Button:
+	var delete := ScreenKit.small_button("✕", "DESIGNER_DELETE")
+	delete.pressed.connect(
+		func():
+			FODialog.open_on(
+				self,
+				tr("DESIGNER_DELETE"),
+				tr("DESIGNER_DELETE_CONFIRM").replace("%1%", design.get("name", "")),
+				[
+					[
+						tr("DESIGNER_DELETE"),
+						"DangerButton",
+						func(): _design_order(source.delete_design(design.get("id", -1)))
+					],
+					[tr("CANCEL"), "GhostButton"],
+				]
+			)
+	)
+	return delete
+
+
+func _design_order(ok: bool) -> void:
+	_status.text = "" if ok else tr("DESIGNER_REFUSED")
+	_rebuild_design_list()
 
 
 func _rebuild_part_list() -> void:
@@ -292,11 +376,27 @@ func _refresh_design() -> void:
 		source.evaluate(hull_name, parts) if not hull_name.is_empty() else {"valid": false}
 	)
 	ScreenKit.clear(_stats)
+	var base: Dictionary = _baseline.get("stats", {})
+	_compare_label.text = (
+		tr("DESIGNER_COMPARED_WITH").replace("%1%", _baseline["name"])
+		if not _baseline.is_empty()
+		else ""
+	)
 	for stat in STATS:
 		_stats.add_child(ScreenKit.label(tr(stat[1]), "SecondaryLabel"))
-		_stats.add_child(
+		var cell := HBoxContainer.new()
+		cell.add_child(
 			ScreenKit.label(_number(stats.get(stat[0], 0.0)) if stats.get("valid") else "–")
 		)
+		if stats.get("valid") and base.get("valid", false):
+			var change := stat_change(stat[0], stats.get(stat[0], 0.0), base.get(stat[0], 0.0))
+			if not change.is_empty():
+				var label := ScreenKit.label(change["text"], "SmallLabel")
+				label.add_theme_color_override(
+					"font_color", FOUi.tokens.positive if change["better"] else FOUi.tokens.negative
+				)
+				cell.add_child(label)
+		_stats.add_child(cell)
 	_validity.text = "" if stats.get("valid", false) else tr("DESIGNER_INVALID")
 	_create.set_meta("valid", stats.get("valid", false))
 	_update_create()
@@ -381,6 +481,18 @@ func _on_create_pressed() -> void:
 		return
 	_status.text = tr("DESIGNER_CREATED").replace("%1%", _name.text.strip_edges())
 	_rebuild_design_list()
+
+
+## How stat \a key changed from \a before to \a after: {text, better},
+## or {} when unchanged.
+static func stat_change(key: String, after: float, before: float) -> Dictionary:
+	var change := after - before
+	if absf(change) < 0.005:
+		return {}
+	return {
+		"text": ("+" if change > 0.0 else "") + _number(change),
+		"better": (change < 0.0) if key in LOWER_IS_BETTER else (change > 0.0),
+	}
 
 
 func _list_button(title: String, detail: String, icon_path: String) -> Button:

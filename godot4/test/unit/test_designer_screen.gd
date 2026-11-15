@@ -67,7 +67,7 @@ func test_create_needs_a_name():
 
 
 func test_load_existing_design():
-	screen.load_design(fake.get_designs()[0])
+	screen.load_design(fake.get_designs("empire")[0])
 	assert_eq(screen.parts, PackedStringArray(["SR_WEAPON_1_1", "AR_STD_PLATE", ""]))
 	assert_string_contains(screen._name.text, "Frigate Ms")
 
@@ -80,9 +80,74 @@ func test_slots_sit_on_the_art():
 
 
 func _stat_values() -> Array:
-	return screen._stats.get_children().map(func(l): return l.text)
+	return screen._stats.find_children("*", "Label", true, false).map(func(l): return l.text)
 
 
 func test_class_names_without_stringtable_entry_stay_readable():
 	assert_eq(ScreenKit.tr_or_name("PC_ARMOUR"), tr("PC_ARMOUR"))
 	assert_eq(ScreenKit.tr_or_name("PC_NO_SUCH_CLASS"), "No Such Class")
+
+
+func _design_rows() -> Array:
+	return screen._design_list.get_children().filter(
+		func(c): return not c.is_queued_for_deletion() and c is HBoxContainer
+	)
+
+
+func test_design_kinds_and_actions():
+	var rows := _design_rows()
+	assert_eq(rows.size(), 1, "Your designs first")
+	var buttons: Array = rows[0].find_children("*", "Button", true, false)
+	buttons.filter(func(b): return b.text == "⊘")[0].pressed.emit()
+	assert_eq(fake.calls.back(), ["set_obsolete", 7, true])
+	screen._design_tabs.current_tab = 1
+	await wait_process_frames(1)
+	rows = _design_rows()
+	(
+		rows[0]
+		. find_children("*", "Button", true, false)
+		. filter(func(b): return b.text == "↺")[0]
+		. pressed
+		. emit()
+	)
+	assert_eq(fake.calls.back(), ["set_obsolete", 5, false])
+	screen._design_tabs.current_tab = 2
+	await wait_process_frames(1)
+	(
+		_design_rows()[0]
+		. find_children("*", "Button", true, false)
+		. filter(func(b): return b.text == "+")[0]
+		. pressed
+		. emit()
+	)
+	assert_eq(fake.calls.back(), ["add_premade", 30])
+	screen._design_tabs.current_tab = 3
+	await wait_process_frames(1)
+	assert_eq(_design_rows().size(), 0, "No monster designs in the fake")
+
+
+func test_delete_asks_first():
+	(
+		_design_rows()[0]
+		. find_children("*", "Button", true, false)
+		. filter(func(b): return b.text == "✕")[0]
+		. pressed
+		. emit()
+	)
+	var dialog: FODialog = screen.get_children().filter(func(c): return c is FODialog)[0]
+	assert_eq(fake.calls, [])
+	dialog.choose(0)
+	assert_eq(fake.calls, [["delete_design", 7]])
+
+
+func test_compares_with_the_design_started_from():
+	screen.load_design(fake.designs["empire"][0])
+	assert_string_contains(screen._compare_label.text, "Frigate Ms")
+	screen.clear_slot(0)
+	await wait_process_frames(1)
+	var texts: Array = screen._stats.find_children("*", "Label", true, false).map(
+		func(l): return l.text
+	)
+	assert_has(texts, "-18", "Attack lost with the weapon")
+	assert_eq(DesignerScreen.stat_change("cost", 20.0, 26.0), {"text": "-6", "better": true})
+	assert_eq(DesignerScreen.stat_change("attack", 18.0, 18.0), {})
