@@ -3,6 +3,20 @@ extends RefCounted
 ## Small builders shared by full screens (production, research, ...), so
 ## they look and behave alike.
 
+## The game's own button art for screens, by their title key (as GG's map
+## buttons show them).
+const HEADER_ICONS := {
+	"PRODUCTION_WND_TITLE": "icons/buttons/production.png",
+	"RESEARCH_WND_TITLE": "icons/buttons/research.png",
+	"MAP_BTN_GOVERNMENT": "icons/buttons/government.png",
+	"MAP_BTN_DESIGN": "icons/buttons/design.png",
+	"MAP_BTN_OBJECTS": "icons/buttons/objects.png",
+	"EMPIRES_TITLE": "icons/buttons/empires.png",
+	"COMBAT_REPORT_TITLE": "icons/combat.png",
+	"MESSAGES_PANEL_TITLE": "icons/buttons/messages.png",
+	"MAP_BTN_PEDIA": "icons/buttons/pedia.png",
+}
+
 
 static func label(text: String, variation := "") -> Label:
 	var result := Label.new()
@@ -65,6 +79,10 @@ static func scrolling(content: Control) -> ScrollContainer:
 static func header(parent: Control, title_key: String, on_close: Callable) -> Label:
 	var row := HBoxContainer.new()
 	parent.add_child(row)
+	if HEADER_ICONS.has(title_key):
+		var heading_icon := icon(HEADER_ICONS[title_key], FOUi.tokens.icon + FOUi.tokens.space_1)
+		heading_icon.name = "HeaderIcon"
+		row.add_child(heading_icon)
 	var title := label(TranslationServer.translate(title_key), "HeadingLabel")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
@@ -80,6 +98,8 @@ static func header(parent: Control, title_key: String, on_close: Callable) -> La
 static func turns_text(turns: int) -> String:
 	if turns < 0:
 		return TranslationServer.translate("PRODUCTION_NEVER")
+	if turns == 1:
+		return TranslationServer.translate("MAP_ROUTE_ETA_ONE")
 	return TranslationServer.translate("MAP_ROUTE_ETA").replace("%1%", str(turns))
 
 

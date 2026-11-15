@@ -30,9 +30,29 @@ const ARTICLE_KINDS := [
 	"ship",
 	"building",
 ]
+## A picture for each kind of article, from the game's art (the start page
+## and the topics list show them).
+const KIND_ICONS := {
+	"tech": "icons/buttons/research.png",
+	"buildingtype": "icons/building/palace.png",
+	"species": "icons/species/human.png",
+	"special": "icons/specials_large/ancient_ruins.png",
+	"shippart": "icons/ship_parts/zortrium_plating.png",
+	"shiphull": "icons/ship_hulls/basic-medium-hull_small.png",
+	"fieldtype": "fields/ion_storm.png",
+	"policy": "icons/policies/social_propaganda.png",
+	"encyclopedia": "icons/buttons/pedia.png",
+	"metertype": "icons/meter/industry.png",
+	"empire": "icons/buttons/empires.png",
+	"shipdesign": "icons/buttons/design.png",
+	"monsterdesign": "icons/monsters/kraken-3.png",
+}
 ## Kinds of universe objects: their articles can show them on the map.
 const OBJECT_KINDS := ["planet", "system", "fleet", "ship", "building"]
 const MAX_RESULTS := 80
+## Start page tiles' size.
+const TILE_WIDTH := 150
+const TILE_HEIGHT := 112
 ## Groups of links under an article's facts, in this order.
 const LINK_GROUPS := [
 	"prerequisites",
@@ -66,6 +86,7 @@ var _object := []
 var _icon: TextureRect
 var _facts: GridContainer
 var _text: RichTextLabel
+var _tiles: HFlowContainer
 var _links: VBoxContainer
 var _environments: HFlowContainer
 var _search: LineEdit
@@ -196,6 +217,12 @@ func _build() -> void:
 	_text.selection_enabled = true
 	_text.meta_clicked.connect(func(meta): _follow(FORichText.parse_link(str(meta))))
 	content.add_child(_text)
+	_tiles = HFlowContainer.new()
+	_tiles.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
+	_tiles.add_theme_constant_override("v_separation", FOUi.tokens.space_3)
+	_tiles.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tiles.visible = false
+	content.add_child(_tiles)
 
 
 func _show_history_entry() -> void:
@@ -206,10 +233,17 @@ func _show_history_entry() -> void:
 func _show_article(article: Dictionary) -> void:
 	_back.disabled = _history_index <= 0
 	_forward.disabled = _history_index >= _history.size() - 1
+	_tiles.visible = article.is_empty()
+	_text.fit_content = article.is_empty()
+	_text.size_flags_vertical = (
+		Control.SIZE_FILL if article.is_empty() else Control.SIZE_EXPAND_FILL
+	)
 	if article.is_empty():
 		_title.text = tr("MAP_BTN_PEDIA")
 		_icon.texture = null
+		_icon.visible = false
 		_text.text = tr("PEDIA_EMPTY")
+		fill_start_tiles()
 		ScreenKit.clear(_facts)
 		ScreenKit.clear(_links)
 		_fill_environments([])
@@ -238,18 +272,22 @@ func _show_article(article: Dictionary) -> void:
 		)
 		if group_links.is_empty():
 			continue
+		# In the facts' grid, so names and values line up with the facts.
+		_facts.add_child(ScreenKit.label(tr("PEDIA_LINKS_" + group.to_upper()), "SecondaryLabel"))
 		var row := HFlowContainer.new()
-		row.add_child(ScreenKit.label(tr("PEDIA_LINKS_" + group.to_upper()), "SecondaryLabel"))
+		row.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
 		for link: Dictionary in group_links:
-			var button := Button.new()
-			button.text = link.get("label", tr(link["name"]))
-			button.theme_type_variation = "GhostButton"
+			var link_text: String = link.get("label", tr(link["name"]))
 			if str(link.get("kind", "")).is_empty():
-				button.disabled = true  # nothing to open
-			else:
-				button.pressed.connect(_follow.bind(link.duplicate().merged({"arg": link["name"]})))
+				row.add_child(ScreenKit.label(link_text))  # nothing to open
+				continue
+			var button := LinkButton.new()
+			button.text = link_text
+			button.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+			button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+			button.pressed.connect(_follow.bind(link.duplicate().merged({"arg": link["name"]})))
 			row.add_child(button)
-		_links.add_child(row)
+		_facts.add_child(row)
 	_fill_environments(article.get("environments", []))
 
 
@@ -360,8 +398,35 @@ func _list_kinds() -> void:
 		var button := _result_button(
 			"%s  (%d)" % [tr("PEDIA_KIND_" + kind.to_upper()), counts[kind]]
 		)
+		button.icon = FOArt.icon(KIND_ICONS.get(kind, ""))
+		button.expand_icon = true
+		button.add_theme_constant_override("icon_max_width", FOUi.tokens.icon)
 		button.pressed.connect(browse.bind(kind))
 		_results.add_child(button)
+
+
+## The start page: a tile for each kind of article, with its picture and
+## how many there are; a tile lists that kind.
+func fill_start_tiles() -> void:
+	ScreenKit.clear(_tiles)
+	# Not kept: the source can still change before the topics are listed.
+	var index: Array = _index if not _index.is_empty() else source.get_index()
+	var counts := {}
+	for entry: Dictionary in index:
+		counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
+	for kind in ARTICLE_KINDS:
+		if not counts.has(kind):
+			continue
+		var tile := Button.new()
+		tile.text = "%s\n%d" % [tr("PEDIA_KIND_" + kind.to_upper()), counts[kind]]
+		tile.icon = FOArt.icon(KIND_ICONS.get(kind, ""))
+		tile.expand_icon = true
+		tile.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tile.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		tile.custom_minimum_size = Vector2(TILE_WIDTH, TILE_HEIGHT)
+		tile.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_large)
+		tile.pressed.connect(browse.bind(kind))
+		_tiles.add_child(tile)
 
 
 static func _result_button(text: String) -> Button:

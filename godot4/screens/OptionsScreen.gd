@@ -43,6 +43,8 @@ const HIDDEN_PREFIXES := [
 	"setup.",
 	"ui.map.",
 ]
+## Words written in capitals in option titles.
+const ACRONYMS := ["ui", "ai", "fps", "id", "xml", "gl", "uri", "ip", "mp"]
 ## Sound controls: on/off option, volume option, label key.
 const AUDIO := [
 	["audio.music.enabled", "audio.music.volume", "OPTIONS_MUSIC"],
@@ -309,21 +311,66 @@ func _refresh_list() -> void:
 	ScreenKit.clear(_list)
 	var needle := _search.text.strip_edges().to_lower()
 	var shown := 0
-	for option: String in source.find(""):
+	var section := ""
+	# By section, in their order within each.
+	var options := Array(source.find(""))
+	var order := {}
+	for i in options.size():
+		order[options[i]] = i
+	options.sort_custom(
+		func(a: String, b: String):
+			var by_section := option_section(a).naturalnocasecmp_to(option_section(b))
+			return by_section < 0 if by_section != 0 else order[a] < order[b]
+	)
+	for option: String in options:
 		if _is_hidden(option):
 			continue
 		var description := tr(source.get_description(option))
 		if not needle.is_empty():
-			var haystack: String = (option + " " + description).to_lower()
-			if not haystack.contains(needle):
+			var haystack: String = option + " " + option_title(option) + " " + description
+			if not haystack.to_lower().contains(needle):
 				continue
 		if shown >= MAX_LISTED:
 			_list.add_child(ScreenKit.label(tr("OPTIONS_REFINE_SEARCH"), "SecondaryLabel"))
 			break
+		# Options under a heading for the first part of their names.
+		if option_section(option) != section:
+			section = option_section(option)
+			_list.add_child(ScreenKit.label(section, "TitleLabel"))
 		_list.add_child(_option_row(option, description))
 		shown += 1
 	if shown == 0:
 		_list.add_child(ScreenKit.label(tr("PEDIA_NO_RESULTS"), "SecondaryLabel"))
+
+
+## A readable title for \a option: its name after the section, without
+## a trailing "enabled" or "shown" ("save.auto.hostless.enabled" ->
+## "Auto hostless").
+static func option_title(option: String) -> String:
+	var parts := Array(option.split("."))
+	if parts.size() > 1:
+		parts.pop_front()
+	if parts.size() > 1 and parts.back() in ["enabled", "shown"]:
+		parts.pop_back()
+	return _readable(" ".join(parts))
+
+
+## The heading \a option is listed under: the first part of its name;
+## names of one part go under "General".
+static func option_section(option: String) -> String:
+	if not option.contains("."):
+		return TranslationServer.translate("OPTIONS_SECTION_GENERAL")
+	return _readable(option.get_slice(".", 0))
+
+
+# \a words with spaces for - and _, the first capitalised, acronyms in
+# capitals.
+static func _readable(words: String) -> String:
+	var result := PackedStringArray()
+	for word in words.replace("-", " ").replace("_", " ").split(" ", false):
+		result.push_back(word.to_upper() if word in ACRONYMS else word)
+	var text := " ".join(result)
+	return text.left(1).to_upper() + text.substr(1)
 
 
 func _option_row(option: String, description: String) -> Control:
@@ -332,7 +379,11 @@ func _option_row(option: String, description: String) -> Control:
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_constant_override("separation", 0)
 	row.add_child(text)
-	text.add_child(ScreenKit.label(option))
+	var title := ScreenKit.label(option_title(option))
+	# The option's own name, as the command line and config file know it.
+	title.tooltip_text = option
+	title.mouse_filter = Control.MOUSE_FILTER_PASS
+	text.add_child(title)
 	var detail := ScreenKit.label(description, "SmallLabel")
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text.add_child(detail)

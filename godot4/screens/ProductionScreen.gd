@@ -544,7 +544,7 @@ func _catalog_row(item: Dictionary) -> Control:
 	item_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	text.add_child(item_name)
 	var cost := tr("PRODUCTION_ITEM_COST").replace("%1%", "%.0f" % item.get("cost", 0.0)).replace(
-		"%2%", str(item.get("turns", 0))
+		"%2%", ScreenKit.turns_text(item.get("turns", 0))
 	)
 	text.add_child(ScreenKit.label(cost, "SmallLabel"))
 	if item.get("build_type") in ["building", "ship"]:

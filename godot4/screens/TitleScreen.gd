@@ -80,7 +80,7 @@ func _build() -> void:
 	var art := seasonal_art(Time.get_date_dict_from_system())
 	var splash := TextureRect.new()
 	splash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	splash.texture = _load_art(art[0])
+	splash.texture = without_bands(_load_art(art[0]))
 	splash.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	splash.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	add_child(splash)
@@ -155,6 +155,40 @@ func _menu_button(key: String, pressed: Signal, variation := "") -> Button:
 	button.pressed.connect(func(): pressed.emit())
 	_menu.add_child(button)
 	return button
+
+
+## \a texture without the black bands above and below its picture (the
+## default splash has them baked in, so they would show even when it
+## covers the screen).
+static func without_bands(texture: Texture2D) -> Texture2D:
+	var image := texture.get_image() if texture else null
+	if image == null:
+		return texture
+	if image.is_compressed():
+		image = image.duplicate()
+		image.decompress()
+	var rows := image.get_height()
+	var top := 0
+	while top < rows / 3 and _dark_row(image, top):
+		top += 1
+	var bottom := rows - 1
+	while bottom > rows * 2 / 3 and _dark_row(image, bottom):
+		bottom -= 1
+	if top == 0 and bottom == rows - 1:
+		return texture
+	var cropped := AtlasTexture.new()
+	cropped.atlas = texture
+	cropped.region = Rect2(0, top, image.get_width(), bottom - top + 1)
+	return cropped
+
+
+# Whether row \a y of \a image is (nearly) black, from a few samples.
+static func _dark_row(image: Image, y: int) -> bool:
+	var width := image.get_width()
+	for i in 16:
+		if image.get_pixel(width * i / 16, y).get_luminance() > 0.05:
+			return false
+	return true
 
 
 static func _load_art(file: String) -> Texture2D:

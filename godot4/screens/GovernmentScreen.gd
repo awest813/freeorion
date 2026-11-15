@@ -211,6 +211,9 @@ func _refresh_slots() -> void:
 		var policies: Array = slots["policies"]
 		for i in policies.size():
 			_slots.add_child(_slot_card(policies[i], slots["category"], i))
+		# A category without slots yet says so rather than standing empty.
+		if policies.is_empty():
+			_slots.add_child(ScreenKit.label(tr("GOVERNMENT_NO_SLOTS"), "SecondaryLabel"))
 	if _slot_data.is_empty():
 		_slots.add_child(ScreenKit.label(tr("GOVERNMENT_NO_SLOTS"), "SecondaryLabel"))
 

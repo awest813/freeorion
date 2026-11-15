@@ -65,6 +65,17 @@ func test_reset_only_when_changed():
 	assert_true(fake.is_default("save.format.binary"))
 
 
+func test_readable_titles_under_sections():
+	assert_eq(OptionsScreen.option_title("save.auto.hostless.enabled"), "Auto hostless")
+	assert_eq(OptionsScreen.option_title("network.discovery.port"), "Discovery port")
+	assert_eq(OptionsScreen.option_title("log-level"), "Log level")
+	assert_eq(OptionsScreen.option_title("effects.ui.threads"), "UI threads")
+	assert_eq(OptionsScreen.option_section("log-level"), tr("OPTIONS_SECTION_GENERAL"))
+	assert_eq(OptionsScreen.option_section("save.auto.file.limit"), "Save")
+	var headings := screen._list.get_children().filter(func(n): return n is Label)
+	assert_gt(headings.size(), 0, "Sections have headings")
+
+
 func test_save_commits():
 	_button(screen, tr("SAVE")).pressed.emit()
 	assert_true(fake.committed)
@@ -76,14 +87,14 @@ func _row_names() -> Array:
 	for row in screen._list.get_children():
 		var labels := row.find_children("*", "Label", true, false)
 		if labels.size() > 1:
-			names.push_back(labels[0].text)
+			names.push_back(labels[0].tooltip_text)  # the option's own name
 	return names
 
 
 func _row(option: String) -> Node:
 	for row in screen._list.get_children():
 		var labels := row.find_children("*", "Label", true, false)
-		if labels.size() > 0 and labels[0].text == option:
+		if labels.size() > 0 and labels[0].tooltip_text == option:
 			return row
 	return null
 

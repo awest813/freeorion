@@ -381,7 +381,9 @@ func _build() -> void:
 	_auto_turn.toggle_mode = true
 	_auto_turn.icon = FOArt.icon("icons/buttons/manual_turn.png")
 	_auto_turn.expand_icon = false
-	_auto_turn.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_small)
+	# The game's button art has a margin: at the small icon size it can't be
+	# made out.
+	_auto_turn.add_theme_constant_override("icon_max_width", FOUi.tokens.icon)
 	_auto_turn.theme_type_variation = "GhostButton"
 	_auto_turn.tooltip_text = tr("MAP_BTN_MANUAL_TURN_ADVANCE")
 	_auto_turn.toggled.connect(set_auto_end_turn)
@@ -389,7 +391,7 @@ func _build() -> void:
 	_messages = Button.new()
 	_messages.icon = FOArt.icon("icons/buttons/messages.png")
 	_messages.expand_icon = false
-	_messages.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_small)
+	_messages.add_theme_constant_override("icon_max_width", FOUi.tokens.icon)
 	_messages.add_theme_font_size_override("font_size", FOUi.tokens.font_size_small)
 	_messages.theme_type_variation = "GhostButton"
 	_messages.tooltip_text = with_key(tr("MESSAGES_PANEL_TITLE"), "messages")

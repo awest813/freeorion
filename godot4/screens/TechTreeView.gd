@@ -130,7 +130,7 @@ static func describe(tech: Dictionary, queue_entry := {}) -> String:
 		(
 			String(t.call("RESEARCH_ITEM_COST"))
 			. replace("%1%", "%.0f" % tech.get("cost", 0.0))
-			. replace("%2%", str(tech.get("turns", 0)))
+			. replace("%2%", ScreenKit.turns_text(tech.get("turns", 0)))
 			. replace("%3%", t.call(tech.get("category", "")))
 		)
 	)
@@ -417,7 +417,7 @@ func _draw_card(tech_name: String, rect: Rect2) -> void:
 	var detail := (
 		tr("RESEARCH_ITEM_COST")
 		. replace("%1%", "%.0f" % tech.get("cost", 0.0))
-		. replace("%2%", str(tech.get("turns", 0)))
+		. replace("%2%", ScreenKit.turns_text(tech.get("turns", 0)))
 		. replace(" · %3%", "")
 		. replace("%3%", "")
 	)

@@ -3394,6 +3394,12 @@ Nothing called %1% is known.
 PEDIA_KIND_MONSTERDESIGN
 Monsters
 
+CHAT_NO_MESSAGES
+No messages yet.
+
+OPTIONS_SECTION_GENERAL
+General
+
 OPTIONS_LANGUAGE_NAME
 Language
 
@@ -3463,7 +3469,7 @@ PRODUCTION_NOTHING_BUILDABLE
 Nothing matching can be built here.
 
 PRODUCTION_ITEM_COST
-%1% PP · %2% turns
+%1% PP · %2%
 
 PRODUCTION_QUEUE_DETAIL
 At %1% · %2% PP this turn
@@ -3530,7 +3536,7 @@ RESEARCH_TREE_HINT
 Drag to move, scroll to zoom. Click a tech for its details and the chain it belongs to; double-click to queue it.
 
 RESEARCH_ITEM_COST
-%1% RP · %2% turns · %3%
+%1% RP · %2% · %3%
 
 RESEARCH_NEEDS_PREREQS
 adds prerequisites

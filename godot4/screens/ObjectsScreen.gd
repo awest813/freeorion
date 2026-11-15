@@ -182,6 +182,8 @@ const GROUPS := {
 const NUMERIC := ["number", "int", "eta", "structure"]
 ## Width of number columns: fits the titles, leaves the rest to names.
 const NUMBER_WIDTH := 84
+## The most a text column widens to fit its values.
+const TEXT_WIDTH_MAX := 220
 
 var source: Variant = ObjectsSource.new()
 ## Shown kind (a KINDS name), sort column key and direction.
@@ -581,6 +583,25 @@ func _rebuild() -> void:
 		_finish_group(group)
 	_info.text = tr("OBJECTS_COUNT").replace("%1%", str(rows.size()))
 	_empty.visible = rows.is_empty()
+	_fit_text_columns(columns, rows)
+
+
+# Columns (but the name's) as wide as their longest value and title, up to
+# TEXT_WIDTH_MAX (NUMBER_WIDTH for numbers), so owners and foci aren't cut
+# off while the name column has room.
+func _fit_text_columns(columns: Array, rows: Array) -> void:
+	var font := _tree.get_theme_font("font")
+	var font_size := _tree.get_theme_font_size("font_size")
+	var title_font := _tree.get_theme_font("title_button_font")
+	var padding := FOUi.tokens.space_6
+	for i in range(1, columns.size()):
+		var widest := title_font.get_string_size(_tree.get_column_title(i)).x if title_font else 0.0
+		for row: Dictionary in rows:
+			var text := _display(row, columns[i][0])
+			widest = maxf(widest, font.get_string_size(text, 0, -1, font_size).x)
+		# Numbers as wide as they need, so all columns fit more often.
+		var cap := TEXT_WIDTH_MAX if not NUMERIC.has(columns[i][2]) else NUMBER_WIDTH
+		_tree.set_column_custom_minimum_width(i, int(minf(widest + padding, cap)))
 
 
 # A group heading: its value, how many rows, and the totals of number

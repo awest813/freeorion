@@ -487,7 +487,7 @@ func _catalog_row(tech: Dictionary) -> Control:
 	var detail := (
 		tr("RESEARCH_ITEM_COST")
 		. replace("%1%", "%.0f" % tech.get("cost", 0.0))
-		. replace("%2%", str(tech.get("turns", 0)))
+		. replace("%2%", ScreenKit.turns_text(tech.get("turns", 0)))
 		. replace("%3%", tr(tech.get("category", "")))
 	)
 	if status == "partial" or status == "unresearchable":
@@ -567,7 +567,7 @@ func _show_tech_detail(tech_name: String) -> void:
 	_detail_text.text = (
 		tr("RESEARCH_ITEM_COST")
 		. replace("%1%", "%.0f" % tech.get("cost", 0.0))
-		. replace("%2%", str(tech.get("turns", 0)))
+		. replace("%2%", ScreenKit.turns_text(tech.get("turns", 0)))
 		. replace("%3%", tr(tech.get("category", "")))
 	)
 	var description := tr(tech.get("short_description", ""))

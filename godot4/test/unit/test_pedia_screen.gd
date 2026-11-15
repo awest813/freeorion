@@ -15,6 +15,13 @@ func before_each():
 func test_empty_state():
 	assert_eq(screen._title.text, tr("MAP_BTN_PEDIA"))
 	assert_true(screen._back.disabled)
+	# The start page: a tile per kind of article, with its picture.
+	assert_true(screen._tiles.visible)
+	assert_gt(screen._tiles.get_child_count(), 0)
+	var tile: Button = screen._tiles.get_child(0)
+	assert_not_null(tile.icon)
+	tile.pressed.emit()
+	assert_gt(screen._results.get_child_count(), 1, "Lists that kind")
 
 
 func test_open_shows_article():
@@ -22,8 +29,7 @@ func test_open_shows_article():
 	assert_eq(screen._title.text, tr("LRN_ALGO_ELEGANCE"))
 	assert_not_null(screen._icon.texture)
 	assert_string_contains(screen._text.get_parsed_text(), "Hegira β I")
-	assert_eq(screen._facts.get_child_count(), 6, "Three label/value pairs")
-	assert_eq(screen._links.get_child_count(), 1, "Only an Unlocks row")
+	assert_eq(screen._facts.get_child_count(), 8, "Three facts and an Unlocks row, in pairs")
 
 
 func test_unknown_article_is_refused():
@@ -99,8 +105,8 @@ func test_shell_routes_content_links_to_pedia():
 	assert_eq(shell.pedia_screen.current(), ["tech", "LRN_ALGO_ELEGANCE"])
 
 
-func _link_button(text: String) -> Button:
-	for button: Button in screen._links.find_children("*", "Button", true, false):
+func _link_button(text: String) -> BaseButton:
+	for button: BaseButton in screen._facts.find_children("*", "BaseButton", true, false):
 		if button.text == text:
 			return button
 	return null
@@ -110,8 +116,9 @@ func test_species_likes_homeworlds_and_environments():
 	screen.open("species", "SP_HUMAN")
 	var likes := _link_button(tr("PLC_ALGORITHMIC_RESEARCH"))
 	assert_not_null(likes)
-	var unlinked := _link_button(tr("SOMETHING_UNLINKED"))
-	assert_true(unlinked.disabled, "Nothing to open for an unknown kind")
+	assert_null(_link_button(tr("SOMETHING_UNLINKED")), "Nothing to open for an unknown kind")
+	var texts := screen._facts.find_children("*", "Label", true, false).map(func(l): return l.text)
+	assert_has(texts, tr("SOMETHING_UNLINKED"), "Named all the same")
 	watch_signals(screen)
 	_link_button("Hegira β I").pressed.emit()
 	assert_signal_emitted_with_parameters(screen, "link_activated", ["planet", "2568"])
@@ -135,7 +142,7 @@ func test_design_article_groups_and_requirements():
 	assert_false(screen._on_map.visible)
 	assert_not_null(_link_button(tr("SH_BASIC_MEDIUM")))
 	assert_not_null(_link_button(tr("SHP_MIL_ROBO_CONT")))
-	var groups := screen._links.find_children("*", "Label", true, false).map(func(l): return l.text)
+	var groups := screen._facts.find_children("*", "Label", true, false).map(func(l): return l.text)
 	assert_has(groups, tr("PEDIA_LINKS_UNLOCKED_BY"))
 	assert_has(groups, tr("PEDIA_LINKS_PARTS"))
 	assert_string_contains(screen._text.get_parsed_text(), "a planet with a shipyard")

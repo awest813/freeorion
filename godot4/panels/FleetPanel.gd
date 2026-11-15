@@ -315,6 +315,9 @@ func _build() -> void:
 	_ships_scroll = ScrollContainer.new()
 	_ships_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_ships_scroll.add_child(_ships)
+	# Rows know their height once laid out (the stats wrap to the width):
+	# fit the list again then.
+	_ships.resized.connect(_fit_ship_list, CONNECT_DEFERRED)
 	box.add_child(_ships_scroll)
 
 	var actions := HBoxContainer.new()

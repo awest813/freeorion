@@ -41,6 +41,12 @@ func _init() -> void:
 ## Show \a lines ([{player_name, text, color, time}], oldest first).
 func set_lines(lines: Array) -> void:
 	log_view.clear()
+	# Nothing yet: say so rather than leave an empty box.
+	if lines.is_empty():
+		log_view.append_text(
+			"[color=#%s]%s[/color]" % [_secondary_hex(), escape(tr("CHAT_NO_MESSAGES"))]
+		)
+		return
 	for i in lines.size():
 		if i > 0:
 			log_view.newline()
