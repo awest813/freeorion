@@ -18,7 +18,14 @@
 #include "../../util/OptionsDB.h"
 #include "../../util/Version.h"
 
-std::atomic_bool quit(false);
+#include <chrono>
+
+namespace {
+    /// Maximum time spent dispatching queued server messages per frame. At least one
+    /// message is always dispatched per frame, so a slow message (e.g. a large turn
+    /// update) delays only the messages queued after it, never reorders them.
+    constexpr std::chrono::milliseconds MESSAGE_DISPATCH_BUDGET{8};
+}
 
 void FreeOrionNode::_bind_methods() {
     godot::ClassDB::bind_method(godot::D_METHOD("get_version"), &FreeOrionNode::get_version);
@@ -26,7 +33,6 @@ void FreeOrionNode::_bind_methods() {
     godot::ClassDB::bind_method(godot::D_METHOD("get_user_config_dir"), &FreeOrionNode::get_user_config_dir);
     godot::ClassDB::bind_method(godot::D_METHOD("get_current_turn"), &FreeOrionNode::get_current_turn);
     godot::ClassDB::bind_method(godot::D_METHOD("get_single_player_game"), &FreeOrionNode::get_single_player_game);
-    godot::ClassDB::bind_method(godot::D_METHOD("network_thread"), &FreeOrionNode::network_thread);
     godot::ClassDB::bind_method(godot::D_METHOD("parsing_thread"), &FreeOrionNode::parsing_thread);
     godot::ClassDB::bind_method(godot::D_METHOD("start_network_thread"), &FreeOrionNode::start_network_thread);
     godot::ClassDB::bind_method(godot::D_METHOD("start_parsing_thread"), &FreeOrionNode::start_parsing_thread);
@@ -141,8 +147,21 @@ void FreeOrionNode::_ready() {
     m_parsing_thread = godot::Ref<godot::Thread>();
     m_parsing_thread.instantiate();
 
-    m_network_thread = godot::Ref<godot::Thread>();
-    m_network_thread.instantiate();
+    // Message dispatch is enabled by start_network_thread()
+    set_process(false);
+}
+
+void FreeOrionNode::_process(double) {
+    if (!m_app)
+        return;
+
+    const auto deadline = std::chrono::steady_clock::now() + MESSAGE_DISPATCH_BUDGET;
+    do {
+        auto msg = m_app->Networking().GetMessage();
+        if (!msg)
+            break;
+        HandleMessage(std::move(*msg));
+    } while (m_app && std::chrono::steady_clock::now() < deadline);
 }
 
 void FreeOrionNode::_exit_tree() {
@@ -150,9 +169,9 @@ void FreeOrionNode::_exit_tree() {
         return;
 
     DebugLogger() << "FreeOrionNode::_exit_tree(): Stopping freeorion node";
-    quit = true;
-    m_network_thread->wait_to_finish();
-    m_parsing_thread->wait_to_finish();
+    set_process(false);
+    if (m_parsing_thread.is_valid() && m_parsing_thread->is_started())
+        m_parsing_thread->wait_to_finish();
     m_app.reset();
     DebugLogger() << "FreeOrionNode::_exit_tree(): Freeorion node stopped";
 
@@ -174,18 +193,6 @@ int FreeOrionNode::get_current_turn() const
 bool FreeOrionNode::get_single_player_game() const
 { return m_app ? m_app->SinglePlayerGame() : false; }
 
-void FreeOrionNode::network_thread() {
-    DebugLogger() << "FreeOrionNode::network_thread(): Freeorion networking started";
-    while(!quit) {
-        if (auto msg = this->m_app->Networking().GetMessage()) {
-            this->HandleMessage(std::move(*msg));
-        } else {
-            godot::OS::get_singleton()->delay_msec(20);
-        }
-    }
-    DebugLogger() << "FreeOrionNode::network_thread(): Freeorion networking stopped";
-}
-
 void FreeOrionNode::parsing_thread() {
     DebugLogger() << "FreeOrionNode::parsing_thread(): Freeorion parsing started";
     m_app->StartParsingContent();
@@ -193,8 +200,10 @@ void FreeOrionNode::parsing_thread() {
     DebugLogger() << "FreeOrionNode::parsing_thread(): Freeorion parsing stopped";
 }
 
-void FreeOrionNode::start_network_thread()
-{ m_network_thread->start(godot::Callable(this, "network_thread")); }
+void FreeOrionNode::start_network_thread() {
+    DebugLogger() << "FreeOrionNode::start_network_thread(): dispatching server messages on the main thread";
+    set_process(true);
+}
 
 void FreeOrionNode::start_parsing_thread()
 { m_parsing_thread->start(godot::Callable(this, "parsing_thread")); }

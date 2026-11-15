@@ -18,6 +18,7 @@ public:
     ~FreeOrionNode();
 
     void _ready() override;
+    void _process(double delta) override;
     void _exit_tree() override;
 protected:
     static void _bind_methods();
@@ -32,11 +33,13 @@ private:
 
     bool get_single_player_game() const; ///< Returns true if this game is a single-player game
 
-    void network_thread(); ///< Function called in a separate networking thread
-
     void parsing_thread(); ///< Function called in a separate parsing thread
 
-    void start_network_thread(); ///< Starts separate networking thread, should be called after initialization
+    /** Starts dispatching incoming server messages, should be called after initialization.
+      * Messages are dispatched on the main thread from _process(), so Universe, Empires
+      * and other client state are only ever modified on the main thread. The name is kept
+      * for compatibility with existing scripts. */
+    void start_network_thread();
 
     void start_parsing_thread(); ///< Starts separate parsing thread, should be called after initialization
 
@@ -58,10 +61,9 @@ private:
 
     bool options_commit(bool only_if_dirty = true, bool only_non_default = true);
 
-    void HandleMessage(Message&&); ///< Processes message in the networking thread
+    void HandleMessage(Message&&); ///< Processes message on the main thread
 
     std::unique_ptr<GodotClientApp> m_app;
-    godot::Ref<godot::Thread> m_network_thread;
     godot::Ref<godot::Thread> m_parsing_thread;
 };
 
