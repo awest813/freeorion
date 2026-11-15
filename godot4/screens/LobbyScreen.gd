@@ -124,6 +124,17 @@ static func has_human_player(lobby: Dictionary) -> bool:
 	return false
 
 
+## Empires the game would start with: players and AI players (not
+## observers or moderators).
+static func empire_count(lobby: Dictionary) -> int:
+	return (
+		lobby
+		. get("players", [])
+		. filter(func(p): return p.get("client_type", "") in ["player", "ai"])
+		. size()
+	)
+
+
 func _me() -> Dictionary:
 	for player: Dictionary in _lobby.get("players", []):
 		if player.get("player_id", -1) == source.player_id():
@@ -162,6 +173,10 @@ func _update_ready() -> void:
 	_conditions.remove_theme_color_override("font_color")
 	if not has_human_player(_lobby):
 		_conditions.text = tr("MP_NEEDS_HUMAN_PLAYER")
+		_conditions.add_theme_color_override("font_color", FOUi.tokens.warning)
+	elif empire_count(_lobby) < 2:
+		# Alone, the game is won as soon as it starts.
+		_conditions.text = tr("MP_ALONE")
 		_conditions.add_theme_color_override("font_color", FOUi.tokens.warning)
 	elif _lobby.get("start_locked", false):
 		_conditions.text = ScreenKit.tr_or_name(_lobby.get("start_lock_cause", ""))

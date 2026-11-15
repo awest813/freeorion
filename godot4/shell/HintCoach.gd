@@ -201,9 +201,15 @@ func _place() -> void:
 	if _anchor and _anchor.is_visible_in_tree():
 		var rect := _anchor.get_global_rect()
 		var local := rect.position - global_position
-		position = Vector2(
-			local.x + rect.size.x / 2.0 - card_size.x / 2.0, local.y + rect.size.y + gap
-		)
+		# Below the anchor, and below the whole top bar when it is in it, so
+		# the bar's second row (messages, auto end turn) stays uncovered.
+		var below := local.y + rect.size.y
+		var bar := _anchor.get_parent()
+		while bar and not bar is TopBar:
+			bar = bar.get_parent()
+		if bar:
+			below = maxf(below, (bar as Control).get_global_rect().end.y - global_position.y)
+		position = Vector2(local.x + rect.size.x / 2.0 - card_size.x / 2.0, below + gap)
 		if position.y + card_size.y > size.y:
 			position.y = local.y - card_size.y - gap
 	position.x = clampf(position.x, gap, maxf(gap, size.x - card_size.x - gap))

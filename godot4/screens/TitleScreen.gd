@@ -22,6 +22,7 @@ var _menu: VBoxContainer
 var _status: Label
 var _content_buttons: Array[Button] = []
 var _continue: Button
+var _continue_detail: Label
 var _new_game: Button
 
 
@@ -42,8 +43,12 @@ func set_content_ready(ready: bool) -> void:
 
 ## Offer Continue (loading the newest save) when \a can is true: it then
 ## leads the menu, else New Game does.
-func set_can_continue(can: bool) -> void:
+## \a detail names what Continue would load ("Terran Imperium · Turn 15").
+func set_can_continue(can: bool, detail := "") -> void:
 	_continue.visible = can
+	_continue_detail.text = detail
+	_continue_detail.visible = can and not detail.is_empty()
+	_continue.tooltip_text = detail
 	_continue.theme_type_variation = "PrimaryButton"
 	_new_game.theme_type_variation = "" if can else "PrimaryButton"
 	(_continue if can else _new_game).call_deferred("grab_focus")
@@ -113,6 +118,12 @@ func _build() -> void:
 
 	_continue = _menu_button("INTRO_BTN_CONTINUE", continue_requested, "PrimaryButton")
 	_continue.visible = false
+	# Which game Continue goes back to.
+	_continue_detail = ScreenKit.label("", "SmallLabel")
+	_continue_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_continue_detail.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_continue_detail.visible = false
+	_menu.add_child(_continue_detail)
 	_content_buttons.push_back(_continue)
 	var new_game := _menu_button("TITLE_NEW_GAME", new_game_requested, "PrimaryButton")
 	_new_game = new_game

@@ -3403,6 +3403,9 @@ General
 GAME_MENU_SAVE_WAIT
 Saving waits until the turn is processed and the AI players have finished theirs.
 
+MP_ALONE
+You are the only empire: add AI players or wait for others to join, or the game is won as soon as it starts.
+
 OPTIONS_LANGUAGE_NAME
 Language
 

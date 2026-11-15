@@ -105,7 +105,7 @@ func leave_game(action: String, path := "") -> void:
 	game = null
 	_build_menus()
 	title.set_content_ready(_content_ready)
-	title.set_can_continue(_content_ready and not saves.source.list_saves().is_empty())
+	_offer_continue()
 	title.set_busy(tr("MENU_LEAVING"))
 	GlobalFreeOrionNode.quit_game()
 
@@ -176,6 +176,25 @@ func _show_title() -> void:
 	lobby.visible = false
 	pedia.visible = false
 	title.visible = true
+
+
+# Continue, when there is a save to go back to, naming it.
+func _offer_continue() -> void:
+	var newest: Array = saves.source.list_saves() if _content_ready else []
+	if newest.is_empty():
+		title.set_can_continue(false)
+		return
+	var save: Dictionary = newest[0]
+	title.set_can_continue(
+		true,
+		(
+			"%s  ·  %s"
+			% [
+				save.get("empire", ""),
+				tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(save.get("turn", 0)))
+			]
+		)
+	)
 
 
 ## Load the newest save, as the GG client's Continue.
@@ -249,7 +268,7 @@ func _start_game() -> void:
 func _on_parsing_completed() -> void:
 	_content_ready = true
 	title.set_content_ready(true)
-	title.set_can_continue(not saves.source.list_saves().is_empty())
+	_offer_continue()
 	_start_from_command_line()
 
 

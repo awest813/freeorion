@@ -33,6 +33,18 @@ const SCREENS := [
 	["empires", "EMPIRES_TAB"],
 	["pedia", "MAP_BTN_PEDIA"],
 ]
+## The game's button art for the screens, shown instead of their names when
+## the names don't fit (narrow windows, long translations).
+const SCREEN_ICONS := {
+	"production": "icons/buttons/production.png",
+	"research": "icons/buttons/research.png",
+	"government": "icons/buttons/government.png",
+	"design": "icons/buttons/design.png",
+	"objects": "icons/buttons/objects.png",
+	"combat": "icons/combat.png",
+	"empires": "icons/buttons/empires.png",
+	"pedia": "icons/buttons/pedia.png",
+}
 
 ## Resource chips: key in get_empire_resources(), icon, screen to open,
 ## tooltip key.
@@ -64,6 +76,10 @@ var _swatch: ColorRect
 var _empire: Label
 var _turn: Label
 var _end_turn: Button
+var _end_turn_width := 0.0
+## Screens shown by their icons (their names don't fit).
+var _compact := false
+var _nav_row: HBoxContainer
 var _screen_buttons := {}
 var _resource_chips := {}
 var _waiting := false
@@ -88,6 +104,8 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	get_viewport().size_changed.connect(fit_screen_buttons, CONNECT_DEFERRED)
+	fit_screen_buttons.call_deferred()
 	FOHotkeys.changed.connect(_update_shortcut_tips)
 	_update_shortcut_tips()
 	if not follow_game or not is_instance_valid(GlobalFreeOrionNode):
@@ -156,6 +174,7 @@ func _update_turn_controls() -> void:
 	if left >= 0:
 		turn_text += "  ·  " + tr("TOPBAR_TURN_TIMEOUT").replace("%1%", timeout_text(left))
 	_turn.text = turn_text
+	_turn.tooltip_text = turn_text
 	if _waiting:
 		_end_turn.text = (
 			tr("MAP_BTN_TURN_UNREADY").replace("%1%", str(_turn_number))
@@ -170,6 +189,10 @@ func _update_turn_controls() -> void:
 		_end_turn.tooltip_text = with_key(tr("MAP_BTN_TURN_TOOLTIP_DESC_SP"), "end_turn")
 		_end_turn.disabled = _turn_number < 1
 		_end_turn.theme_type_variation = "PrimaryButton"
+	# As wide as the widest label it has had, so Menu beside it stays put.
+	_end_turn.custom_minimum_size.x = 0.0
+	_end_turn.custom_minimum_size.x = maxf(_end_turn_width, _end_turn.get_combined_minimum_size().x)
+	_end_turn_width = _end_turn.custom_minimum_size.x
 	match role:
 		"observer":
 			_end_turn.disabled = true
@@ -330,12 +353,52 @@ func set_badge(screen_name: String, count: int) -> void:
 	var button: Button = _screen_buttons.get(screen_name)
 	if button == null:
 		return
-	var label: String = button.get_meta("label")
-	button.text = "%s (%d)" % [label, count] if count > 0 else label
+	button.set_meta("badge", count)
+	_apply_screen_text(button)
 	if count > 0:
 		button.add_theme_color_override("font_color", FOUi.tokens.accent)
 	else:
 		button.remove_theme_color_override("font_color")
+
+
+# A screen button's text: its name and badge count, or only the count when
+# shown by its icon.
+func _apply_screen_text(button: Button) -> void:
+	var label: String = button.get_meta("label")
+	var count: int = button.get_meta("badge", 0)
+	if _compact:
+		button.text = str(count) if count > 0 else ""
+		button.icon = button.get_meta("icon_texture")
+	else:
+		button.text = "%s (%d)" % [label, count] if count > 0 else label
+		button.icon = null
+
+
+## Show the screens by name when everything fits on the top row, else by
+## their icons (so End turn and Menu never go past the right edge).
+func fit_screen_buttons() -> void:
+	# The room the bar is given (its own size grows to what it holds).
+	var room := get_parent_area_size().x
+	if _nav_row == null or room <= 0.0:
+		return
+	_compact = false
+	for button: Button in _screen_buttons.values():
+		_apply_screen_text(button)
+	var padding := get_combined_minimum_size().x - _nav_row.get_combined_minimum_size().x
+	var compact := _nav_row.get_combined_minimum_size().x + maxf(padding, 0.0) > room
+	if compact != _compact:
+		_compact = compact
+		for button: Button in _screen_buttons.values():
+			_apply_screen_text(button)
+
+
+func is_compact() -> bool:
+	return _compact
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		fit_screen_buttons.call_deferred()
 
 
 func _on_screen_toggled(pressed: bool, screen_name: String) -> void:
@@ -356,6 +419,7 @@ func _build() -> void:
 	rows.add_theme_constant_override("separation", 0)
 	add_child(rows)
 	var row := HBoxContainer.new()
+	_nav_row = row
 	rows.add_child(row)
 	var resources := HBoxContainer.new()
 	resources.add_theme_constant_override("separation", FOUi.tokens.space_1)
@@ -413,6 +477,8 @@ func _build() -> void:
 		var button := Button.new()
 		button.text = tr(screen[1])
 		button.set_meta("label", button.text)
+		button.set_meta("icon_texture", FOArt.icon(SCREEN_ICONS.get(screen[0], "")))
+		button.add_theme_constant_override("icon_max_width", FOUi.tokens.icon)
 		button.toggle_mode = true
 		button.theme_type_variation = "GhostButton"
 		button.shortcut = FOHotkeys.shortcut("screen_" + screen[0])
@@ -423,8 +489,16 @@ func _build() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
+	# The turn and, while it is processed, its phase: shortened rather than
+	# pushing End turn and Menu off the right edge (the whole text is its
+	# tooltip).
 	_turn = Label.new()
 	_turn.theme_type_variation = "SecondaryLabel"
+	_turn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_turn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_turn.clip_text = true
+	_turn.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_child(_turn)
 	_end_turn = Button.new()
 	_end_turn.theme_type_variation = "PrimaryButton"

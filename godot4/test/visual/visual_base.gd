@@ -170,7 +170,8 @@ func _compare_to_golden(actual: Image, golden_name: String) -> void:
 
 func _save_failure(actual: Image, diff: Image, golden_name: String) -> void:
 	var dir := ProjectSettings.globalize_path("user://visual/")
-	DirAccess.make_dir_recursive_absolute(dir)
+	# Variants' goldens are in subfolders ("ru/...").
+	DirAccess.make_dir_recursive_absolute((dir + golden_name).get_base_dir())
 	actual.save_png(dir + golden_name + "_actual.png")
 	if diff:
 		diff.save_png(dir + golden_name + "_diff.png")
