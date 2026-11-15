@@ -12,6 +12,7 @@
 #include "GodotOptionsDB.h"
 #include "options/FOOptions.h"
 #include "orders/FOOrders.h"
+#include "production/FOProduction.h"
 #include "views/FOViews.h"
 
 namespace {
@@ -32,6 +33,7 @@ void initialize_freeorion_module(godot::ModuleInitializationLevel p_level) {
     GDREGISTER_CLASS(FOPlanet);
     GDREGISTER_ABSTRACT_CLASS(FOUniverse);
     GDREGISTER_ABSTRACT_CLASS(FOOrders);
+    GDREGISTER_ABSTRACT_CLASS(FOProduction);
     GDREGISTER_ABSTRACT_CLASS(FOOptions);
 
     s_fo_options = memnew(FOOptions);

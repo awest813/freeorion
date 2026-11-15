@@ -63,6 +63,8 @@ private:
 
     void HandleMessage(Message&&); ///< Processes message on the main thread
 
+    void InitTurnState(); ///< System graph and resource pools for a new turn
+
     std::unique_ptr<GodotClientApp> m_app;
     godot::Ref<godot::Thread> m_parsing_thread;
 };

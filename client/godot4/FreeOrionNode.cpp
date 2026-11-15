@@ -11,6 +11,8 @@
 #include "GodotI18n.h"
 
 #include "../ClientNetworking.h"
+#include "../../Empire/Empire.h"
+#include "../../util/ranges.h"
 #include "../../combat/CombatLogManager.h"
 #include "../../util/Directories.h"
 #include "../../util/GameRules.h"
@@ -244,6 +246,24 @@ void FreeOrionNode::options_set_string(godot::String option, godot::String value
 bool FreeOrionNode::options_commit(bool only_if_dirty, bool only_non_default)
 { return GetOptionsDB().Commit(only_if_dirty, only_non_default); }
 
+// Client-side state derived from a new turn's data, as the GG client's
+// HumanClientFSM and MapWnd::InitTurn compute it.
+void FreeOrionNode::InitTurnState() {
+    // Pathfinding (fleet move orders, routes) needs the client's system graph
+    GetUniverse().InitializeSystemGraph(Empires(), GetUniverse().Objects());
+    GetUniverse().UpdateCommonFilteredSystemGraphsWithMainObjectMap(Empires());
+
+    // Resource pools: available PP/RP/IP and the projected queues
+    auto& context = m_app->GetContext();
+    for (auto& empire : Empires() | range_values) {
+        empire->UpdateResourcePools(context,
+                                    empire->TechCostsTimes(context),
+                                    empire->PlanetAnnexationCosts(context),
+                                    empire->PolicyAdoptionCosts(context),
+                                    empire->ProductionCostsTimes(context));
+    }
+}
+
 void FreeOrionNode::HandleMessage(Message&& msg) {
     try {
         switch (msg.Type()) {
@@ -286,15 +306,12 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
 
             DebugLogger() << "Extracted GameStart message for turn: " << current_turn << " with empire: " << empire_id;
 
-            // Pathfinding (fleet move orders, routes) needs the client's system graph
-            GetUniverse().InitializeSystemGraph(Empires(), GetUniverse().Objects());
-            GetUniverse().UpdateCommonFilteredSystemGraphsWithMainObjectMap(Empires());
-
             m_app->SetSinglePlayerGame(single_player_game);
             m_app->SetEmpireID(empire_id);
             m_app->SetCurrentTurn(current_turn);
 
             GetGameRules().SetFromStrings(m_app->GetGalaxySetupData().GetGameRules());
+            InitTurnState();
 
             bool is_new_game = !(loaded_game_data && ui_data_available);
             m_app->StartGame(is_new_game);
@@ -324,9 +341,8 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             ExtractTurnUpdateMessageData(msg,                   m_app->EmpireID(),   current_turn,
                                          Empires(),             GetUniverse(),       GetSpeciesManager(),
                                          GetCombatLogManager(), GetSupplyManager(),  m_app->Players());
-            GetUniverse().InitializeSystemGraph(Empires(), GetUniverse().Objects());
-            GetUniverse().UpdateCommonFilteredSystemGraphsWithMainObjectMap(Empires());
             m_app->SetCurrentTurn(current_turn);
+            InitTurnState();
             call_deferred("emit_signal", "turn_update");
 
             if (m_app->AutoTurnsLeft() > 0) {
