@@ -88,3 +88,20 @@ func test_queued_tech_click_centres_the_tree():
 	screen._queue_list.get_child(1).gui_input.emit(click)
 	assert_eq(screen._tree.selected, "GRO_PLANET_ECOL")
 	assert_string_contains(screen._queue_list.get_child(0).tooltip_text, tr("LRN_ALGO_ELEGANCE"))
+
+
+func test_queue_shows_where_a_drag_would_go():
+	var screen := ProductionScreen.new()
+	screen.source = FakeProduction.new()
+	add_child_autofree(screen)
+	screen.refresh()
+	await wait_process_frames(1)
+	var cards := screen._queue_list.get_children().filter(func(c): return c is PanelContainer)
+	assert_gt(cards.size(), 1, "The fake queue has items")
+	var data := {"type": ProductionScreen.QUEUE_DRAG, "index": 0}
+	assert_true(screen._can_drop_on_queue(Vector2.ZERO, data, cards[1]))
+	assert_true(cards[1].has_meta("drop_mark"), "Marked as where it goes")
+	screen._can_drop_on_queue(Vector2.ZERO, data, cards[0])
+	assert_false(cards[1].has_meta("drop_mark"), "Only one at a time")
+	ScreenKit.clear_drop_marks(screen._queue_list)
+	assert_false(cards[0].has_meta("drop_mark"), "Cleared when the drag ends")

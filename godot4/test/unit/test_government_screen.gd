@@ -149,3 +149,14 @@ func _button(node: Node, text: String) -> Button:
 		if button.text == text:
 			return button
 	return null
+
+
+func test_dragged_policy_lights_the_slots_it_fits():
+	screen.highlight_slots_for({"type": GovernmentScreen.POLICY_DRAG, "name": "PLC_CENTRALIZATION"})
+	var cards := screen._slots.get_children().filter(func(c): return c.has_meta("category"))
+	for card: Control in cards:
+		var economic: bool = card.get_meta("category") == "ECONOMIC_CATEGORY"
+		assert_almost_eq(card.modulate.a, 1.0 if economic else 0.4, 0.01, card.get_meta("category"))
+		assert_eq(card.has_theme_stylebox_override("panel"), economic, "Outlined if it fits")
+	screen.highlight_slots_for(null)
+	assert_true(cards.all(func(c): return c.modulate.a == 1.0), "Back as usual")

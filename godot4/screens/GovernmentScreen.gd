@@ -220,6 +220,8 @@ func _refresh_slots() -> void:
 
 func _slot_card(policy_name: String, category: String, slot: int) -> Control:
 	var card := PanelContainer.new()
+	card.set_meta("category", category)
+	card.set_meta("policy", policy_name)
 	var row := HBoxContainer.new()
 	card.add_child(row)
 	# Policies of this category drop in; the adopted one drags out.
@@ -292,7 +294,15 @@ func _policy_row(policy: Dictionary) -> Control:
 	var reason := _blocked_reason(policy)
 	if not policy.get("adopted", false):
 		row.set_drag_forwarding(
-			func(_at): return {"type": POLICY_DRAG, "name": policy_name}, Callable(), Callable()
+			func(_at):
+				row.set_drag_preview(
+					DesignerArt.drag_preview(
+						FOArt.icon(policy.get("icon", "")), FOUi.tokens.icon_large
+					)
+				)
+				return {"type": POLICY_DRAG, "name": policy_name},
+			Callable(),
+			Callable()
 		)
 	row.gui_input.connect(
 		func(event: InputEvent):
@@ -347,6 +357,34 @@ func drop_on_slot(policy_name: String, current: String, slot: int) -> void:
 
 # Whether \a data is a policy of \a category that can go into a slot
 # holding \a current.
+# A policy dragged: the slots it can go into are outlined, the others fade
+# (as the designer lights the slots a part fits).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_BEGIN:
+		highlight_slots_for(get_viewport().gui_get_drag_data())
+	elif what == NOTIFICATION_DRAG_END:
+		highlight_slots_for(null)
+
+
+## Mark the slots \a data (a dragged policy, or null for none) can go into.
+func highlight_slots_for(data: Variant) -> void:
+	var dragging: bool = data is Dictionary and data.get("type", "") == POLICY_DRAG
+	var t: FOTokens = FOUi.tokens
+	for card: Node in _slots.get_children():
+		if not card.has_meta("category"):
+			continue
+		var fits := (
+			dragging and _can_drop_on_slot(data, card.get_meta("category"), card.get_meta("policy"))
+		)
+		card.modulate.a = 0.4 if dragging and not fits else 1.0
+		if fits:
+			var style := FOThemeBuilder.box(t, t.surface_raised, t.accent, t.space_3, t.space_2)
+			style.set_border_width_all(t.focus_width)
+			card.add_theme_stylebox_override("panel", style)
+		else:
+			card.remove_theme_stylebox_override("panel")
+
+
 func _can_drop_on_slot(data: Variant, category: String, current: String) -> bool:
 	if not (data is Dictionary and data.get("type", "") == POLICY_DRAG):
 		return false

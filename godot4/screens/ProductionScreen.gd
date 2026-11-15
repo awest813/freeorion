@@ -328,7 +328,7 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	# Drag to reorder; catalogue items dropped here go before it.
 	card.set_drag_forwarding(
 		func(_at): return {"type": QUEUE_DRAG, "index": index, "label": _display_name(entry)},
-		_can_drop_on_queue,
+		_can_drop_on_queue.bind(card),
 		_drop_on_queue.bind(index)
 	)
 	card.tooltip_text = queue_tooltip(entry)
@@ -531,7 +531,15 @@ func _catalog_row(item: Dictionary) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	if available:
 		row.set_drag_forwarding(
-			func(_at): return {"type": CATALOG_DRAG, "item": item}, Callable(), Callable()
+			func(_at):
+				row.set_drag_preview(
+					DesignerArt.drag_preview(
+						FOArt.icon(item.get("icon", "")), FOUi.tokens.icon_large
+					)
+				)
+				return {"type": CATALOG_DRAG, "item": item},
+			Callable(),
+			Callable()
 		)
 	else:
 		row.modulate = Color(1, 1, 1, 0.55)
@@ -676,8 +684,18 @@ func catalog_tooltip(item: Dictionary) -> String:
 	return "\n\n".join(lines)
 
 
-func _can_drop_on_queue(_at: Vector2, data: Variant) -> bool:
-	return data is Dictionary and data.get("type", "") in [QUEUE_DRAG, CATALOG_DRAG]
+func _can_drop_on_queue(_at: Vector2, data: Variant, card: Control = null) -> bool:
+	var ok: bool = data is Dictionary and data.get("type", "") in [QUEUE_DRAG, CATALOG_DRAG]
+	# Where it would go: before this card.
+	if ok and card:
+		ScreenKit.mark_drop_target(card)
+	return ok
+
+
+# A drag ended: no card is marked as where it goes.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END and _queue_list:
+		ScreenKit.clear_drop_marks(_queue_list)
 
 
 ## A queue item or catalogue item dropped on queue item \a target_index.

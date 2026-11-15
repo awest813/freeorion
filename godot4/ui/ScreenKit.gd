@@ -103,6 +103,47 @@ static func turns_text(turns: int) -> String:
 	return TranslationServer.translate("MAP_ROUTE_ETA").replace("%1%", str(turns))
 
 
+## Show that what is dragged would go before \a card (a queue card): an
+## accent outline with a thick top; its siblings lose theirs.
+static func mark_drop_target(card: Control) -> void:
+	var parent := card.get_parent()
+	if parent:
+		for sibling in parent.get_children():
+			if sibling != card:
+				_unmark(sibling)
+	if card.has_meta("drop_mark"):
+		return
+	# The card's own style to put back (false for none: a null meta is no
+	# meta at all).
+	var previous: Variant = (
+		card.get_theme_stylebox("panel") if card.has_theme_stylebox_override("panel") else false
+	)
+	card.set_meta("drop_mark", previous)
+	var base := card.get_theme_stylebox("panel")
+	var style: StyleBoxFlat = base.duplicate() if base is StyleBoxFlat else StyleBoxFlat.new()
+	style.border_color = FOUi.tokens.accent
+	style.set_border_width_all(FOUi.tokens.border_width)
+	style.border_width_top = FOUi.tokens.focus_width + FOUi.tokens.border_width
+	card.add_theme_stylebox_override("panel", style)
+
+
+## Drop the marks mark_drop_target() left in \a container (a drag ended).
+static func clear_drop_marks(container: Node) -> void:
+	for child in container.get_children():
+		_unmark(child)
+
+
+static func _unmark(node: Node) -> void:
+	if not node.has_meta("drop_mark"):
+		return
+	var previous: Variant = node.get_meta("drop_mark")
+	node.remove_meta("drop_mark")
+	if previous is StyleBox:
+		node.add_theme_stylebox_override("panel", previous)
+	else:
+		node.remove_theme_stylebox_override("panel")
+
+
 static func clear(container: Node) -> void:
 	for child in container.get_children():
 		child.queue_free()

@@ -78,6 +78,12 @@ func _init() -> void:
 	_build()
 
 
+# A drag ended: no card is marked as where it goes.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END and _queue_list:
+		ScreenKit.clear_drop_marks(_queue_list)
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if visible and event.is_action_pressed("ui_cancel"):
 		close_requested.emit()
@@ -396,7 +402,10 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	card.set_drag_forwarding(
 		func(_at): return {"type": QUEUE_DRAG, "name": tech_name},
 		func(_at, data):
-			return data is Dictionary and data.get("type", "") in [QUEUE_DRAG, TECH_DRAG],
+			var ok: bool = data is Dictionary and data.get("type", "") in [QUEUE_DRAG, TECH_DRAG]
+			if ok:
+				ScreenKit.mark_drop_target(card)  # it goes before this one
+			return ok,
 		func(_at, data): _drop_on_queue(data, position)
 	)
 	var row := HBoxContainer.new()
@@ -461,7 +470,20 @@ func _catalog_row(tech: Dictionary) -> Control:
 	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	if status != "complete":
 		row.set_drag_forwarding(
-			func(_at): return {"type": TECH_DRAG, "name": tech_name}, Callable(), Callable()
+			func(_at):
+				row.set_drag_preview(
+					DesignerArt.drag_preview(
+						(
+							FOArt.icon(tech.get("icon", ""))
+							if FOArt.icon(tech.get("icon", ""))
+							else FOArt.tech_category_icon(tech.get("category", ""))
+						),
+						FOUi.tokens.icon_large
+					)
+				)
+				return {"type": TECH_DRAG, "name": tech_name},
+			Callable(),
+			Callable()
 		)
 	# Double-click queues it, as in the tree (Shift: at the top); right-click
 	# for the tech menu.
