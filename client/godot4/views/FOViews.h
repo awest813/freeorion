@@ -147,7 +147,8 @@ public:
     /** The player's empire at a glance, as the GG map toolbar shows it:
       * industry / industry_spent (PP), research / research_spent (RP),
       * influence (IP stockpile) and influence_change (expected next turn),
-      * pp_stockpile, population, ships, detection; eliminated and won.
+      * pp_stockpile, population, ships, detection, capital_id; eliminated
+      * and won.
       * {} without an empire. */
     static godot::Dictionary get_empire_resources();
 
@@ -193,7 +194,9 @@ public:
       *  - supply_lanes / supply_lane_owners: index pairs of lanes each
       *    empire's supply crosses, one owner ID per pair
       *  - field_ids, field_positions, field_radii (PackedFloat32Array),
-      *    field_types (type names) and field_graphics (art paths) */
+      *    field_types (type names) and field_graphics (art paths)
+      *  - detection_positions / detection_radii: the player's detection
+      *    ranges, one per own detecting object (duplicates dropped) */
     static godot::Dictionary get_map_snapshot();
 
 protected:

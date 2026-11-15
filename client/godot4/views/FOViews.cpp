@@ -1,5 +1,7 @@
 #include "FOViews.h"
 
+#include <set>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
@@ -539,6 +541,8 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     godot::PackedFloat32Array field_radii;
     godot::PackedStringArray field_types;
     godot::PackedStringArray field_graphics;
+    godot::PackedVector2Array detection_positions;
+    godot::PackedFloat32Array detection_radii;
 
     if (auto* app = ClientApp::GetApp()) {
         const auto& objects = app->GetUniverse().Objects();
@@ -590,6 +594,28 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
                                                                             : std::string{"fields/ion_storm.png"}));
         }
 
+        // The player's detection ranges: one circle per own object that
+        // detects (a fleet's ships share one place; keep each circle once).
+        {
+            std::set<std::tuple<int, int, int>> seen;
+            const int self = app->EmpireID();
+            for (const auto* object : objects.allRaw()) {
+                if (self == ALL_EMPIRES || !object->OwnedBy(self) || destroyed.contains(object->ID()))
+                    continue;
+                const auto* meter = object->GetMeter(MeterType::METER_DETECTION);
+                const float radius = meter ? meter->Initial() : 0.0f;
+                if (radius <= 0.0f)
+                    continue;
+                const auto key = std::tuple{static_cast<int>(object->X()), static_cast<int>(object->Y()),
+                                            static_cast<int>(radius)};
+                if (!seen.insert(key).second)
+                    continue;
+                detection_positions.push_back(godot::Vector2(static_cast<float>(object->X()),
+                                                             static_cast<float>(object->Y())));
+                detection_radii.push_back(radius);
+            }
+        }
+
         // Supply: each empire's supplied systems and the lanes its supply
         // crosses (traversals are directed; keep one per lane and empire).
         const auto& supply = app->GetSupplyManager();
@@ -636,6 +662,8 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["field_radii"] = field_radii;
     snapshot["field_types"] = field_types;
     snapshot["field_graphics"] = field_graphics;
+    snapshot["detection_positions"] = detection_positions;
+    snapshot["detection_radii"] = detection_radii;
     return snapshot;
 }
 
@@ -665,6 +693,7 @@ godot::Dictionary FOUniverse::get_empire_resources() {
     result["ships"] = ships;
     const auto* detection = empire->GetMeter("METER_DETECTION_STRENGTH");
     result["detection"] = detection ? detection->Current() : 0.0f;
+    result["capital_id"] = empire->CapitalID();
     result["eliminated"] = empire->Eliminated();
     result["won"] = empire->Won();
     return result;
