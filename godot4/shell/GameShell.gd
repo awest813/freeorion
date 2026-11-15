@@ -24,6 +24,7 @@ var ship_panel: ShipPanel
 var map_scale: MapScale
 var minimap: MiniMap
 var map_modes: MapModes
+var hints: HintCoach
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
@@ -214,6 +215,13 @@ func _ready() -> void:
 	system_panel.ships_dropped.connect(_on_fleet_merge)
 
 	# The menu covers everything, the top bar included.
+	# First-time hints, over the map and screens but under the menu; only in
+	# a real game.
+	hints = HintCoach.new()
+	hints.persist = follow_game
+	hints.enabled = follow_game
+	add_child(hints)
+
 	game_menu = GameMenu.new()
 	game_menu.resume_requested.connect(game_menu.close)
 	game_menu.screen_requested.connect(_on_menu_screen_requested)
@@ -252,6 +260,8 @@ func _ready() -> void:
 		map_modes.load_map_aids(options)
 		# A loaded game that was already won or lost isn't announced again.
 		check_game_over(FOUniverse.get_empire_resources(), true)
+		hints.offer("map")
+		hints.offer("end_turn", top_bar.get_end_turn_button())
 
 
 # Esc on the map: clear the selection first, then open the menu. Screens and
@@ -388,6 +398,7 @@ func show_screen(screen_name: String) -> void:
 		map_modes.cancel_placement()
 	active_screen = screen_name
 	top_bar.set_active_screen(screen_name)
+	hints.offer(screen_name)
 	var screens := _screens()
 	for key in screens:
 		screens[key].visible = key == screen_name
@@ -498,6 +509,7 @@ func _on_planet_selected(planet_id: int) -> void:
 	system_panel.select_fleet(-1)
 	if follow_game:
 		planet_panel.show_planet(planet_id)
+	hints.offer("planet", planet_panel)
 
 
 func _on_building_scrap(building_id: int) -> void:
@@ -510,6 +522,7 @@ func _on_fleet_selected(fleet_id: int) -> void:
 	if fleet_id >= 0:
 		planet_panel.show_data({})
 		map_modes.clear_fleet_selection()
+		hints.offer("fleet", fleet_panel)
 	if fleet_id < 0 or ship_panel.visible and not _fleet_has_ship(fleet_id, ship_panel.ship_id):
 		ship_panel.show_data({})
 	_show_route(fleet_id)

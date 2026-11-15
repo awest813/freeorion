@@ -2046,6 +2046,61 @@ Remove this shortcut
 OPTIONS_HOTKEY_MOVED
 %1% was taken from "%2%", which now has no key.
 
+# First-time hints in the Godot client. HINT_END_TURN: %1% the End turn key.
+HINT_TITLE
+Tip
+
+HINT_GOT_IT
+Got it
+
+HINT_STOP
+No more hints
+
+HINT_RESET
+Show hints again
+
+HINT_RESET_DONE
+Hints will show again.
+
+OPTIONS_DB_UI_HINTS_SEEN
+First-time hints already seen in the Godot client
+
+OPTIONS_DB_UI_HINTS_ENABLED
+Show first-time hints in the Godot client
+
+HINT_MAP
+Click a system to see its planets and fleets. With one of your fleets selected, right-click a system to send it there (Shift adds a waypoint). Drag a box on empty space to select several fleets. The turn's reports are at the bottom left.
+
+HINT_END_TURN
+When your orders are given, end the turn here (%1%). Before it ends you are told about unspent points and ships waiting for orders.
+
+HINT_FLEET
+A fleet's ships, stance and route. Tick ships to split them off, drag a ship onto another fleet to move it there, and click a ship's name for its details.
+
+HINT_PLANET
+Hover a meter's name for everything behind its value. "Who could live here?" shows which of your species could settle this planet.
+
+HINT_PRODUCTION
+Production points are spent from the top of the queue down. Pick a place to build on the right, or ⌖ to see every planet that can build an item.
+
+HINT_RESEARCH
+Research points go to the queue from the top. Adding a tech queues what it needs first. The Tree view shows how techs lead to each other.
+
+HINT_GOVERNMENT
+Policies cost influence each turn while adopted. Adopt one from the list on the right into a free slot of its category; if it can't be adopted, the reason is shown.
+
+HINT_DESIGN
+Pick a hull on the left, then fill its slots with parts on the right. Name the design to create it; it can then be built.
+
+HINT_OBJECTS
+Every planet, fleet, ship and building you know of. Group and filter them at the top, right-click a column title to choose columns, and right-click a row for actions.
+
+HINT_EMPIRES
+Propose peace or alliances to the other empires here. The Statistics tab charts how the empires compare over time.
+
+HINT_PEDIA
+Search the encyclopedia, or follow the links in any text in the game to its article.
+
 # Before ending a turn: the dialog and each kind of warning.
 READINESS_TITLE
 Before ending the turn

@@ -210,6 +210,11 @@ func _on_screen_toggled(pressed: bool, screen_name: String) -> void:
 	screen_requested.emit(screen_name if pressed else "")
 
 
+## The End turn button (for hints pointing at it).
+func get_end_turn_button() -> Button:
+	return _end_turn
+
+
 func is_waiting() -> bool:
 	return _waiting
 

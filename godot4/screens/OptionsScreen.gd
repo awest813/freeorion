@@ -25,6 +25,7 @@ const HIDDEN_PREFIXES := [
 	"audio.effects.enabled",
 	"audio.effects.volume",
 	"ui.hotkey.godot.",
+	"ui.hints.",
 ]
 ## Sound controls: on/off option, volume option, label key.
 const AUDIO := [
@@ -88,6 +89,15 @@ func set_hotkey(hotkey: String, text: String) -> void:
 	_refresh_hotkeys()
 
 
+## Show the first-time hints again (HintCoach's options).
+func reset_hints() -> void:
+	if source.exists(HintCoach.OPTION_SEEN):
+		source.set_value(HintCoach.OPTION_SEEN, "")
+	if source.exists(HintCoach.OPTION_ENABLED):
+		source.set_value(HintCoach.OPTION_ENABLED, true)
+	_status.text = tr("HINT_RESET_DONE")
+
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if visible and event.is_action_pressed("ui_cancel"):
 		close_requested.emit()
@@ -146,6 +156,12 @@ func _build() -> void:
 	_motion.tooltip_text = tr("OPTIONS_DB_UI_REDUCE_MOTION")
 	_motion.toggled.connect(func(on): _apply(FOUi.OPTION_REDUCE_MOTION, on))
 	grid.add_child(_motion)
+
+	grid.add_child(ScreenKit.label(tr("HINT_TITLE"), "SecondaryLabel"))
+	var hints := Button.new()
+	hints.text = tr("HINT_RESET")
+	hints.pressed.connect(reset_hints)
+	grid.add_child(hints)
 
 	# Music and sounds: a switch and a volume slider each.
 	interface.add_child(ScreenKit.label(tr("OPTIONS_AUDIO"), "TitleLabel"))
