@@ -26,6 +26,9 @@ const HIDDEN_PREFIXES := [
 	"audio.effects.volume",
 	"ui.hotkey.godot.",
 	"ui.hints.",
+	"resource.stringtable.path",
+	"video.fullscreen.enabled",
+	"video.windowed.",
 ]
 ## Sound controls: on/off option, volume option, label key.
 const AUDIO := [
@@ -39,6 +42,8 @@ var _status: Label
 var _scale: OptionButton
 var _theme: OptionButton
 var _motion: CheckButton
+var _language: OptionButton
+var _fullscreen: CheckButton
 ## Per AUDIO row: [switch, volume slider].
 var _audio: Array = []
 var _search: LineEdit
@@ -109,6 +114,9 @@ func refresh() -> void:
 	_scale.select(_scale_index(scale_setting))
 	_theme.select(maxi(0, THEMES.find(str(source.get_value(FOUi.OPTION_THEME)))))
 	_motion.set_pressed_no_signal(bool(source.get_value(FOUi.OPTION_REDUCE_MOTION)))
+	_fill_languages()
+	FOWindow.add_options(source)
+	_fullscreen.set_pressed_no_signal(bool(source.get_value(FOWindow.OPTION_FULLSCREEN)))
 	for i in AUDIO.size():
 		if source.exists(AUDIO[i][0]):
 			_audio[i][0].set_pressed_no_signal(bool(source.get_value(AUDIO[i][0])))
@@ -156,6 +164,17 @@ func _build() -> void:
 	_motion.tooltip_text = tr("OPTIONS_DB_UI_REDUCE_MOTION")
 	_motion.toggled.connect(func(on): _apply(FOUi.OPTION_REDUCE_MOTION, on))
 	grid.add_child(_motion)
+
+	grid.add_child(ScreenKit.label(tr("OPTIONS_LANGUAGE_NAME"), "SecondaryLabel"))
+	_language = OptionButton.new()
+	_language.item_selected.connect(_on_language_selected)
+	grid.add_child(_language)
+
+	grid.add_child(ScreenKit.label(tr("OPTIONS_FULLSCREEN"), "SecondaryLabel"))
+	_fullscreen = CheckButton.new()
+	_fullscreen.tooltip_text = FOHotkeys.binding("fullscreen")
+	_fullscreen.toggled.connect(func(on): FOWindow.set_fullscreen(on, source))
+	grid.add_child(_fullscreen)
 
 	grid.add_child(ScreenKit.label(tr("HINT_TITLE"), "SecondaryLabel"))
 	var hints := Button.new()
@@ -352,6 +371,27 @@ func _apply(option: String, value: Variant, editor: Control = null) -> void:
 		editor.set_value_no_signal(source.get_value(option))
 	elif editor is LineEdit:
 		editor.text = str(source.get_value(option))
+
+
+# Every stringtable's language, by its name in that language's own terms
+# where Godot knows it.
+func _fill_languages() -> void:
+	_language.clear()
+	var current: String = source.get_language()
+	for code in source.get_languages():
+		var name := TranslationServer.get_locale_name(code)
+		_language.add_item("%s (%s)" % [name, code] if not name.is_empty() else code)
+		_language.set_item_metadata(_language.item_count - 1, code)
+		if code == current:
+			_language.select(_language.item_count - 1)
+
+
+func _on_language_selected(index: int) -> void:
+	var code: String = _language.get_item_metadata(index)
+	if source.set_language(code):
+		_status.text = tr("OPTIONS_LANGUAGE_CHANGED")
+	else:
+		_status.text = tr("OPTIONS_INVALID").replace("%1%", code)
 
 
 func _reset(option: String) -> void:

@@ -220,9 +220,19 @@ func _build() -> void:
 	for field in TEXTS:
 		var edit := LineEdit.new()
 		edit.custom_minimum_size.x = 260
-		_add_row(grid, field[1], edit, field[0])
 		if field[0] == "setup.seed":
-			edit.tooltip_text = tr("GSETUP_RANDOM_SEED")
+			# The seed, and a button rolling a new one.
+			edit.tooltip_text = tr("GSETUP_SEED_TIP")
+			edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var seed_row := HBoxContainer.new()
+			seed_row.add_child(edit)
+			var roll := ScreenKit.small_button("⚄", "GSETUP_RANDOMIZE_SEED")
+			roll.pressed.connect(func(): edit.text = random_seed())
+			seed_row.add_child(roll)
+			_add_row(grid, field[1], seed_row, "")
+			_editors[field[0]] = edit
+			continue
+		_add_row(grid, field[1], edit, field[0])
 		if field[0] == "setup.empire.name":
 			_species = OptionButton.new()
 			_species.tooltip_text = tr("GSETUP_SPECIES_RANDOM_DESC")
@@ -459,6 +469,15 @@ func _update_preview() -> void:
 func _on_start_pressed() -> void:
 	if apply():
 		start_requested.emit()
+
+
+## A new random seed: eight letters and digits, as GG's randomise button.
+static func random_seed() -> String:
+	const CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	var text := ""
+	for i in 8:
+		text += CHARS[randi() % CHARS.length()]
+	return text
 
 
 static func _levels(kind: String) -> Array:

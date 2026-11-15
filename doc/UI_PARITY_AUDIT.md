@@ -105,12 +105,12 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 
 ## Title, options, saves, messages, Pedia, empires
 
-- [ ] Continue the newest save from the title screen; Pedia from the title screen — S
+- [x] Continue the newest save from the title screen; Pedia from the title screen — S
 - [ ] Command line: `--continue`, `--load`, `--auto-connect`, `-f` — S
-- [ ] Video: fullscreen (Alt+Enter), window size and position remembered — M
-- [ ] Language picker in Options — S
+- [x] Video: fullscreen (Alt+Enter), window size and position remembered — M
+- [x] Language picker in Options — S
 - [ ] Hide options this client doesn't use (colours, fonts, ...) — M
-- [ ] Randomise-seed button in galaxy setup — S
+- [x] Randomise-seed button in galaxy setup — S
 - [ ] Save list: galaxy details, sortable columns — S
 - [ ] Message log: turn begun, game saved, diplomatic changes, chat, `/pedia` — M
 - [x] Content checksum mismatch warning — S

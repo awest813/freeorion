@@ -14,6 +14,7 @@ var setup: GalaxySetupScreen
 var options: OptionsScreen
 var saves: SaveLoadScreen
 var credits: CreditsScreen
+var pedia: PediaScreen
 var connect_screen: ConnectScreen
 var lobby: LobbyScreen
 var game: GameShell
@@ -36,6 +37,7 @@ func _ready() -> void:
 		audio.set_audible(DisplayServer.get_name() != "headless")
 	if not is_instance_valid(GlobalFreeOrionNode):
 		return
+	FOWindow.restore(Engine.get_singleton("FOOptions"))
 	# Closing the window in game shuts the server down first, as Exit does.
 	get_tree().auto_accept_quit = false
 	GlobalFreeOrionNode.parsing_completed.connect(_on_parsing_completed)
@@ -65,6 +67,8 @@ func _notification(what: int) -> void:
 ## Quit the application once the sounds have stopped: the audio server
 ## frees them on a later mix, else they leak at exit.
 func quit() -> void:
+	if Engine.has_singleton("FOOptions"):
+		FOWindow.remember(Engine.get_singleton("FOOptions"))
 	var audio := get_node_or_null("/root/FOAudio")
 	if audio:
 		audio.stop_all()
@@ -82,6 +86,7 @@ func leave_game(action: String, path := "") -> void:
 	game = null
 	_build_menus()
 	title.set_content_ready(_content_ready)
+	title.set_can_continue(_content_ready and not saves.source.list_saves().is_empty())
 	title.set_busy(tr("MENU_LEAVING"))
 	GlobalFreeOrionNode.quit_game()
 
@@ -130,7 +135,14 @@ func _build_menus() -> void:
 	title.load_requested.connect(_show_saves)
 	saves.close_requested.connect(_show_title)
 	saves.load_started.connect(_on_load_started)
-	title.exit_requested.connect(get_tree().quit)
+	title.exit_requested.connect(quit)
+	title.continue_requested.connect(continue_game)
+	title.pedia_requested.connect(_show_pedia)
+	pedia = PediaScreen.new()
+	pedia.visible = false
+	pedia.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(pedia)
+	pedia.close_requested.connect(_show_title)
 	setup.back_requested.connect(_show_title)
 	setup.start_requested.connect(_start_game)
 	options.close_requested.connect(_show_title)
@@ -143,7 +155,32 @@ func _show_title() -> void:
 	credits.visible = false
 	connect_screen.visible = false
 	lobby.visible = false
+	pedia.visible = false
 	title.visible = true
+
+
+## Load the newest save, as the GG client's Continue.
+func continue_game() -> void:
+	var newest: Array = saves.source.list_saves()
+	if newest.is_empty() or not _content_ready:
+		return
+	if saves.source.load_game(newest[0]["path"]):
+		_on_load_started(newest[0]["path"])
+	else:
+		title.show_notice(tr("SAVES_LOAD_FAILED"))
+
+
+func _show_pedia() -> void:
+	title.visible = false
+	pedia.visible = true
+	FOUi.fade_in(pedia)
+
+
+# Alt+Enter (hotkey "fullscreen") toggles fullscreen, in the menus and in game.
+func _unhandled_key_input(event: InputEvent) -> void:
+	if FOHotkeys.match_event(event) == "fullscreen" and Engine.has_singleton("FOOptions"):
+		FOWindow.toggle_fullscreen(Engine.get_singleton("FOOptions"))
+		get_viewport().set_input_as_handled()
 
 
 func _show_credits() -> void:
@@ -190,6 +227,7 @@ func _start_game() -> void:
 func _on_parsing_completed() -> void:
 	_content_ready = true
 	title.set_content_ready(true)
+	title.set_can_continue(not saves.source.list_saves().is_empty())
 	if GlobalFreeOrionNode.options_get_bool("quickstart"):
 		_start_game()
 
@@ -204,7 +242,7 @@ func _on_start_game(is_new_game: bool) -> void:
 	if is_new_game and option_db.exists(OPTION_SAVED_DESIGNS):
 		if option_db.get_value(OPTION_SAVED_DESIGNS):
 			FODesigner.add_all_saved()
-	for child in [title, setup, options, saves, credits, connect_screen, lobby]:
+	for child in [title, setup, options, saves, credits, connect_screen, lobby, pedia]:
 		child.queue_free()
 	game = GameShell.new()
 	game.leave_requested.connect(leave_game)

@@ -2798,6 +2798,18 @@ Clear
 FLEETS_ORDERED
 %1% of %2% on their way.
 
+OPTIONS_LANGUAGE_NAME
+Language
+
+OPTIONS_LANGUAGE_CHANGED
+Language changed. Screens opened from now on use it; restart the game to see it everywhere.
+
+GSETUP_SEED_TIP
+The same seed and settings make the same galaxy. Leave it empty for a random one.
+
+GSETUP_RANDOMIZE_SEED
+Roll a new random seed
+
 PRODUCTION_MOVE_TOP
 Move to the top
 

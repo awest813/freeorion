@@ -59,3 +59,21 @@ func game_rules() -> Array:
 
 func set_game_rules(values: Dictionary) -> bool:
 	return FOGameRules.set_rules(values)
+
+
+## Register option \a option_name with \a default (if not there yet).
+func add_option(option_name: String, description_key: String, default: Variant) -> bool:
+	return _options().add_option(option_name, description_key, default)
+
+
+## Language codes with a stringtable ("en", "de", ...).
+func get_languages() -> PackedStringArray:
+	return _options().get_languages()
+
+
+func get_language() -> String:
+	return _options().get_language()
+
+
+func set_language(code: String) -> bool:
+	return _options().set_language(code)

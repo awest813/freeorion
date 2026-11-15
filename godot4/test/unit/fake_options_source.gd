@@ -26,6 +26,7 @@ var options := {
 	{"value": false, "default": true, "description": "OPTIONS_DB_BINARY_SERIALIZATION"},
 }
 var committed := false
+var language := "en"
 var rules: Array = [
 	{
 		"name": "RULE_NUM_COMBAT_ROUNDS",
@@ -132,4 +133,24 @@ func set_game_rules(values: Dictionary) -> bool:
 	if refuse_rules:
 		return false
 	rules_set = values
+	return true
+
+
+func add_option(option_name: String, description_key: String, default: Variant) -> bool:
+	if options.has(option_name):
+		return false
+	options[option_name] = {"value": default, "default": default, "description": description_key}
+	return true
+
+
+func get_languages() -> PackedStringArray:
+	return PackedStringArray(["de", "en", "fr"])
+
+
+func get_language() -> String:
+	return language
+
+
+func set_language(code: String) -> bool:
+	language = code
 	return true

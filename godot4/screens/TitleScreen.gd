@@ -3,6 +3,8 @@ extends Control
 ## Title: seasonal splash and logo, the main menu and the version. Menu
 ## entries that need game content stay disabled until parsing completes.
 
+## Load the newest save (Continue).
+signal continue_requested
 signal new_game_requested
 signal quick_start_requested
 signal multiplayer_requested
@@ -10,6 +12,7 @@ signal load_requested
 signal options_requested
 signal exit_requested
 signal credits_requested
+signal pedia_requested
 
 const WEBSITE := "https://freeorion.org"
 
@@ -18,6 +21,8 @@ const ART_DIR := "res://assets/art/"
 var _menu: VBoxContainer
 var _status: Label
 var _content_buttons: Array[Button] = []
+var _continue: Button
+var _new_game: Button
 
 
 func _init() -> void:
@@ -33,6 +38,15 @@ func set_content_ready(ready: bool) -> void:
 		button.disabled = not ready
 	_status.text = "" if ready else tr("TITLE_LOADING")
 	_status.visible = not _status.text.is_empty()
+
+
+## Offer Continue (loading the newest save) when \a can is true: it then
+## leads the menu, else New Game does.
+func set_can_continue(can: bool) -> void:
+	_continue.visible = can
+	_continue.theme_type_variation = "PrimaryButton"
+	_new_game.theme_type_variation = "" if can else "PrimaryButton"
+	(_continue if can else _new_game).call_deferred("grab_focus")
 
 
 ## Show a status line instead of the menu, e.g. while a game starts.
@@ -97,11 +111,16 @@ func _build() -> void:
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	panel_box.add_child(_status)
 
+	_continue = _menu_button("INTRO_BTN_CONTINUE", continue_requested, "PrimaryButton")
+	_continue.visible = false
+	_content_buttons.push_back(_continue)
 	var new_game := _menu_button("TITLE_NEW_GAME", new_game_requested, "PrimaryButton")
+	_new_game = new_game
 	_content_buttons.push_back(new_game)
 	_content_buttons.push_back(_menu_button("TITLE_QUICK_START", quick_start_requested))
 	_content_buttons.push_back(_menu_button("INTRO_BTN_MULTI_PLAYER", multiplayer_requested))
 	_content_buttons.push_back(_menu_button("GAME_MENU_LOAD", load_requested))
+	_content_buttons.push_back(_menu_button("MAP_BTN_PEDIA", pedia_requested))
 	_menu_button("OPTIONS_TITLE", options_requested)
 	_menu_button("TITLE_ABOUT", credits_requested, "GhostButton")
 	_menu_button("TITLE_EXIT", exit_requested)

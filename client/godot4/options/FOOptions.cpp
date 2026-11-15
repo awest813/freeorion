@@ -265,8 +265,18 @@ godot::PackedStringArray FOOptions::get_languages() const {
     return result;
 }
 
-godot::String FOOptions::get_language() const
-{ return godot::String::utf8(Language().c_str()); }
+godot::String FOOptions::get_language() const {
+    // The code of the stringtable in use ("en", "de", ...): its file's stem.
+    try {
+        const auto path = GetOptionsDB().Get<std::filesystem::path>("resource.stringtable.path");
+        const auto stem = path.stem().string();
+        if (IsLanguageCode(stem))
+            return godot::String::utf8(stem.c_str());
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOOptions::get_language: " << e.what();
+    }
+    return "en";
+}
 
 bool FOOptions::set_language(const godot::String& code) {
     const std::string stem = code.utf8().get_data();
