@@ -14,6 +14,7 @@
 #include "../../../universe/Planet.h"
 #include "../../../universe/System.h"
 #include "../../../universe/Universe.h"
+#include "../../../util/SitRepEntry.h"
 
 namespace {
     template <typename T>
@@ -127,6 +128,7 @@ void FOFleet::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_speed"), &FOFleet::get_speed);
     ClassDB::bind_method(D_METHOD("is_aggressive"), &FOFleet::is_aggressive);
     ClassDB::bind_method(D_METHOD("is_passive"), &FOFleet::is_passive);
+    ClassDB::bind_method(D_METHOD("get_eta"), &FOFleet::get_eta);
 }
 
 bool FOFleet::is_valid() const
@@ -191,6 +193,17 @@ bool FOFleet::is_aggressive() const {
 bool FOFleet::is_passive() const {
     const auto* fleet = Lookup<Fleet>(m_id);
     return fleet && fleet->Passive();
+}
+
+int FOFleet::get_eta() const {
+    const auto* fleet = Lookup<Fleet>(m_id);
+    const auto* app = ClientApp::GetApp();
+    if (!fleet || !app || fleet->FinalDestinationID() == INVALID_OBJECT_ID)
+        return 0;
+    const auto eta = fleet->ETA(app->GetContext()).first;
+    if (eta == Fleet::ETA_NEVER || eta == Fleet::ETA_UNKNOWN || eta == Fleet::ETA_OUT_OF_RANGE)
+        return -1;
+    return static_cast<int>(eta);
 }
 
 // FOPlanet
@@ -289,6 +302,7 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_ids"), &FOUniverse::get_planet_ids);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_color", "empire_id"), &FOUniverse::get_empire_color);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_name", "empire_id"), &FOUniverse::get_empire_name);
+    ClassDB::bind_static_method(cls, D_METHOD("get_sitreps", "turn"), &FOUniverse::get_sitreps, DEFVAL(-1));
     ClassDB::bind_static_method(cls, D_METHOD("get_map_snapshot"), &FOUniverse::get_map_snapshot);
 }
 
@@ -328,6 +342,36 @@ godot::String FOUniverse::get_empire_name(int empire_id) {
     const auto* app = ClientApp::GetApp();
     const auto* empire = app ? app->GetEmpire(empire_id) : nullptr;
     return empire ? ToGodot(empire->Name()) : godot::String();
+}
+
+godot::Array FOUniverse::get_sitreps(int turn) {
+    godot::Array result;
+    const auto* app = ClientApp::GetApp();
+    const auto* empire = app ? app->GetEmpire(app->EmpireID()) : nullptr;
+    if (!empire)
+        return result;
+    if (turn < 0)
+        turn = app->CurrentTurn();
+    const auto& context = app->GetContext();
+    const auto& fixed_infos = empire->SitRepFixedInfos();
+    for (const auto& [turn_and_fixed_idx, params_lists] : empire->SitReps()) {
+        const auto [sitrep_turn, fixed_idx] = turn_and_fixed_idx;
+        if (sitrep_turn != turn || fixed_idx >= fixed_infos.size())
+            continue;
+        for (const auto& params : params_lists) {
+            SitRepEntry sitrep(fixed_infos[fixed_idx], SitRepEntry::UniqueInfo(params.ToStringVector(), turn));
+            auto [text, valid] = sitrep.GetTextAndValidity(context);
+            if (!valid)
+                continue;
+            godot::Dictionary entry;
+            entry["text"] = ToGodot(text);
+            entry["icon"] = ToGodot(sitrep.GetIcon());
+            entry["label"] = ToGodot(sitrep.GetLabel());
+            entry["turn"] = sitrep.GetTurn();
+            result.push_back(entry);
+        }
+    }
+    return result;
 }
 
 godot::Dictionary FOUniverse::get_map_snapshot() {

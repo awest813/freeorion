@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/object.hpp>
 #include <godot_cpp/classes/ref.hpp>
 #include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_int32_array.hpp>
@@ -60,6 +61,9 @@ public:
     double get_speed() const;
     bool is_aggressive() const;
     bool is_passive() const;
+    /** Turns until the fleet reaches its final destination: 0 if not moving,
+      * -1 if it can't get there (no route, out of fuel range or unknown). */
+    int get_eta() const;
 
 protected:
     static void _bind_methods();
@@ -107,6 +111,11 @@ public:
     static godot::PackedInt32Array get_planet_ids();
     static godot::Color get_empire_color(int empire_id);
     static godot::String get_empire_name(int empire_id); ///< empty if unknown
+
+    /** The player's situation reports for \a turn (default: current turn),
+      * as dictionaries {text, icon, label, turn}. text keeps FreeOrion link
+      * markup (<planet 12>Name</planet>), for FORichText. */
+    static godot::Array get_sitreps(int turn = -1);
 
     /** Bulk data for the galaxy map renderer, as packed arrays so a frame
       * needs one call instead of one per object. Keys:
