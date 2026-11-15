@@ -153,14 +153,23 @@ func _stream(file: String) -> AudioStream:
 	return _streams[file]
 
 
-# A dragged item dropped somewhere that took it.
+# A dragged item dropped somewhere that took it. The music pauses while
+# the window is in the background, and goes on from there (as GG's).
 func _notification(what: int) -> void:
-	if (
-		what == NOTIFICATION_DRAG_END
-		and is_inside_tree()
-		and get_viewport().gui_is_drag_successful()
-	):
-		play("drop")
+	match what:
+		NOTIFICATION_APPLICATION_FOCUS_OUT:
+			set_window_focused(false)
+		NOTIFICATION_APPLICATION_FOCUS_IN:
+			set_window_focused(true)
+		NOTIFICATION_DRAG_END:
+			if is_inside_tree() and get_viewport().gui_is_drag_successful():
+				play("drop")
+
+
+## Pause the music while the window isn't \a focused; resume it after.
+func set_window_focused(focused: bool) -> void:
+	if _music:
+		_music.stream_paused = not focused
 
 
 # Buttons click when pressed and tick when hovered, unless they say otherwise;

@@ -17,6 +17,8 @@ func _ready() -> void:
 		return
 	GlobalFreeOrionNode.start_game.connect(_on_start_game)
 	GlobalFreeOrionNode.turn_update.connect(refresh)
+	# Mid-turn: fleets where they moved to, before the turn's results.
+	GlobalFreeOrionNode.turn_partial_update.connect(refresh)
 	if GlobalFreeOrionNode.get_current_turn() >= 1:
 		refresh()
 

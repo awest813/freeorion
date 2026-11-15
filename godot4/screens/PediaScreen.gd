@@ -23,6 +23,7 @@ const ARTICLE_KINDS := [
 	"metertype",
 	"empire",
 	"shipdesign",
+	"monsterdesign",
 	"planet",
 	"system",
 	"fleet",

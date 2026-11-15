@@ -101,6 +101,10 @@ private:
 
     std::unique_ptr<GodotClientApp> m_app;
     bool m_turn_auto_ended = false;
+    bool m_auto_quit_saving = false;
+    /** Ends this turn by itself while auto-advance-n-turns lasts; after it,
+      * with auto-quit, saves and then quits (as the GG client). */
+    void AutoAdvance();
     std::atomic<bool> m_parsing_done = false; ///< content parsed, so checksums can be compared
     SaveGameUIData m_ui_data;              ///< sent with each turn's orders
     std::optional<SaveGameUIData> m_loaded_ui_data; ///< from the loaded save, if any

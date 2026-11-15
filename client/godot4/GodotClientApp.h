@@ -50,12 +50,15 @@ public:
     /** The server finished the oldest pending save; sends the next one. */
     void SaveGameCompleted();
 
-    enum class AutosaveMoment { TURN_START, TURN_END, EXIT };
+    /** AUTO_QUIT: --auto-quit's save once the auto-advanced turns are done
+      * (always made, as GG's). */
+    enum class AutosaveMoment { TURN_START, TURN_END, EXIT, AUTO_QUIT };
 
     /** Saves to the "auto" save directory if the save.auto.* options ask
       * for it at \a moment, keeping only the newest autosaves. Single
       * player only, as the GG client. */
-    void Autosave(AutosaveMoment moment);
+    /** Returns whether a save was asked of the server. */
+    bool Autosave(AutosaveMoment moment);
 
     /** Asks the server for the contents of combat logs the client only
       * knows by ID, in batches, as the GG client does each turn. */

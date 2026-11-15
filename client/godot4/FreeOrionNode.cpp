@@ -74,6 +74,8 @@ void FreeOrionNode::_bind_methods() {
     ADD_SIGNAL(godot::MethodInfo("game_ended"));
     ADD_SIGNAL(godot::MethodInfo("combat_logs_updated"));
     ADD_SIGNAL(godot::MethodInfo("diplomacy_changed"));
+    ADD_SIGNAL(godot::MethodInfo("turn_partial_update"));
+    ADD_SIGNAL(godot::MethodInfo("auto_quit"));
     ADD_SIGNAL(godot::MethodInfo("turn_progress",
                                  godot::PropertyInfo(godot::Variant::STRING, "phase"),
                                  godot::PropertyInfo(godot::Variant::STRING, "text")));
@@ -274,6 +276,20 @@ godot::String FreeOrionNode::get_user_config_dir() const
 
 int FreeOrionNode::get_current_turn() const
 { return m_app ? m_app->CurrentTurn() : INVALID_GAME_TURN; }
+
+void FreeOrionNode::AutoAdvance() {
+    m_turn_auto_ended = m_app->AutoTurnsLeft() > 0;
+    if (m_turn_auto_ended) {
+        SaveGameUIData ui_data;
+        m_app->StartTurn(ui_data);
+        m_app->DecAutoTurns();
+    } else if (GetOptionsDB().Get<bool>("auto-quit") && !m_auto_quit_saving) {
+        m_auto_quit_saving = true;
+        // Quit once the save is made; at once if this client can't save.
+        if (!m_app->Autosave(GodotClientApp::AutosaveMoment::AUTO_QUIT))
+            call_deferred("emit_signal", "auto_quit");
+    }
+}
 
 bool FreeOrionNode::is_turn_auto_ended() const
 { return m_turn_auto_ended; }
@@ -517,12 +533,7 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                 m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
             call_deferred("emit_start_game", is_new_game);
 
-            m_turn_auto_ended = m_app->AutoTurnsLeft() > 0;
-            if (m_turn_auto_ended) {
-                SaveGameUIData ui_data;
-                m_app->StartTurn(ui_data);
-                m_app->DecAutoTurns();
-            }
+            AutoAdvance();
 
             break;
         }
@@ -537,6 +548,9 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
         }
         case Message::MessageType::TURN_PARTIAL_UPDATE: {
             ExtractTurnPartialUpdateMessageData(msg, m_app->EmpireID(), GetUniverse());
+            // Fleets moved (before combat): the map shows them, as GG's
+            // mid-turn update.
+            call_deferred("emit_signal", "turn_partial_update");
             break;
         }
         case Message::MessageType::TURN_UPDATE: {
@@ -552,12 +566,7 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
             call_deferred("emit_signal", "turn_update");
 
-            m_turn_auto_ended = m_app->AutoTurnsLeft() > 0;
-            if (m_turn_auto_ended) {
-                SaveGameUIData ui_data;
-                m_app->StartTurn(ui_data);
-                m_app->DecAutoTurns();
-            }
+            AutoAdvance();
             break;
         }
         case Message::MessageType::SAVE_GAME_COMPLETE: {
@@ -567,6 +576,8 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_app->SaveGameCompleted();
             call_deferred("emit_signal", "save_completed",
                           godot::String::utf8(save_filename.c_str()), bytes_written);
+            if (m_auto_quit_saving)
+                call_deferred("emit_signal", "auto_quit");
             break;
         }
         case Message::MessageType::DISPATCH_SAVE_PREVIEWS: {

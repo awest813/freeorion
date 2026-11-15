@@ -52,6 +52,8 @@ func _ready() -> void:
 	# The lobby is rebuilt after each game: reach the current one.
 	GlobalFreeOrionNode.server_saves.connect(func(): lobby.saves_changed())
 	GlobalFreeOrionNode.returned_to_lobby.connect(_on_returned_to_lobby)
+	# --auto-quit: the auto-advanced turns are done and saved.
+	GlobalFreeOrionNode.auto_quit.connect(_on_auto_quit)
 	GlobalFreeOrionNode.chat_received.connect(_on_chat_received)
 	GlobalFreeOrionNode.auth_requested.connect(_on_auth_requested)
 	GlobalFreeOrionNode.mp_disconnected.connect(_on_mp_disconnected)
@@ -84,6 +86,13 @@ func quit() -> void:
 		audio.stop_all()
 		await get_tree().create_timer(AUDIO_STOP_SECONDS).timeout
 	get_tree().quit()
+
+
+func _on_auto_quit() -> void:
+	if game:
+		leave_game("exit")
+	else:
+		quit()
 
 
 ## End the running game, then \a action: "title", "exit", or "load" the
@@ -317,7 +326,12 @@ func _on_game_ended() -> void:
 
 # While a game is generated or loaded, the title says what the server does.
 func _on_turn_progress(_phase: String, text: String) -> void:
-	if not game and is_instance_valid(title) and not title._menu.visible:
+	if game:
+		return
+	# A multiplayer game starting: the lobby says what the server is doing.
+	if is_instance_valid(lobby) and lobby.visible:
+		lobby.set_progress(text)
+	elif is_instance_valid(title) and not title._menu.visible:
 		title.set_busy(text)
 
 

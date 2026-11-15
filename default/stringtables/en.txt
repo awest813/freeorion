@@ -3391,6 +3391,9 @@ next system %1%
 MESSAGES_ZOOM_NOT_FOUND
 Nothing called %1% is known.
 
+PEDIA_KIND_MONSTERDESIGN
+Monsters
+
 OPTIONS_LANGUAGE_NAME
 Language
 

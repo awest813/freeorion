@@ -36,6 +36,7 @@ namespace {
         // Start-up flags, as the GG client's (chmain.cpp).
         db.AddFlag("continue", UserStringNop("OPTIONS_DB_CONTINUE"), OptionsDB::Storable::UNSTORABLE);
         db.AddFlag('A', "auto-connect", UserStringNop("OPTIONS_DB_AUTO_CONNECT"), OptionsDB::Storable::UNSTORABLE);
+        db.AddFlag("auto-quit", UserStringNop("OPTIONS_DB_AUTO_QUIT"), OptionsDB::Storable::UNSTORABLE);
         db.AddFlag("network.server.external.force", UserStringNop("OPTIONS_DB_FORCE_EXTERNAL_SERVER"), OptionsDB::Storable::UNSTORABLE);
         db.Add<std::string>("network.server.uri", UserStringNop("OPTIONS_DB_EXTERNAL_SERVER_ADDRESS"), "localhost");
         db.Add<int>("auto-advance-n-turns",      UserStringNop("OPTIONS_DB_AUTO_N_TURNS"),           0,
@@ -414,12 +415,12 @@ namespace {
     }
 }
 
-void GodotClientApp::Autosave(AutosaveMoment moment) {
+bool GodotClientApp::Autosave(AutosaveMoment moment) {
     // In multiplayer only the host saves, into the server's save directory,
     // as the GG client does.
     if (!m_networking->IsConnected() || CurrentTurn() == INVALID_GAME_TURN ||
         (!m_single_player_game && !m_networking->PlayerIsHost(m_networking->PlayerID())))
-    { return; }
+    { return false; }
     auto& db = GetOptionsDB();
     const int interval = db.Get<int>("save.auto.turn.interval");
     const bool every_turn = interval > 0 && CurrentTurn() % interval == 0;
@@ -436,9 +437,12 @@ void GodotClientApp::Autosave(AutosaveMoment moment) {
     case AutosaveMoment::EXIT:
         wanted = db.Get<bool>("save.auto.exit.enabled");
         break;
+    case AutosaveMoment::AUTO_QUIT:
+        wanted = true;
+        break;
     }
     if (!wanted)
-        return;
+        return false;
 
     const auto dir = (m_single_player_game ? GetSaveDir() : GetServerSaveDir()) / "auto";
     const std::string_view extension = m_single_player_game ? SP_SAVE_FILE_EXTENSION : MP_SAVE_FILE_EXTENSION;
@@ -446,7 +450,7 @@ void GodotClientApp::Autosave(AutosaveMoment moment) {
         std::filesystem::create_directories(dir);
     } catch (const std::exception& e) {
         ErrorLogger() << "GodotClientApp::Autosave: can't create " << PathToString(dir) << ": " << e.what();
-        return;
+        return false;
     }
     // Room for the kept turns (two saves a turn when saving at start and end),
     // plus the first-turn and exit saves.
@@ -458,6 +462,7 @@ void GodotClientApp::Autosave(AutosaveMoment moment) {
     const auto path = PathToString(dir / AutosaveName(m_empires.GetEmpire(EmpireID()).get(), CurrentTurn(), extension));
     DebugLogger() << "GodotClientApp::Autosave to " << path;
     SaveGame(path);
+    return true;
 }
 
 void GodotClientApp::RequestCombatLogs() {

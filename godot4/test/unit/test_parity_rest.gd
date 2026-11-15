@@ -165,3 +165,29 @@ func test_wars_between_other_empires_are_logged():
 	assert_eq(messages.size(), 1, "Once per pair")
 	assert_string_contains(messages[0], "Red")
 	assert_string_contains(messages[0], "Green")
+
+
+func test_music_pauses_in_the_background():
+	var audio := get_node_or_null("/root/FOAudio")
+	if audio == null:
+		pending("No FOAudio autoload in this run")
+		return
+	var before: AudioStream = audio._music.stream
+	audio._music.stream = AudioStreamGenerator.new()
+	audio._music.play()  # Pausing holds only while playing.
+	audio.set_window_focused(false)
+	assert_true(audio._music.stream_paused, "Paused in the background")
+	audio.set_window_focused(true)
+	assert_false(audio._music.stream_paused, "Going on with focus")
+	audio._music.stop()
+	audio._music.stream = before
+
+
+func test_lobby_shows_what_the_server_does():
+	var lobby := LobbyScreen.new()
+	lobby.source = preload("res://test/unit/fake_lobby_source.gd").new()
+	add_child_autofree(lobby)
+	lobby.refresh()
+	lobby.set_progress("Generating universe")
+	assert_eq(lobby.ready_button.text, "Generating universe")
+	assert_true(lobby.ready_button.disabled)

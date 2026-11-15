@@ -1,5 +1,8 @@
 #include "FOPedia.h"
 
+#include <algorithm>
+#include <cctype>
+
 #include <godot_cpp/core/class_db.hpp>
 
 #include <regex>
@@ -404,9 +407,15 @@ godot::Array FOPedia::get_index() {
                     if (const auto* design = app->GetUniverse().GetShipDesign(id))
                         Index(index, "shipdesign", std::to_string(id), {}, design->Name(true));
         }
+        // Premade designs by name too (they have no id on the client).
         for (const auto* premade : GetPredefinedShipDesignManager().GetOrderedShipDesigns())
             if (premade)
-                Index(index, "shipdesign", std::to_string(premade->ID()), "premade", premade->Name(true));
+                Index(index, "shipdesign", premade->Name(false), "premade", premade->Name(true));
+        // Monsters, a section of their own as GG's ENC_MONSTER, by name (the
+        // client knows no ids for them).
+        for (const auto* monster : GetPredefinedShipDesignManager().GetOrderedMonsterDesigns())
+            if (monster)
+                Index(index, "monsterdesign", monster->Name(false), "monster", monster->Name(true));
     } catch (const std::exception& e) {
         ErrorLogger() << "FOPedia::get_index: " << e.what();
     }
@@ -574,13 +583,19 @@ namespace {
             a["text"] = ToGodot(UserStringExists(desc_key) ? UserString(desc_key) : UserString(name));
             return true;
         }
-        if (kind == "shipdesign") {
-            const int id = std::atoi(name.c_str());
-            const ShipDesign* design = app ? app->GetUniverse().GetShipDesign(id) : nullptr;
-            if (!design)
-                for (const auto* premade : GetPredefinedShipDesignManager().GetOrderedShipDesigns())
-                    if (premade && premade->ID() == id)
-                        design = premade;
+        if (kind == "shipdesign" || kind == "monsterdesign") {
+            // The universe's designs by id; premade and monster designs by
+            // name (the client knows no ids for them).
+            const bool by_id = !name.empty() && std::all_of(name.begin() + (name[0] == '-' ? 1 : 0), name.end(),
+                                                            [](unsigned char c) { return std::isdigit(c); });
+            const ShipDesign* design = by_id && app ? app->GetUniverse().GetShipDesign(std::atoi(name.c_str()))
+                                                    : nullptr;
+            const auto& predefined = GetPredefinedShipDesignManager();
+            if (!design && !by_id)
+                for (const auto* candidate : kind == "monsterdesign" ? predefined.GetOrderedMonsterDesigns()
+                                                                     : predefined.GetOrderedShipDesigns())
+                    if (candidate && candidate->Name(false) == name)
+                        design = candidate;
             if (!design)
                 return false;
             a["title"] = ToGodot(design->Name(true));

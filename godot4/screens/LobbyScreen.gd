@@ -42,6 +42,8 @@ var _save_label: Label
 var _conditions: Label
 var _preview: TextureRect
 var _info: Label
+# What the server is doing while it starts the game ("" before it begins).
+var _progress := ""
 var _lobby := {}
 var _saves: Array = []
 
@@ -104,6 +106,15 @@ func conditions_text() -> String:
 	return _conditions.text
 
 
+## What the server is doing while it starts the game (its turn progress:
+## creating the universe, ...), shown on the start button, as GG's lobby
+## shows it.
+func set_progress(text: String) -> void:
+	_progress = text
+	ready_button.text = text if not text.is_empty() else tr("MP_STARTING")
+	ready_button.disabled = true
+
+
 ## Whether \a lobby has a player who plays an empire (observers and
 ## moderators don't): the server can't start a game without one.
 static func has_human_player(lobby: Dictionary) -> bool:
@@ -144,8 +155,10 @@ func _update_ready() -> void:
 	# Everyone is ready: the game is starting, and a ready sent now would be
 	# refused by the server (it disconnects the player).
 	if me_ready and others_ready:
-		ready_button.text = tr("MP_STARTING")
+		ready_button.text = _progress if not _progress.is_empty() else tr("MP_STARTING")
 		ready_button.disabled = true
+	else:
+		_progress = ""
 	_conditions.remove_theme_color_override("font_color")
 	if not has_human_player(_lobby):
 		_conditions.text = tr("MP_NEEDS_HUMAN_PLAYER")

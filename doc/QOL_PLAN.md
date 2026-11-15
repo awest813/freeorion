@@ -2,6 +2,10 @@
 
 Written 2026-11-15, after `UI_PARITY_AUDIT.md` was completed.
 
+**Status: done.** All four phases and R1–R15 are in; each item is marked ✅
+below. Each one is covered by unit tests (`test/unit/test_qol_phase1.gd` to
+`test_qol_phase4.gd`, `test_parity_rest.gd`) and was checked in a running game.
+
 ## 1. Parity re-check
 
 `UI_PARITY_AUDIT.md` was a checklist written by the same person who built the
@@ -60,8 +64,8 @@ All are minor. None blocks playing.
 | R11 ✅ | Split off ships of one design; detailed fleet status (refuelling, ETA to next system, out of range) | low | S |
 | R12 ✅ | Obstructed supply half-lanes; systems split-coloured by several owners; scanlines over out-of-sight fields | low | M |
 | R13 ✅ | Chat: Up/Down history, Tab completion, `/zoom`, timestamps option; third-party diplomacy in the log | low | S |
-| R14 | Mid-turn partial updates shown; lobby shows the server's progress while it generates | low | S |
-| R15 | `--auto-quit` flag; monster designs in the Pedia index; pausing music when the window loses focus | low | S |
+| R14 ✅ | Mid-turn partial updates shown; lobby shows the server's progress while it generates | low | S |
+| R15 ✅ | `--auto-quit` flag; monster designs in the Pedia index; pausing music when the window loses focus | low | S |
 
 ## 2. Quality-of-life plan
 

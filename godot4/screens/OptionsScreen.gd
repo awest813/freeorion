@@ -37,6 +37,7 @@ const HIDDEN_PREFIXES := [
 	"quickstart",
 	"auto-connect",
 	"auto-advance-n-turns",
+	"auto-quit",
 	# Edited on their own screens: galaxy setup (and its game rules), the
 	# multiplayer connect screen, the map's menu.
 	"setup.",
