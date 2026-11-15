@@ -10,6 +10,7 @@
 #include "FreeOrionNode.h"
 #include "GodotI18n.h"
 #include "GodotOptionsDB.h"
+#include "designer/FODesigner.h"
 #include "government/FOGovernment.h"
 #include "options/FOOptions.h"
 #include "orders/FOOrders.h"
@@ -38,6 +39,7 @@ void initialize_freeorion_module(godot::ModuleInitializationLevel p_level) {
     GDREGISTER_CLASS(FOShip);
     GDREGISTER_ABSTRACT_CLASS(FOUniverse);
     GDREGISTER_ABSTRACT_CLASS(FOOrders);
+    GDREGISTER_ABSTRACT_CLASS(FODesigner);
     GDREGISTER_ABSTRACT_CLASS(FOGovernment);
     GDREGISTER_ABSTRACT_CLASS(FOPedia);
     GDREGISTER_ABSTRACT_CLASS(FOProduction);

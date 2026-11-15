@@ -4,6 +4,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/GodotClientApp.h
         ${CMAKE_CURRENT_LIST_DIR}/GodotI18n.h
         ${CMAKE_CURRENT_LIST_DIR}/GodotOptionsDB.h
+        ${CMAKE_CURRENT_LIST_DIR}/designer/FODesigner.h
         ${CMAKE_CURRENT_LIST_DIR}/government/FOGovernment.h
         ${CMAKE_CURRENT_LIST_DIR}/options/FOOptions.h
         ${CMAKE_CURRENT_LIST_DIR}/orders/FOOrders.h
@@ -18,6 +19,7 @@ target_sources(freeoriongodot
         ${CMAKE_CURRENT_LIST_DIR}/GodotClientApp.cpp
         ${CMAKE_CURRENT_LIST_DIR}/GodotI18n.cpp
         ${CMAKE_CURRENT_LIST_DIR}/GodotOptionsDB.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/designer/FODesigner.cpp
         ${CMAKE_CURRENT_LIST_DIR}/government/FOGovernment.cpp
         ${CMAKE_CURRENT_LIST_DIR}/options/FOOptions.cpp
         ${CMAKE_CURRENT_LIST_DIR}/orders/FOOrders.cpp
