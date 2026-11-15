@@ -10,6 +10,8 @@
 #include "FreeOrionNode.h"
 #include "GodotI18n.h"
 #include "GodotOptionsDB.h"
+#include "orders/FOOrders.h"
+#include "views/FOViews.h"
 
 namespace {
     GodotOptionsDB* s_options_db = nullptr;
@@ -22,6 +24,12 @@ void initialize_freeorion_module(godot::ModuleInitializationLevel p_level) {
     GDREGISTER_CLASS(FreeOrionNode);
     GDREGISTER_CLASS(GodotI18n);
     GDREGISTER_ABSTRACT_CLASS(GodotOptionsDB);
+
+    GDREGISTER_CLASS(FOSystem);
+    GDREGISTER_CLASS(FOFleet);
+    GDREGISTER_CLASS(FOPlanet);
+    GDREGISTER_ABSTRACT_CLASS(FOUniverse);
+    GDREGISTER_ABSTRACT_CLASS(FOOrders);
 
     s_options_db = memnew(GodotOptionsDB);
     godot::Engine::get_singleton()->register_singleton("OptionsDB", s_options_db);

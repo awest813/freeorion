@@ -1,0 +1,121 @@
+#ifndef _FOViews_h_
+#define _FOViews_h_
+
+#include <godot_cpp/classes/object.hpp>
+#include <godot_cpp/classes/ref.hpp>
+#include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/variant/color.hpp>
+#include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/packed_int32_array.hpp>
+#include <godot_cpp/variant/string.hpp>
+#include <godot_cpp/variant/vector2.hpp>
+
+/** Read-only views of the client's known universe, for GDScript.
+  *
+  * Views hold an object ID, not a pointer, and look the object up on every
+  * access, so a view stays safe across turn updates: if the object is no
+  * longer known, is_valid() returns false and getters return defaults.
+  *
+  * All of these must be called on the main thread. FreeOrionNode dispatches
+  * server messages on the main thread, so the universe never changes while a
+  * script is reading it. */
+
+class FOSystem : public godot::RefCounted {
+    GDCLASS(FOSystem, RefCounted)
+public:
+    static godot::Ref<FOSystem> make(int id);
+
+    int get_id() const noexcept { return m_id; }
+    bool is_valid() const;
+    godot::String get_name() const;
+    godot::Vector2 get_position() const;
+    godot::String get_star_type() const;
+    godot::PackedInt32Array get_starlanes() const; ///< IDs of systems connected by known starlanes
+    godot::PackedInt32Array get_planet_ids() const;
+    godot::PackedInt32Array get_fleet_ids() const;
+
+protected:
+    static void _bind_methods();
+
+private:
+    int m_id = -1;
+};
+
+class FOFleet : public godot::RefCounted {
+    GDCLASS(FOFleet, RefCounted)
+public:
+    static godot::Ref<FOFleet> make(int id);
+
+    int get_id() const noexcept { return m_id; }
+    bool is_valid() const;
+    godot::String get_name() const;
+    godot::Vector2 get_position() const;
+    int get_owner_id() const;
+    int get_system_id() const;              ///< INVALID_OBJECT_ID while between systems
+    int get_next_system_id() const;
+    int get_previous_system_id() const;
+    int get_final_destination_id() const;   ///< INVALID_OBJECT_ID if not moving
+    godot::PackedInt32Array get_travel_route() const;
+    godot::PackedInt32Array get_ship_ids() const;
+    double get_speed() const;
+    bool is_aggressive() const;
+    bool is_passive() const;
+
+protected:
+    static void _bind_methods();
+
+private:
+    int m_id = -1;
+};
+
+class FOPlanet : public godot::RefCounted {
+    GDCLASS(FOPlanet, RefCounted)
+public:
+    static godot::Ref<FOPlanet> make(int id);
+
+    int get_id() const noexcept { return m_id; }
+    bool is_valid() const;
+    godot::String get_name() const;
+    godot::Vector2 get_position() const;
+    int get_owner_id() const;
+    int get_system_id() const;
+    godot::String get_planet_type() const;
+    godot::String get_planet_size() const;
+    godot::String get_species_name() const;
+    godot::String get_focus() const;
+
+protected:
+    static void _bind_methods();
+
+private:
+    int m_id = -1;
+};
+
+/** Static entry points: FOUniverse.get_system(id), FOUniverse.get_map_snapshot(), ... */
+class FOUniverse : public godot::Object {
+    GDCLASS(FOUniverse, Object)
+public:
+    static int get_empire_id();
+    static godot::Ref<FOSystem> get_system(int id);
+    static godot::Ref<FOFleet> get_fleet(int id);
+    static godot::Ref<FOPlanet> get_planet(int id);
+    static godot::PackedInt32Array get_system_ids();
+    static godot::PackedInt32Array get_fleet_ids();
+    static godot::PackedInt32Array get_planet_ids();
+    static godot::Color get_empire_color(int empire_id);
+
+    /** Bulk data for the galaxy map renderer, as packed arrays so a frame
+      * needs one call instead of one per object. Keys:
+      *  - system_ids (PackedInt32Array), system_positions (PackedVector2Array),
+      *    system_star_types (PackedInt32Array, StarType enum values)
+      *  - lanes (PackedInt32Array): pairs of indices into the system arrays,
+      *    each known starlane listed once
+      *  - fleet_ids (PackedInt32Array), fleet_positions (PackedVector2Array),
+      *    fleet_owner_ids (PackedInt32Array) */
+    static godot::Dictionary get_map_snapshot();
+
+protected:
+    static void _bind_methods();
+};
+
+#endif

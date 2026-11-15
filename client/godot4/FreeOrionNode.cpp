@@ -286,6 +286,10 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
 
             DebugLogger() << "Extracted GameStart message for turn: " << current_turn << " with empire: " << empire_id;
 
+            // Pathfinding (fleet move orders, routes) needs the client's system graph
+            GetUniverse().InitializeSystemGraph(Empires(), GetUniverse().Objects());
+            GetUniverse().UpdateCommonFilteredSystemGraphsWithMainObjectMap(Empires());
+
             m_app->SetSinglePlayerGame(single_player_game);
             m_app->SetEmpireID(empire_id);
             m_app->SetCurrentTurn(current_turn);
@@ -320,6 +324,8 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             ExtractTurnUpdateMessageData(msg,                   m_app->EmpireID(),   current_turn,
                                          Empires(),             GetUniverse(),       GetSpeciesManager(),
                                          GetCombatLogManager(), GetSupplyManager(),  m_app->Players());
+            GetUniverse().InitializeSystemGraph(Empires(), GetUniverse().Objects());
+            GetUniverse().UpdateCommonFilteredSystemGraphsWithMainObjectMap(Empires());
             m_app->SetCurrentTurn(current_turn);
             call_deferred("emit_signal", "turn_update");
 
