@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 2 | Tech tree graph; Pedia extras |
+| P2 | 1 | Tech tree graph |
 | P3 | 18 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -99,11 +99,11 @@ Closed:
 - **Drag ships between fleets:** drag a ship from the fleet panel onto another of your fleets in the system panel to move it there, or onto Split for a new fleet. Dragging a ticked ship takes all the ticked ships along.
 - **Graphs:** the Empires screen (F9) has a Statistics tab charting every empire statistic the server records (output, stockpiles, ships, planets, military strength, ...) turn by turn: one line per empire in its colour, yours thicker. Hovering shows every empire's value at that turn; the legend hides lines.
 - **Hotkey rebinding:** every shortcut of the fork (screens, save, options, end turn, home, detection, map navigation) is an input action bound from an option (`ui.hotkey.godot.*`). Options has a Keyboard shortcuts tab: click a shortcut and press the new key with its modifiers, Esc to cancel; reset and clear per shortcut. A key already in use moves to the new shortcut, and Options says which one lost it. Tooltips show the current keys.
+- **Pedia extras:** species articles list likes and dislikes (linked to their articles), the environment on each planet type, and known homeworlds, which open on the map. The planet panel's "Who could live here?" lists your species and the ones the content always reports, with their environment and the population each would reach, as the GG suitability report does by trying each species on the planet. Graphs are in the Empires screen.
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Tech tree graph | `TechTreeWnd`, `TechTreeLayout`, `TechTreeArcs` | L | The fork has the list view only. |
-| Pedia extras | `EncyclopediaDetailPanel` | M | The planet suitability table, "show on map". (Graphs are in the Empires screen.) |
 
 ## P3: polish and cut-over
 

@@ -28,12 +28,14 @@
 #include "../../../universe/Special.h"
 #include "../../../universe/Species.h"
 #include "../../../universe/System.h"
+#include "../../../universe/Tech.h"
 #include "../../../universe/Universe.h"
 #include "../../../util/i18n.h"
 #include "../../../util/Logger.h"
 #include "../../../util/Order.h"
 #include "../../../util/OrderSet.h"
 #include "../../../util/SitRepEntry.h"
+#include "../../../util/ranges.h"
 
 namespace {
     template <typename T>
@@ -448,6 +450,8 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_detail", "planet_id"), &FOUniverse::get_planet_detail);
     ClassDB::bind_static_method(cls, D_METHOD("get_ship_detail", "ship_id"), &FOUniverse::get_ship_detail);
     ClassDB::bind_static_method(cls, D_METHOD("get_stat_records"), &FOUniverse::get_stat_records);
+    ClassDB::bind_static_method(cls, D_METHOD("get_planet_suitability", "planet_id"),
+                                &FOUniverse::get_planet_suitability);
     ClassDB::bind_static_method(cls, D_METHOD("get_meter_accounting", "object_id", "meter_name"),
                                 &FOUniverse::get_meter_accounting);
     ClassDB::bind_static_method(cls, D_METHOD("get_playable_species"), &FOUniverse::get_playable_species);
@@ -940,6 +944,113 @@ godot::Dictionary FOUniverse::get_stat_records() {
             lines.push_back(line);
         }
         result[ToGodot(stat_name)] = lines;
+    }
+    return result;
+}
+
+namespace {
+    // Species tags as UI/EncyclopediaDetailPanel.cpp reads them.
+    constexpr std::string_view TAG_ALWAYS_REPORT = "CTRL_ALWAYS_REPORT";
+    constexpr std::string_view TAG_EXTINCT = "CTRL_EXTINCT";
+
+    // As ReportedSpeciesForPlanet() in UI/EncyclopediaDetailPanel.cpp.
+    std::vector<std::string> ReportedSpecies(const Planet& planet, int empire_id, const ScriptingContext& context) {
+        std::vector<std::string> result;
+        const auto& species_manager = context.species;
+        if (!planet.SpeciesName().empty() && species_manager.GetSpecies(planet.SpeciesName()))
+            result.push_back(planet.SpeciesName());
+        const auto empire = context.GetEmpire(empire_id);
+        if (!empire)
+            return result;
+        for (const auto& [name, species] : species_manager.AllSpecies()) {
+            if (species.HasTag(TAG_ALWAYS_REPORT)) {
+                result.push_back(name);
+            } else if (species.HasTag(TAG_EXTINCT)) {
+                for (const auto& tech_name : empire->ResearchedTechs() | range_keys) {
+                    const auto* tech = GetTech(tech_name);
+                    if (tech && tech->HasTag(TAG_EXTINCT) && tech->HasTag(name)) {
+                        result.push_back(name);
+                        break;
+                    }
+                }
+            }
+        }
+        for (const auto* owned : context.ContextObjects().allRaw<Planet>()) {
+            if (!owned->OwnedBy(empire_id) || !owned->Populated() || owned->SpeciesName().empty())
+                continue;
+            const auto* species = species_manager.GetSpecies(owned->SpeciesName());
+            if (species && species->CanColonize())
+                result.push_back(owned->SpeciesName());
+        }
+        std::sort(result.begin(), result.end());
+        result.erase(std::unique(result.begin(), result.end()), result.end());
+        return result;
+    }
+
+    // Restores what GG's UniverseObjectSignalInhibitor guards.
+    struct SignalInhibitor {
+        explicit SignalInhibitor(Universe& universe) noexcept : u{universe} { u.InhibitUniverseObjectSignals(true); }
+        ~SignalInhibitor() noexcept { u.InhibitUniverseObjectSignals(false); }
+        Universe& u;
+    };
+}
+
+godot::Array FOUniverse::get_planet_suitability(int planet_id) {
+    godot::Array result;
+    auto* app = ClientApp::GetApp();
+    if (!app)
+        return result;
+    auto& context = app->GetContext();
+    auto& universe = context.ContextUniverse();
+    auto* planet = context.ContextObjects().getRaw<Planet>(planet_id);
+    if (!planet)
+        return result;
+    const int empire_id = app->EmpireID();
+    std::vector<std::tuple<float, std::string, PlanetEnvironment>> rows;
+    try {
+        const auto names = ReportedSpecies(*planet, empire_id, context);
+        if (names.empty())
+            return result;
+        // Try each species on the planet, as SpeciesEnvByTargetPop() does,
+        // then put the planet back as it was.
+        const std::string original_species{planet->SpeciesName()};
+        const int original_owner = planet->Owner();
+        const float original_target = planet->GetMeter(MeterType::METER_TARGET_POPULATION)->Initial();
+        const std::vector<int> ids{planet_id};
+        {
+            SignalInhibitor inhibitor{universe};
+            for (const auto& name : names) {
+                try {
+                    planet->SetSpecies(name, context.current_turn, context.species);
+                    planet->SetOwner(empire_id);
+                    universe.ApplyMeterEffectsAndUpdateMeters(ids, context, false);
+                    const auto* species = context.species.GetSpecies(name);
+                    const auto environment = species ? species->GetPlanetEnvironment(planet->Type())
+                                                     : PlanetEnvironment::PE_UNINHABITABLE;
+                    const float target = environment == PlanetEnvironment::PE_UNINHABITABLE ? 0.0f :
+                        planet->GetMeter(MeterType::METER_TARGET_POPULATION)->Current();
+                    rows.emplace_back(target, name, environment);
+                } catch (const std::exception& e) {
+                    ErrorLogger() << "FOUniverse::get_planet_suitability: species " << name << ": " << e.what();
+                }
+            }
+            planet->SetSpecies(original_species, context.current_turn, context.species);
+            planet->SetOwner(original_owner);
+            planet->GetMeter(MeterType::METER_TARGET_POPULATION)->Set(original_target, original_target);
+        }
+        universe.ApplyMeterEffectsAndUpdateMeters(ids, context, false);
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOUniverse::get_planet_suitability: " << e.what();
+    }
+    std::sort(rows.begin(), rows.end(), [](const auto& a, const auto& b) { return std::get<0>(a) > std::get<0>(b); });
+    for (const auto& [target, name, environment] : rows) {
+        godot::Dictionary entry;
+        entry["species"] = ToGodot(name);
+        const auto* species = context.species.GetSpecies(name);
+        entry["icon"] = species ? ToGodot(species->Graphic()) : godot::String();
+        entry["environment"] = ToGodot(::to_string(environment));
+        entry["target_population"] = target;
+        result.push_back(entry);
     }
     return result;
 }

@@ -35,6 +35,27 @@ var articles := {
 		"facts": [["PEDIA_FACT_COST", "30 RP"]],
 		"links": [{"kind": "tech", "name": "LRN_ALGO_ELEGANCE", "group": "prerequisites"}],
 	},
+	"species/SP_HUMAN":
+	{
+		"kind": "species",
+		"name": "SP_HUMAN",
+		"title": "SP_HUMAN",
+		"icon": "icons/species/human.png",
+		"text": "Humans.",
+		"facts": [],
+		"links":
+		[
+			{"kind": "policy", "name": "PLC_ALGORITHMIC_RESEARCH", "group": "likes"},
+			{"kind": "", "name": "SOMETHING_UNLINKED", "group": "dislikes"},
+			{"kind": "planet", "name": "2568", "label": "Hegira β I", "group": "homeworlds"},
+		],
+		"environments":
+		[
+			{"planet_type": "PT_TERRAN", "environment": "PE_GOOD"},
+			{"planet_type": "PT_TUNDRA", "environment": "PE_POOR"},
+			{"planet_type": "PT_GASGIANT", "environment": "PE_UNINHABITABLE"},
+		],
+	},
 }
 var index: Array = [
 	{"kind": "tech", "name": "LRN_ALGO_ELEGANCE", "category": "LEARNING_CATEGORY"},

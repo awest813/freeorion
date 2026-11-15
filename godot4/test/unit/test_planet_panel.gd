@@ -162,3 +162,29 @@ func test_no_breakdown_falls_back_to_plain_tooltip():
 	assert_null(panel.accounting_tooltip("METER_TARGET_INDUSTRY"))
 	var names: Array = panel._meters.get_children().filter(func(c): return c is FOTooltipLabel)
 	assert_eq(names.size(), 3, "Each shown meter's name explains it on hover")
+
+
+func test_suitability_on_request():
+	var asked := []
+	panel.suitability_provider = func(id: int) -> Array:
+		asked.push_back(id)
+		return [
+			{
+				"species": "SP_HUMAN",
+				"environment": "PE_GOOD",
+				"target_population": 16.5,
+				"icon": "icons/species/human.png"
+			},
+			{"species": "SP_LAENFA", "environment": "PE_HOSTILE", "target_population": -4.0},
+		]
+	assert_false(panel._suitability.visible)
+	assert_eq(asked, [], "Nothing worked out until asked")
+	panel._suitability_button.button_pressed = true
+	assert_eq(asked, [2568])
+	var text := _texts(panel._suitability)
+	assert_string_contains(text, tr("SP_HUMAN"))
+	assert_string_contains(text, "16.5")
+	assert_string_contains(text, "-4.0")
+	assert_string_contains(text, tr("PE_HOSTILE"))
+	panel.show_data(SAMPLE)
+	assert_false(panel._suitability.visible, "Closed again for the next planet")

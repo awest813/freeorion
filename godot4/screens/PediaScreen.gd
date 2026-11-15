@@ -22,6 +22,8 @@ const ARTICLE_KINDS := [
 	"encyclopedia",
 ]
 const MAX_RESULTS := 80
+## Groups of links under an article's facts, in this order.
+const LINK_GROUPS := ["prerequisites", "unlocks", "likes", "dislikes", "homeworlds"]
 const SIDEBAR_WIDTH := 320
 
 var source: Variant = PediaSource.new()
@@ -36,6 +38,7 @@ var _icon: TextureRect
 var _facts: GridContainer
 var _text: RichTextLabel
 var _links: VBoxContainer
+var _environments: HFlowContainer
 var _search: LineEdit
 var _results: VBoxContainer
 var _browse_kind := ""
@@ -146,6 +149,9 @@ func _build() -> void:
 	side.add_child(_facts)
 	_links = VBoxContainer.new()
 	side.add_child(_links)
+	_environments = HFlowContainer.new()
+	_environments.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
+	side.add_child(_environments)
 
 	_text = RichTextLabel.new()
 	_text.bbcode_enabled = true
@@ -169,6 +175,7 @@ func _show_article(article: Dictionary) -> void:
 		_text.text = tr("PEDIA_EMPTY")
 		ScreenKit.clear(_facts)
 		ScreenKit.clear(_links)
+		_fill_environments([])
 		return
 	_title.text = tr(article.get("title", ""))
 	_icon.texture = FOArt.icon(article.get("icon", ""))
@@ -180,7 +187,7 @@ func _show_article(article: Dictionary) -> void:
 		_facts.add_child(ScreenKit.label(tr(fact[0]), "SecondaryLabel"))
 		_facts.add_child(ScreenKit.label(str(fact[1])))
 	ScreenKit.clear(_links)
-	for group in ["prerequisites", "unlocks"]:
+	for group in LINK_GROUPS:
 		var group_links: Array = article.get("links", []).filter(
 			func(l): return l["group"] == group
 		)
@@ -190,11 +197,48 @@ func _show_article(article: Dictionary) -> void:
 		row.add_child(ScreenKit.label(tr("PEDIA_LINKS_" + group.to_upper()), "SecondaryLabel"))
 		for link: Dictionary in group_links:
 			var button := Button.new()
-			button.text = tr(link["name"])
+			button.text = link.get("label", tr(link["name"]))
 			button.theme_type_variation = "GhostButton"
-			button.pressed.connect(_follow.bind(link.duplicate().merged({"arg": link["name"]})))
+			if str(link.get("kind", "")).is_empty():
+				button.disabled = true  # nothing to open
+			else:
+				button.pressed.connect(_follow.bind(link.duplicate().merged({"arg": link["name"]})))
 			row.add_child(button)
 		_links.add_child(row)
+	_fill_environments(article.get("environments", []))
+
+
+## Colour of planet environment \a environment ("PE_GOOD", ...).
+static func environment_color(environment: String) -> Color:
+	var tokens := FOUi.tokens
+	match environment:
+		"PE_GOOD":
+			return tokens.positive
+		"PE_POOR":
+			return tokens.warning
+		"PE_HOSTILE":
+			return tokens.negative
+		"PE_UNINHABITABLE":
+			return tokens.text_secondary
+	return tokens.text_primary
+
+
+# A species' environment on each planet type: icon, type, environment.
+func _fill_environments(environments: Array) -> void:
+	ScreenKit.clear(_environments)
+	_environments.visible = not environments.is_empty()
+	for entry: Dictionary in environments:
+		var chip := HBoxContainer.new()
+		var icon := ScreenKit.icon("", FOUi.tokens.icon_small)
+		icon.texture = FOArt.planet_type_icon(entry.get("planet_type", ""))
+		chip.add_child(icon)
+		var environment: String = entry.get("environment", "")
+		var label := ScreenKit.label(
+			"%s: %s" % [tr(entry.get("planet_type", "")), tr(environment)], "SmallLabel"
+		)
+		label.add_theme_color_override("font_color", environment_color(environment))
+		chip.add_child(label)
+		_environments.add_child(chip)
 
 
 func _follow(link: Dictionary) -> void:

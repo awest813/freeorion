@@ -2484,6 +2484,18 @@ Buildings
 PLANET_PANEL_SPECIALS
 Specials
 
+PLANET_PANEL_SUITABILITY
+Who could live here?
+
+PLANET_PANEL_SUITABILITY_TIP
+Your species and others you could settle here, with how well each lives on this planet and the population it would reach.
+
+PLANET_PANEL_SUITABILITY_NONE
+No species of yours could live here.
+
+PLANET_PANEL_SUITABILITY_POP
+Population it would reach here, with your techs and policies
+
 PLANET_PANEL_TARGET
 Target or maximum this meter grows towards
 
@@ -2834,6 +2846,15 @@ Requires
 
 PEDIA_LINKS_UNLOCKS
 Unlocks
+
+PEDIA_LINKS_LIKES
+Likes
+
+PEDIA_LINKS_DISLIKES
+Dislikes
+
+PEDIA_LINKS_HOMEWORLDS
+Homeworlds
 
 PEDIA_FACT_CATEGORY
 Category

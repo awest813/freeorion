@@ -167,6 +167,12 @@ public:
     /** Empire statistics over time: stat name -> [{empire_id, name, color,
       * turns, values}], one entry per empire the client has records of. */
     static godot::Dictionary get_stat_records();
+    /** Species the player could settle on \a planet_id (its own species, the
+      * empire's colonising species, and species the content always reports),
+      * each with its environment there and the population it would reach,
+      * highest first: [{species, icon, environment, target_population}].
+      * As the GG suitability report, by trying each species on the planet. */
+    static godot::Array get_planet_suitability(int planet_id);
 
     /** Why meter \a meter_name of object \a object_id has its value: the
       * effects that changed it this turn, as the GG meter tooltips list them.

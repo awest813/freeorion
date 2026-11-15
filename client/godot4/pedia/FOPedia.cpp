@@ -10,6 +10,7 @@
 #include "../../../universe/FieldType.h"
 #include "../../../universe/ShipHull.h"
 #include "../../../universe/ShipPart.h"
+#include "../../../universe/Planet.h"
 #include "../../../universe/Special.h"
 #include "../../../universe/Species.h"
 #include "../../../universe/Tech.h"
@@ -45,6 +46,28 @@ namespace {
         link["name"] = ToGodot(name);
         link["group"] = group;
         links.push_back(link);
+    }
+
+    // Link to whatever article \a name has (likes and dislikes name policies,
+    // buildings, specials, ...); a plain entry if it has none.
+    void LinkAnything(godot::Array& links, std::string_view name_view, const char* group) {
+        const std::string name{name_view};
+        const char* kind = "";
+        if (GetPolicy(name))
+            kind = "policy";
+        else if (GetBuildingType(name))
+            kind = "buildingtype";
+        else if (GetSpecial(name))
+            kind = "special";
+        else if (GetTech(name))
+            kind = "tech";
+        else if (GetShipPart(name))
+            kind = "shippart";
+        else if (GetShipHull(name))
+            kind = "shiphull";
+        else if (const auto* app = ClientApp::GetApp(); app && app->GetSpeciesManager().GetSpecies(name))
+            kind = "species";
+        Link(links, kind, name, group);
     }
 
     void Unlocks(godot::Array& links, const std::vector<UnlockableItem>& items) {
@@ -99,6 +122,37 @@ namespace {
             a["title"] = ToGodot(name);
             a["icon"] = ToGodot(species->Graphic());
             a["text"] = Text(species->Description());
+            for (const auto& like : species->Likes())
+                LinkAnything(links, like, "likes");
+            for (const auto& dislike : species->Dislikes())
+                LinkAnything(links, dislike, "dislikes");
+            // How well it lives on each planet type, as the GG article lists.
+            godot::Array environments;
+            for (const auto& [planet_type, environment] : species->PlanetEnvironments()) {
+                godot::Dictionary entry;
+                entry["planet_type"] = ToGodot(::to_string(planet_type));
+                entry["environment"] = ToGodot(::to_string(environment));
+                environments.push_back(entry);
+            }
+            a["environments"] = environments;
+            // Homeworlds the player knows of, linked to the map.
+            if (app) {
+                const auto& homeworlds = app->GetSpeciesManager().GetSpeciesHomeworldsMap();
+                if (const auto it = homeworlds.find(name); it != homeworlds.end()) {
+                    const auto& context = app->GetContext();
+                    for (const int planet_id : it->second) {
+                        const auto* planet = context.ContextObjects().getRaw<Planet>(planet_id);
+                        if (!planet)
+                            continue;
+                        godot::Dictionary link;
+                        link["kind"] = "planet";
+                        link["name"] = godot::String::num_int64(planet_id);
+                        link["label"] = ToGodot(planet->PublicName(empire_id, context.ContextUniverse()));
+                        link["group"] = "homeworlds";
+                        links.push_back(link);
+                    }
+                }
+            }
         } else if (kind == "special") {
             const auto* special = GetSpecial(name);
             if (!special)

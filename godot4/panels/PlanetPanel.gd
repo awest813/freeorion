@@ -14,6 +14,7 @@ signal link_activated(kind: String, arg: String)
 signal scrap_requested(building_id: int)
 
 const WIDTH := 340
+
 var planet_id := -1:
 	set(value):
 		planet_id = value
@@ -25,6 +26,8 @@ var accounting_provider: Callable:
 		return _meters.accounting_provider
 	set(value):
 		_meters.accounting_provider = value
+## Returns get_planet_suitability() for a planet; tests replace it.
+var suitability_provider := func(id: int) -> Array: return FOUniverse.get_planet_suitability(id)
 
 var _data := {}
 var _type_icon: TextureRect
@@ -36,6 +39,8 @@ var _buildings_title: Label
 var _buildings: VBoxContainer
 var _specials_title: Label
 var _specials: VBoxContainer
+var _suitability_button: Button
+var _suitability: GridContainer
 
 
 func _init() -> void:
@@ -76,6 +81,10 @@ func show_data(data: Dictionary) -> void:
 	_meters.fill(data.get("meters", []))
 	_fill_buildings(data.get("buildings", []), data.get("own", false))
 	_fill_specials(data.get("specials", []))
+	# The suitability report is worked out on request: it tries every species.
+	ScreenKit.clear(_suitability)
+	_suitability.visible = false
+	_suitability_button.set_pressed_no_signal(false)
 
 
 ## "Medium Terran · Human (Good) · Industry · Empire" for \a data.
@@ -154,6 +163,50 @@ func _build() -> void:
 	box.add_child(_specials_title)
 	_specials = VBoxContainer.new()
 	box.add_child(_specials)
+	_suitability_button = Button.new()
+	_suitability_button.text = tr("PLANET_PANEL_SUITABILITY")
+	_suitability_button.tooltip_text = tr("PLANET_PANEL_SUITABILITY_TIP")
+	_suitability_button.toggle_mode = true
+	_suitability_button.theme_type_variation = "GhostButton"
+	_suitability_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_suitability_button.toggled.connect(show_suitability)
+	box.add_child(_suitability_button)
+	_suitability = GridContainer.new()
+	_suitability.columns = 4
+	_suitability.add_theme_constant_override("h_separation", FOUi.tokens.space_2)
+	_suitability.visible = false
+	box.add_child(_suitability)
+
+
+## Show (or hide) which species could live here: environment and the
+## population each would reach, highest first.
+func show_suitability(shown: bool) -> void:
+	_suitability_button.set_pressed_no_signal(shown)
+	ScreenKit.clear(_suitability)
+	_suitability.visible = shown
+	if not shown:
+		return
+	var rows: Array = suitability_provider.call(planet_id)
+	if rows.is_empty():
+		var none := ScreenKit.label(tr("PLANET_PANEL_SUITABILITY_NONE"), "SecondaryLabel")
+		_suitability.add_child(none)
+		return
+	for row: Dictionary in rows:
+		_suitability.add_child(ScreenKit.icon(row.get("icon", ""), FOUi.tokens.icon_small))
+		var species: String = row.get("species", "")
+		_suitability.add_child(_link("species", species, tr(species)))
+		var environment: String = row.get("environment", "")
+		var env_label := ScreenKit.label(tr(environment), "SmallLabel")
+		env_label.add_theme_color_override("font_color", PediaScreen.environment_color(environment))
+		_suitability.add_child(env_label)
+		var target: float = row.get("target_population", 0.0)
+		var value := ScreenKit.label("%+.1f" % target if target < 0.0 else "%.1f" % target)
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		value.tooltip_text = tr("PLANET_PANEL_SUITABILITY_POP")
+		value.add_theme_color_override(
+			"font_color", FOUi.tokens.positive if target > 0.0 else FOUi.tokens.negative
+		)
+		_suitability.add_child(value)
 
 
 func _fill_buildings(buildings: Array, own: bool) -> void:

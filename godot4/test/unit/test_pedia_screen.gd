@@ -99,3 +99,26 @@ func _link_button(text: String) -> Button:
 		if button.text == text:
 			return button
 	return null
+
+
+func test_species_likes_homeworlds_and_environments():
+	screen.open("species", "SP_HUMAN")
+	var likes := _link_button(tr("PLC_ALGORITHMIC_RESEARCH"))
+	assert_not_null(likes)
+	var unlinked := _link_button(tr("SOMETHING_UNLINKED"))
+	assert_true(unlinked.disabled, "Nothing to open for an unknown kind")
+	watch_signals(screen)
+	_link_button("Hegira β I").pressed.emit()
+	assert_signal_emitted_with_parameters(screen, "link_activated", ["planet", "2568"])
+	var chips: Array = screen._environments.get_children()
+	assert_eq(chips.size(), 3)
+	var good: Label = chips[0].get_child(1)
+	assert_eq(good.text, "%s: %s" % [tr("PT_TERRAN"), tr("PE_GOOD")])
+	assert_eq(good.get_theme_color("font_color"), FOUi.tokens.positive)
+	screen.open("tech", "LRN_PHYS_BRAIN")
+	await wait_process_frames(1)
+	assert_eq(
+		screen._environments.get_children().filter(func(c): return not c.is_queued_for_deletion()),
+		[],
+		"Other articles have none"
+	)
