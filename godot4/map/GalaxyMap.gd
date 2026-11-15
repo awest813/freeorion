@@ -30,6 +30,10 @@ var _lanes := PackedInt32Array()
 var _fleet_positions := PackedVector2Array()
 var _fleet_colors := PackedColorArray()
 var _fleet_stack := PackedInt32Array()
+var _supply_lanes := PackedInt32Array()
+var _supply_lane_colors := PackedColorArray()
+var _supply_systems := PackedInt32Array()
+var _supply_system_colors := PackedColorArray()
 var _index_by_id := {}
 var _grid := {}
 var _selected := NO_SYSTEM
@@ -42,6 +46,12 @@ var _star_colors := PackedColorArray()
 var _starfield_texture: ImageTexture
 var _route := PackedVector2Array()
 var _route_label := ""
+var _supply_area: MapLayer
+var _field_layer: MapLayer
+var _field_positions := PackedVector2Array()
+var _field_radii := PackedFloat32Array()
+var _field_ids := PackedInt32Array()
+var _field_graphics := PackedStringArray()
 
 @onready var camera: GalaxyCamera = $Camera
 @onready var _lane_layer: MapLayer = $Lanes
@@ -55,6 +65,22 @@ func _ready() -> void:
 	_stars.texture = MapStyle.glow_texture()
 	_stars.multimesh = _new_multimesh()
 	_lane_layer.draw_callback = _draw_lanes
+	# Supplied areas: opaque disks in a group faded as a whole, so where the
+	# disks overlap the tint stays even.
+	var supply_group := CanvasGroup.new()
+	supply_group.name = "Supply"
+	supply_group.self_modulate = Color(1, 1, 1, MapStyle.SUPPLY_SYSTEM_ALPHA)
+	_supply_area = MapLayer.new()
+	_supply_area.draw_callback = _draw_supply_area
+	supply_group.add_child(_supply_area)
+	add_child(supply_group)
+	move_child(supply_group, _lane_layer.get_index())
+	# Fields lie under everything else of the map.
+	_field_layer = MapLayer.new()
+	_field_layer.name = "Fields"
+	_field_layer.draw_callback = _draw_fields
+	add_child(_field_layer)
+	move_child(_field_layer, supply_group.get_index())
 	_overlay.draw_callback = _draw_overlay
 	_starfield.draw_callback = _draw_starfield
 	_label_layer.draw_callback = _draw_labels
@@ -77,6 +103,13 @@ func load_from_universe() -> void:
 		if not color_by_owner.has(owner_id):
 			color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
 		colors.push_back(color_by_owner[owner_id])
+	for kind in ["supply_lane", "supply_system"]:
+		var kind_colors := PackedColorArray()
+		for owner_id in snapshot.get(kind + "_owners", PackedInt32Array()):
+			if not color_by_owner.has(owner_id):
+				color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
+			kind_colors.push_back(color_by_owner[owner_id])
+		snapshot[kind + "_colors"] = kind_colors
 	set_snapshot(snapshot, names, colors)
 
 
@@ -90,6 +123,14 @@ func set_snapshot(
 	_star_types = snapshot.get("system_star_types", PackedInt32Array())
 	_lanes = snapshot.get("lanes", PackedInt32Array())
 	_fleet_positions = snapshot.get("fleet_positions", PackedVector2Array())
+	_field_ids = snapshot.get("field_ids", PackedInt32Array())
+	_field_positions = snapshot.get("field_positions", PackedVector2Array())
+	_field_radii = snapshot.get("field_radii", PackedFloat32Array())
+	_field_graphics = snapshot.get("field_graphics", PackedStringArray())
+	_supply_lanes = snapshot.get("supply_lanes", PackedInt32Array())
+	_supply_lane_colors = snapshot.get("supply_lane_colors", PackedColorArray())
+	_supply_systems = snapshot.get("supply_systems", PackedInt32Array())
+	_supply_system_colors = snapshot.get("supply_system_colors", PackedColorArray())
 	_names = names
 	_fleet_colors = fleet_colors
 
@@ -225,6 +266,8 @@ func _on_zoom_changed(zoom_level: float) -> void:
 
 
 func _on_view_changed() -> void:
+	_field_layer.queue_redraw()
+	_supply_area.queue_redraw()
 	_lane_layer.queue_redraw()
 	_overlay.queue_redraw()
 	_label_layer.queue_redraw()
@@ -273,6 +316,7 @@ func _draw_lanes(layer: CanvasItem) -> void:
 	if _lanes.is_empty():
 		return
 	var view := visible_world_rect()
+	_draw_supply(layer, view)
 	var points := PackedVector2Array()
 	for i in range(0, _lanes.size() - 1, 2):
 		var a := _positions[_lanes[i]]
@@ -284,6 +328,60 @@ func _draw_lanes(layer: CanvasItem) -> void:
 		return
 	var width := MapStyle.LANE_PX / camera.zoom_level()
 	layer.draw_multiline(points, MapStyle.LANE_COLOR, width, true)
+
+
+# Fields: their art over their radius, each turned by an angle of its own
+# so neighbouring storms don't look alike.
+func _draw_fields(layer: CanvasItem) -> void:
+	var view := visible_world_rect()
+	for i in _field_positions.size():
+		var center := _field_positions[i]
+		var radius := _field_radii[i]
+		if radius <= 0.0 or not view.grow(radius).has_point(center):
+			continue
+		var texture := FOArt.icon(_field_graphics[i]) if i < _field_graphics.size() else null
+		if texture == null:
+			continue
+		var angle := fmod(float(_field_ids[i]) * 2.39996, TAU) if i < _field_ids.size() else 0.0
+		layer.draw_set_transform(center, angle)
+		layer.draw_texture_rect(
+			texture,
+			Rect2(-radius, -radius, radius * 2.0, radius * 2.0),
+			false,
+			Color(1, 1, 1, MapStyle.FIELD_ALPHA)
+		)
+	layer.draw_set_transform(Vector2.ZERO)
+
+
+# Supplied systems: a disk each in the supplying empire's colour, opaque
+# (the group around this layer fades it).
+func _draw_supply_area(layer: CanvasItem) -> void:
+	var radius := _typical_spacing() * MapStyle.SUPPLY_SYSTEM_RADIUS
+	if not is_finite(radius):
+		return
+	var grown := visible_world_rect().grow(radius)
+	for i in _supply_systems.size():
+		var center := _positions[_supply_systems[i]]
+		if grown.has_point(center):
+			var color := (
+				_supply_system_colors[i] if i < _supply_system_colors.size() else Color.WHITE
+			)
+			layer.draw_circle(center, radius, color)
+
+
+# Supplied lanes under the lanes: a band in the supplying empire's colour.
+func _draw_supply(layer: CanvasItem, view: Rect2) -> void:
+	var width := MapStyle.SUPPLY_LANE_PX / camera.zoom_level()
+	for i in range(0, _supply_lanes.size() - 1, 2):
+		var a := _positions[_supply_lanes[i]]
+		var b := _positions[_supply_lanes[i + 1]]
+		if not view.intersects(Rect2(a, Vector2.ZERO).expand(b)):
+			continue
+		var owner := i / 2
+		var color := (
+			_supply_lane_colors[owner] if owner < _supply_lane_colors.size() else Color.WHITE
+		)
+		layer.draw_line(a, b, Color(color, MapStyle.SUPPLY_LANE_ALPHA), width, true)
 
 
 func _draw_overlay(layer: CanvasItem) -> void:

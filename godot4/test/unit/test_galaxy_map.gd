@@ -160,3 +160,24 @@ func _names() -> PackedStringArray:
 		for column in COLUMNS:
 			names.push_back("Sys %d-%d" % [column, row])
 	return names
+
+
+func test_supply_and_fields_are_read_and_drawn():
+	var snapshot := _grid_snapshot()
+	snapshot["supply_systems"] = PackedInt32Array([0, 1])
+	snapshot["supply_system_colors"] = PackedColorArray([Color.BLUE, Color.BLUE])
+	snapshot["supply_lanes"] = PackedInt32Array([0, 1])
+	snapshot["supply_lane_colors"] = PackedColorArray([Color.BLUE])
+	snapshot["field_ids"] = PackedInt32Array([7])
+	snapshot["field_positions"] = PackedVector2Array([Vector2(150, 150)])
+	snapshot["field_radii"] = PackedFloat32Array([80.0])
+	snapshot["field_graphics"] = PackedStringArray(["fields/ion_storm.png"])
+	map.set_snapshot(snapshot, _names(), PackedColorArray())
+	await wait_process_frames(2)
+	assert_eq(map._supply_systems.size(), 2)
+	assert_eq(map._supply_lanes.size(), 2)
+	assert_eq(map._field_radii[0], 80.0)
+	var group: CanvasGroup = map.get_node("Supply")
+	assert_lt(group.self_modulate.a, 1.0, "Supply is faded as one group")
+	assert_lt(map.get_node("Fields").get_index(), group.get_index(), "Fields lie under the supply")
+	assert_lt(group.get_index(), map._lane_layer.get_index(), "Supply lies under the lanes")

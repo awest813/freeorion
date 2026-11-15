@@ -19,14 +19,14 @@ production, research, government, the ship designer, the Pedia, options,
 combat reports and the objects list. Nothing blocks a normal
 single-player game any more. The planet actions (colonise, invade, annex,
 focus, scrap) were the last P0 gap. The resources, autosave and the game's end states (victory,
-defeat, server errors) are in as well. Next come supply ranges and fields
-on the map, and planet detail with meter breakdowns.
+defeat, server errors) are in as well. So are supply ranges and fields on
+the map. Next come planet detail with meter breakdowns, and diplomacy.
 
 | Priority | Open items | Main ones |
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
-| P1 | 9 | Supply on the map; fields; planet detail; meter tooltips; bombard; diplomacy; species, colour and rules in setup; multiplayer |
-| P2 | 22 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
+| P1 | 7 | Planet detail; meter tooltips; bombard; diplomacy; species, colour and rules in setup; multiplayer |
+| P2 | 23 | Tech tree graph; design management; production pause and stockpile; map hotkeys and overlays; sitrep history; graphs; sound; hotkey rebinding |
 | P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -48,13 +48,13 @@ Closed on 2026-11-15:
 - **Server errors:** shown in a dialog. Fatal ones and the server ending the game return to the title, saying why.
 - **Lost server:** if the server dies, the client returns to the title.
 - **Victory and defeat:** announced in a dialog, once each.
+- **Supply on the map:** each empire's supplied area as one even tint, and its supplied lanes as bands, in the empire's colour.
+- **Fields (ion storms, nebulae, ...):** drawn with their art at their real radius. Their names and effects on hover are still missing (P2).
 
 ### Map and panels
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
-| Supply ranges on the map | `MapWnd::InitStarlaneRenderingBuffers` supply lanes, `RenderSupply` | M | Owner-tinted supply lanes or territory shader (plan, phase 3). Decides where fleets resupply and where production can be delivered. |
-| Fields (ion storms, nebulae, black holes) | `UI/FieldIcon.cpp` | S | Not drawn at all; they change stealth, detection and movement. |
 | Planet detail | `SidePanel` population, resource, military, buildings and specials panels | M | Meters with their targets (industry, research, influence, stability, supply, defence, shield, troops), buildings (with scrapping) and specials. The panel shows population and focus only. |
 | Meter breakdown tooltips | `UI/MeterBrowseWnd.cpp`, `ShipDesignBrowseWnd`, `IconTextBrowseWnd` | L | Why a meter has its value (each effect's contribution). FreeOrion's main teaching tool. |
 | Bombard | `SidePanel.cpp` `ClickBombard` | S | Rarely used but part of the planet actions. |
@@ -80,6 +80,7 @@ Closed on 2026-11-15:
 | Production: where can I build this | `BuildDesignatorWnd` | M | Highlight valid locations on the map, build at several at once. |
 | Map navigation hotkeys | `MapWnd::ConnectKeyboardAcceleratorSignals` | S | Previous/next system, own system, fleet, idle fleet; zoom keys exist. |
 | Detection ranges overlay | `MapWnd` detection circles | S | |
+| Field names and effects on hover | `FieldIcon` | S | Fields are drawn; hovering one says nothing yet. |
 | Fleet waypoints | `MapWnd` shift-click | S | The bridge supports appended moves; the map doesn't offer them. |
 | Ship detail | `FleetWnd` ship data panel | M | Per-ship meters, parts, attack, fighters. |
 | Drag ships between fleets | `FleetWnd` | M | Split and merge exist; drag-and-drop doesn't. |

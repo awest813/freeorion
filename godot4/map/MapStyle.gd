@@ -36,6 +36,15 @@ const LABEL_PADDING_PX := 2.0
 
 const SPACE_COLOR := Color(0.016, 0.02, 0.035)
 const LANE_COLOR := Color(0.55, 0.65, 0.8, 0.45)
+## Supply, drawn under the lanes in the supplying empire's colour: lanes as
+## wider bands, supplied systems as soft disks (a fraction of the typical
+## system spacing).
+const SUPPLY_LANE_PX := 6.0
+const SUPPLY_LANE_ALPHA := 0.35
+const SUPPLY_SYSTEM_ALPHA := 0.13
+const SUPPLY_SYSTEM_RADIUS := 0.45
+## Fields (ion storms, nebulae, ...): their art, faded so lanes stay legible.
+const FIELD_ALPHA := 0.6
 ## Background star density: one star per this many screen pixels.
 const BACKGROUND_PX_PER_STAR := 900.0
 

@@ -287,6 +287,24 @@ func _fill_galaxy(view: GalaxyMapView) -> void:
 		"fleet_ids": PackedInt32Array([1, 2, 3, 4]),
 		"fleet_positions": fleets,
 		"fleet_owner_ids": PackedInt32Array([1, 1, 2, 3]),
+		# Supply around system 10 and a nebula near system 50.
+		"supply_systems": PackedInt32Array([10, 13, 16, 22, 85]),
+		"supply_system_colors":
+		PackedColorArray(
+			[
+				Color("#3d9bff"),
+				Color("#3d9bff"),
+				Color("#3d9bff"),
+				Color("#3d9bff"),
+				Color("#3d9bff")
+			]
+		),
+		"supply_lanes": PackedInt32Array([lanes[20], lanes[21], lanes[26], lanes[27]]),
+		"supply_lane_colors": PackedColorArray([Color("#3d9bff"), Color("#3d9bff")]),
+		"field_ids": PackedInt32Array([900]),
+		"field_positions": PackedVector2Array([positions[50] + Vector2(60, 0)]),
+		"field_radii": PackedFloat32Array([90.0]),
+		"field_graphics": PackedStringArray(["fields/star_forming_nebula_1.png"]),
 	}
 	var colors := PackedColorArray(
 		[Color("#3d9bff"), Color("#3d9bff"), Color("#ff5a4f"), Color("#ffd23d")]
