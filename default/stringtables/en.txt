@@ -2133,6 +2133,42 @@ adds prerequisites
 RESEARCH_QUEUED
 Queued
 
+GOVERNMENT_TAB
+Government
+
+GOVERNMENT_INFLUENCE
+%1% IP · policies cost %2% IP/turn
+
+GOVERNMENT_NO_SLOTS
+No policy slots yet.
+
+GOVERNMENT_EMPTY_SLOT
+Empty slot
+
+GOVERNMENT_UPKEEP
+%1% IP per turn
+
+GOVERNMENT_REVOKE
+Revoke this policy
+
+GOVERNMENT_POLICY_DETAIL
+%1% IP/turn · %2%
+
+GOVERNMENT_ADOPT
+Adopt
+
+GOVERNMENT_NO_FREE_SLOT
+no free slot
+
+GOVERNMENT_BLOCKED
+needs prerequisites or excluded
+
+GOVERNMENT_UNAFFORDABLE
+not enough influence
+
+GOVERNMENT_NOTHING_MATCHES
+No policies match.
+
 PEDIA_SEARCH
 Search the Pedia…
 

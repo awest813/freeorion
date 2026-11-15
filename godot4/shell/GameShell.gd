@@ -17,6 +17,7 @@ var production_screen: ProductionScreen
 var research_screen: ResearchScreen
 var pedia_screen: PediaScreen
 var options_screen: OptionsScreen
+var government_screen: GovernmentScreen
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
 
@@ -59,10 +60,14 @@ func _ready() -> void:
 	research_screen = ResearchScreen.new()
 	pedia_screen = PediaScreen.new()
 	options_screen = OptionsScreen.new()
+	government_screen = GovernmentScreen.new()
+	government_screen.pedia_requested.connect(open_pedia)
 	pedia_screen.link_activated.connect(_on_link_activated)
 	research_screen.pedia_requested.connect(open_pedia)
 	production_screen.pedia_requested.connect(open_pedia)
-	for screen in [production_screen, research_screen, pedia_screen, options_screen]:
+	for screen in [
+		production_screen, research_screen, government_screen, pedia_screen, options_screen
+	]:
 		screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		screen.visible = false
 		screen.close_requested.connect(show_screen.bind(""))
@@ -125,6 +130,9 @@ func show_screen(screen_name: String) -> void:
 	research_screen.visible = screen_name == "research"
 	pedia_screen.visible = screen_name == "pedia"
 	options_screen.visible = screen_name == "options"
+	government_screen.visible = screen_name == "government"
+	if screen_name == "government" and follow_game:
+		government_screen.refresh()
 	if screen_name == "options" and follow_game:
 		options_screen.refresh()
 	if screen_name == "production" and follow_game:
@@ -151,6 +159,8 @@ func _screen_node(screen_name: String) -> Control:
 			return pedia_screen
 		"options":
 			return options_screen
+		"government":
+			return government_screen
 	return null
 
 
@@ -229,6 +239,8 @@ func _on_turn_update() -> void:
 		production_screen.refresh()
 	if research_screen.visible:
 		research_screen.refresh()
+	if government_screen.visible:
+		government_screen.refresh()
 	_show_route(system_panel.selected_fleet_id())
 
 

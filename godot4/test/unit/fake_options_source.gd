@@ -14,8 +14,7 @@ var options := {
 		"min": 10,
 		"max": 5000,
 	},
-	"audio.music.enabled":
-	{"value": true, "default": true, "description": "OPTIONS_DB_MUSIC_ON"},
+	"audio.music.enabled": {"value": true, "default": true, "description": "OPTIONS_DB_MUSIC_ON"},
 	"save.format.binary":
 	{"value": false, "default": true, "description": "OPTIONS_DB_BINARY_SERIALIZATION"},
 }

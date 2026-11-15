@@ -75,6 +75,12 @@ func test_options_screen():
 	await _check_scene(screen, "options_screen", func(s): s.refresh())
 
 
+func test_government_screen():
+	var screen := GovernmentScreen.new()
+	screen.source = preload("res://test/unit/fake_government_source.gd").new()
+	await _check_scene(screen, "government_screen", func(s): s.refresh())
+
+
 func _fill_shell(shell: GameShell) -> void:
 	_fill_galaxy(shell.map_view)
 	shell.top_bar.set_state("Empire Blue", Color("#3d9bff"), 12, false)

@@ -23,6 +23,7 @@ func before_turn() -> void:
 	_check_research()
 	_check_pedia()
 	await _check_options()
+	_check_government()
 
 	_test.assert_null(FOUniverse.get_system(-1), "No view for an invalid system ID")
 	_test.assert_null(FOUniverse.get_fleet(-1), "No view for an invalid fleet ID")
@@ -286,6 +287,43 @@ func _check_options() -> void:
 	var options := Engine.get_singleton("FOOptions")
 	_test.assert_eq(options.get_value("ui.scale"), "auto", "Back to automatic")
 	_test.assert_false(options.set_value("setup.star.count", 3), "Range still enforced")
+
+
+# Government: slots and policies load; an affordable policy with a free slot
+# can be adopted and revoked.
+func _check_government() -> void:
+	var slots := FOGovernment.get_slots()
+	_test.assert_gt(slots.size(), 0, "Policy slot categories")
+	var policies := FOGovernment.get_policies()
+	_test.assert_gt(policies.size(), 0, "Available policies")
+	_test.assert_gt(FOGovernment.get_influence()["stockpile"], 0.0, "Influence stockpile")
+	var free := {}
+	for category_slots: Dictionary in slots:
+		var slot: int = category_slots["policies"].find("")
+		if slot >= 0:
+			free[category_slots["category"]] = slot
+	var candidate := {}
+	for policy: Dictionary in policies:
+		if (
+			not policy["adopted"]
+			and policy["affordable"]
+			and policy["prerequisites_ok"]
+			and free.has(policy["category"])
+		):
+			candidate = policy
+			break
+	_test.assert_false(candidate.is_empty(), "A policy can be adopted")
+	if candidate.is_empty():
+		return
+	var cost_before: float = FOGovernment.get_influence()["adoption_cost"]
+	_test.assert_true(FOGovernment.adopt(candidate["name"], free[candidate["category"]]), "Adopt")
+	_test.assert_gt(FOGovernment.get_influence()["adoption_cost"], cost_before, "Upkeep projected")
+	_test.assert_true(FOGovernment.de_adopt(candidate["name"]), "Revoke")
+	_test.assert_false(FOGovernment.de_adopt("PLC_NO_SUCH_POLICY"), "Unknown policy refused")
+	var screen := GovernmentScreen.new()
+	_test.add_child_autofree(screen)
+	screen.refresh()
+	_test.assert_gt(screen._catalog.get_child_count(), 0, "Screen lists real policies")
 
 
 func _check_snapshot() -> void:
