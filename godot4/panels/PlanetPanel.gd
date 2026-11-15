@@ -24,6 +24,9 @@ const METER_ICONS := {
 const STEADY := 0.05
 
 var planet_id := -1
+## Returns get_meter_accounting() for (planet_id, meter); tests replace it.
+var accounting_provider := func(id: int, meter: String) -> Dictionary:
+	return FOUniverse.get_meter_accounting(id, meter)
 
 var _data := {}
 var _type_icon: TextureRect
@@ -169,8 +172,13 @@ func _fill_meters(meters: Array) -> void:
 		var key: String = meter.get("meter", "")
 		var icon_name: String = METER_ICONS.get(key, key.trim_prefix("METER_").to_lower())
 		_meters.add_child(ScreenKit.icon("icons/meter/%s.png" % icon_name, FOUi.tokens.icon_small))
-		var label := ScreenKit.label(tr(key), "SmallLabel")
+		# Hovering the name explains the value, effect by effect.
+		var label := FOTooltipLabel.new()
+		label.text = tr(key)
+		label.theme_type_variation = "SmallLabel"
+		label.mouse_filter = Control.MOUSE_FILTER_PASS
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.tooltip_builder = accounting_tooltip.bind(meter.get("accounting_meter", key))
 		_meters.add_child(label)
 		var value := ScreenKit.label("%.1f" % now)
 		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -185,6 +193,9 @@ func _fill_meters(meters: Array) -> void:
 		goal.tooltip_text = tr("PLANET_PANEL_TARGET")
 		_meters.add_child(goal)
 		for cell in _meters.get_children().slice(-4):
+			if cell is FOTooltipLabel:
+				cell.tooltip_text = tr(key)
+				continue
 			cell.tooltip_text = (
 				tr("PLANET_PANEL_METER_TIP")
 				. replace("%1%", tr(key))
@@ -192,6 +203,46 @@ func _fill_meters(meters: Array) -> void:
 				. replace("%3%", "%.1f" % next)
 				. replace("%4%", "%.1f" % target)
 			)
+
+
+## Tooltip content for \a meter: its total, then each effect with its
+## change; null (plain tooltip) when no breakdown is known.
+func accounting_tooltip(meter: String) -> Control:
+	var accounting: Dictionary = accounting_provider.call(planet_id, meter)
+	var lines: Array = accounting.get("lines", [])
+	if lines.is_empty():
+		return null
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 0)
+	box.add_child(
+		ScreenKit.label(
+			tr("TT_BREAKDOWN_SUMMARY").replace("%1%", tr(meter)).replace(
+				"%2%", "%.2f" % accounting.get("total", 0.0)
+			),
+			"TitleLabel"
+		)
+	)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", FOUi.tokens.space_4)
+	box.add_child(grid)
+	for line: Dictionary in lines:
+		var text := RichTextLabel.new()
+		text.bbcode_enabled = true
+		text.fit_content = true
+		text.scroll_active = false
+		text.autowrap_mode = TextServer.AUTOWRAP_OFF
+		text.custom_minimum_size.x = 280
+		text.text = FORichText.to_bbcode(line.get("label", ""))
+		grid.add_child(text)
+		var change: float = line.get("change", 0.0)
+		var value := ScreenKit.label("%+.2f" % change)
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		value.add_theme_color_override(
+			"font_color", FOUi.tokens.positive if change >= 0.0 else FOUi.tokens.negative
+		)
+		grid.add_child(value)
+	return box
 
 
 func _fill_buildings(buildings: Array, own: bool) -> void:

@@ -130,3 +130,35 @@ func test_shell_swaps_planet_and_fleet_details():
 	shell.planet_panel.show_data(SAMPLE)
 	shell._on_system_selected(5)
 	assert_false(shell.planet_panel.visible, "Another system closes it")
+
+
+func test_meter_breakdown_tooltip():
+	panel.accounting_provider = func(id: int, meter: String) -> Dictionary:
+		return {
+			"meter": meter,
+			"total": 25.0,
+			"lines":
+			[
+				{"label": "Hegira β I Good Environment", "change": 12.0},
+				{"label": "Terran Imperium Tech <i>Planetary Ecology</i>", "change": -1.0},
+			],
+		}
+	var tooltip: Control = panel.accounting_tooltip("METER_TARGET_POPULATION")
+	add_child_autofree(tooltip)
+	var text := _texts(tooltip)
+	assert_string_contains(
+		text,
+		tr("TT_BREAKDOWN_SUMMARY").replace("%1%", tr("METER_TARGET_POPULATION")).replace(
+			"%2%", "25.00"
+		)
+	)
+	assert_string_contains(text, "Planetary Ecology")
+	assert_string_contains(text, "+12.00")
+	assert_string_contains(text, "-1.00")
+
+
+func test_no_breakdown_falls_back_to_plain_tooltip():
+	panel.accounting_provider = func(_id: int, _meter: String) -> Dictionary: return {}
+	assert_null(panel.accounting_tooltip("METER_TARGET_INDUSTRY"))
+	var names: Array = panel._meters.get_children().filter(func(c): return c is FOTooltipLabel)
+	assert_eq(names.size(), 3, "Each shown meter's name explains it on hover")
