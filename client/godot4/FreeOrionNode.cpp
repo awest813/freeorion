@@ -58,6 +58,7 @@ void FreeOrionNode::_bind_methods() {
     ADD_SIGNAL(godot::MethodInfo("turn_update"));
     ADD_SIGNAL(godot::MethodInfo("game_ended"));
     ADD_SIGNAL(godot::MethodInfo("combat_logs_updated"));
+    ADD_SIGNAL(godot::MethodInfo("diplomacy_changed"));
     ADD_SIGNAL(godot::MethodInfo("server_error",
                                  godot::PropertyInfo(godot::Variant::STRING, "message"),
                                  godot::PropertyInfo(godot::Variant::BOOL, "fatal")));
@@ -445,6 +446,20 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
                 text = UserString("UNKNOWN");
             }
             AbortGame(text);
+            break;
+        }
+        case Message::MessageType::DIPLOMACY: {
+            DiplomaticMessage diplo_message;
+            ExtractDiplomacyMessageData(msg, diplo_message);
+            m_app->Empires().SetDiplomaticMessage(diplo_message);
+            call_deferred("emit_signal", "diplomacy_changed");
+            break;
+        }
+        case Message::MessageType::DIPLOMATIC_STATUS: {
+            DiplomaticStatusUpdateInfo update;
+            ExtractDiplomaticStatusMessageData(msg, update);
+            m_app->Empires().SetDiplomaticStatus(update.empire1_id, update.empire2_id, update.diplo_status);
+            call_deferred("emit_signal", "diplomacy_changed");
             break;
         }
         case Message::MessageType::PLAYER_CHAT:

@@ -12,6 +12,7 @@
 #include "GodotOptionsDB.h"
 #include "combat/FOCombat.h"
 #include "designer/FODesigner.h"
+#include "diplomacy/FODiplomacy.h"
 #include "government/FOGovernment.h"
 #include "objects/FOObjects.h"
 #include "planets/FOPlanetActions.h"
@@ -44,6 +45,7 @@ void initialize_freeorion_module(godot::ModuleInitializationLevel p_level) {
     GDREGISTER_ABSTRACT_CLASS(FOOrders);
     GDREGISTER_ABSTRACT_CLASS(FOCombat);
     GDREGISTER_ABSTRACT_CLASS(FODesigner);
+    GDREGISTER_ABSTRACT_CLASS(FODiplomacy);
     GDREGISTER_ABSTRACT_CLASS(FOGovernment);
     GDREGISTER_ABSTRACT_CLASS(FOObjects);
     GDREGISTER_ABSTRACT_CLASS(FOPlanetActions);
