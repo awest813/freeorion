@@ -82,3 +82,45 @@ func test_history_steps_through_earlier_turns():
 	feed.show_turn(0)
 	assert_eq(feed._turn, 1, "Clamped to the first turn")
 	assert_true(feed._prev.disabled)
+
+
+func test_hide_report_types_from_the_filter_menu():
+	feed.hidden_labels = {}
+	feed.show_entries(ENTRIES, 7)
+	var menu := feed.open_filter_menu()
+	var labels := []
+	for i in menu.item_count:
+		labels.push_back(menu.get_item_metadata(i))
+	assert_has(labels, "SITREP_TECH_RESEARCHED")
+	var tech := labels.find("SITREP_TECH_RESEARCHED")
+	assert_true(menu.is_item_checked(tech))
+	menu.index_pressed.emit(tech)
+	assert_eq(feed._entries.size(), 1, "Tech reports hidden")
+	assert_string_contains(feed._header.text, tr("NOTIFICATIONS_HIDDEN").replace("%1%", "1"))
+	menu = feed.open_filter_menu()
+	for i in menu.item_count:
+		if menu.get_item_metadata(i) == "__show_all":
+			menu.index_pressed.emit(i)
+	assert_eq(feed._entries.size(), 2)
+
+
+func test_snooze_a_report():
+	feed.hidden_labels = {}
+	feed.entries_provider = func(_turn: int) -> Array: return ENTRIES
+	feed.show_entries(ENTRIES, 7)
+	var menu := feed.open_entry_menu(ENTRIES[0], Vector2.ZERO)
+	menu.id_pressed.emit(NotificationFeed.MENU_SNOOZE_5)
+	assert_eq(feed._entries.size(), 1)
+	feed.show_entries(ENTRIES, 11)
+	assert_eq(feed._entries.size(), 1, "Still snoozed on the fifth turn")
+	feed.show_entries(ENTRIES, 12)
+	assert_eq(feed._entries.size(), 2, "Back after five turns")
+	feed.snooze(ENTRIES[1], 0)
+	feed.show_entries(ENTRIES, 90)
+	assert_eq(feed._entries.size(), 1, "Snoozed for good")
+	feed.clear_snoozed()
+	assert_eq(feed._entries.size(), 2)
+
+
+func test_plain_text_for_copying():
+	assert_eq(FORichText.plain_text(ENTRIES[0]["text"]), "New colony on Hegira β II.")

@@ -68,6 +68,12 @@ static func to_bbcode(text: String, image_height := 16) -> String:
 	return out
 
 
+## \a text with its FreeOrion markup tags removed (for the clipboard).
+static func plain_text(text: String) -> String:
+	_compile()
+	return _tag_regex.sub(text, "", true)
+
+
 ## Split a link meta into {"kind": ..., "arg": ...}. Plain web links give
 ## kind "url" with the full address as arg.
 static func parse_link(meta: String) -> Dictionary:

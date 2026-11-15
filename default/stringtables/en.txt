@@ -2546,6 +2546,16 @@ MAP_ROUTE_ETA_ONE
 MAP_ROUTE_UNREACHABLE
 Unreachable
 
+NOTIFICATIONS_FILTER
+Choose which kinds of report to show
+
+# %1% number of reports left out
+NOTIFICATIONS_HIDDEN
+(%1% hidden)
+
+NOTIFICATIONS_COPY
+Copy text
+
 NOTIFICATIONS_HEADER
 Turn %1% · %2% events
 

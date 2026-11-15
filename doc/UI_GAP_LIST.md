@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 17 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P3 | 16 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -109,6 +109,7 @@ Closed:
 
 Closed:
 - **Build locations on the map:** "Show on map" in the production item's location list returns to the map with every system that can build it ringed; each click on a ringed system queues the item there, until Done or Esc.
+- **Sitrep filters and snoozing:** ☰ in the turn-event feed shows or hides each kind of report, kept in the GG client's `ui.map.sitrep.hidden.stringlist` option. Right-clicking a report ignores it for 5 or 10 turns or for the session, hides its whole kind, or copies its text. The header counts what is hidden.
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
@@ -117,7 +118,6 @@ Closed:
 | Map modes (political, supply, detection, resources, threat) | Plan, phase 3 | L | |
 | Combat replay and charts | `CombatReport/GraphicalSummary`, plan phase 5 | L | |
 | Object list filters, grouping, column chooser, actions | `ObjectListWnd` | M | |
-| Sitrep filters and snoozing | `SitRepPanel` | S | History is in; filtering by type and snoozing aren't. |
 | Designs saved to disk, renaming designs | `DesignWnd` `SavedDesignsManager` | M | Keep designs between games as files; a rename box in the designer. |
 | Moderator tools | `ModeratorActionsWnd` | M | |
 | Credits and About | `CreditsWnd`, `About` | S | |
