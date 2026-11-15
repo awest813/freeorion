@@ -1,6 +1,7 @@
 #include "FODesigner.h"
 
 #include <boost/optional.hpp>
+#include <boost/uuid/random_generator.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
 #include "../../ClientApp.h"
@@ -57,7 +58,11 @@ void FODesigner::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_parts"), &FODesigner::get_parts);
     ClassDB::bind_static_method(cls, D_METHOD("evaluate", "hull", "parts"), &FODesigner::evaluate);
     ClassDB::bind_static_method(cls, D_METHOD("create", "name", "hull", "parts"), &FODesigner::create);
-    ClassDB::bind_static_method(cls, D_METHOD("get_designs"), &FODesigner::get_designs);
+    ClassDB::bind_static_method(cls, D_METHOD("get_designs", "kind"), &FODesigner::get_designs, DEFVAL("empire"));
+    ClassDB::bind_static_method(cls, D_METHOD("set_obsolete", "design_id", "obsolete"), &FODesigner::set_obsolete);
+    ClassDB::bind_static_method(cls, D_METHOD("delete_design", "design_id"), &FODesigner::delete_design);
+    ClassDB::bind_static_method(cls, D_METHOD("rename_design", "design_id", "new_name"), &FODesigner::rename_design);
+    ClassDB::bind_static_method(cls, D_METHOD("add_premade", "design_id"), &FODesigner::add_premade);
 }
 
 godot::Array FODesigner::get_hulls() {
@@ -173,24 +178,128 @@ int FODesigner::create(const godot::String& name, const godot::String& hull,
     }
 }
 
-godot::Array FODesigner::get_designs() {
+godot::Array FODesigner::get_designs(const godot::String& kind) {
     godot::Array result;
     const auto* app = ClientApp::GetApp();
     const auto* empire = PlayerEmpire();
     if (!app || !empire)
         return result;
     const auto& universe = app->GetUniverse();
-    for (const int id : empire->ShipDesigns()) {
-        const auto* design = universe.GetShipDesign(id);
+    const auto add = [&](const ShipDesign* design) {
         if (!design)
-            continue;
+            return;
         godot::Dictionary entry;
-        entry["id"] = id;
+        entry["id"] = design->ID();
         entry["name"] = ToGodot(design->Name(true));
         entry["hull"] = ToGodot(design->Hull());
         entry["parts"] = ToPacked(design->Parts());
         entry["producible"] = empire->ShipDesignAvailable(*design);
         result.push_back(entry);
+    };
+    if (kind == "empire") {
+        for (const int id : empire->ShipDesigns())
+            if (!ObsoleteDesigns().contains(id))
+                add(universe.GetShipDesign(id));
+    } else if (kind == "obsolete") {
+        for (const int id : ObsoleteDesigns())
+            add(universe.GetShipDesign(id));
+    } else if (kind == "premade") {
+        for (const auto* design : GetPredefinedShipDesignManager().GetOrderedShipDesigns())
+            add(design);
+    } else if (kind == "monster") {
+        for (const auto* design : GetPredefinedShipDesignManager().GetOrderedMonsterDesigns())
+            add(design);
     }
     return result;
+}
+
+std::set<int>& FODesigner::ObsoleteDesigns() {
+    static std::set<int> obsolete;
+    return obsolete;
+}
+
+namespace {
+    template <typename... Args>
+    bool IssueDesignOrder(Args&&... args) {
+        auto* app = ClientApp::GetApp();
+        if (!app)
+            return false;
+        try {
+            app->Orders().IssueOrder<ShipDesignOrder>(app->GetContext(), std::forward<Args>(args)...);
+            return true;
+        } catch (const std::exception& e) {
+            ErrorLogger() << "FODesigner: design order failed: " << e.what();
+        }
+        return false;
+    }
+}
+
+// As the GG designer: putting a design aside makes the empire forget it on
+// the server; bringing it back makes it remember it again.
+bool FODesigner::set_obsolete(int design_id, bool obsolete) {
+    auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    if (!app || !empire)
+        return false;
+    const auto& context = app->GetContext();
+    const int empire_id = empire->EmpireID();
+    if (obsolete) {
+        if (!ShipDesignOrder::CheckErase(empire_id, design_id, true, context) ||
+            !IssueDesignOrder(empire_id, design_id, true))
+        { return false; }
+        ObsoleteDesigns().insert(design_id);
+        return true;
+    }
+    if (!ObsoleteDesigns().contains(design_id) ||
+        !ShipDesignOrder::CheckRemember(empire_id, design_id, context) ||
+        !IssueDesignOrder(empire_id, design_id))
+    { return false; }
+    ObsoleteDesigns().erase(design_id);
+    return true;
+}
+
+bool FODesigner::delete_design(int design_id) {
+    auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    if (!app || !empire)
+        return false;
+    // Put-aside designs are already forgotten by the empire.
+    if (ObsoleteDesigns().erase(design_id) > 0)
+        return true;
+    return ShipDesignOrder::CheckErase(empire->EmpireID(), design_id, true, app->GetContext()) &&
+        IssueDesignOrder(empire->EmpireID(), design_id, true);
+}
+
+bool FODesigner::rename_design(int design_id, const godot::String& new_name) {
+    auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    const auto* design = app ? app->GetUniverse().GetShipDesign(design_id) : nullptr;
+    std::string name = new_name.strip_edges().utf8().get_data();
+    if (!empire || !design || name.empty() ||
+        !ShipDesignOrder::CheckRename(empire->EmpireID(), design_id, name, design->Description(), app->GetContext()))
+    { return false; }
+    return IssueDesignOrder(empire->EmpireID(), design_id, std::move(name), std::string{design->Description()});
+}
+
+int FODesigner::add_premade(int design_id) {
+    auto* app = ClientApp::GetApp();
+    const auto* empire = PlayerEmpire();
+    // Premade designs live with the predefined design manager, not in the
+    // universe's design table.
+    const ShipDesign* design = nullptr;
+    for (const auto* premade : GetPredefinedShipDesignManager().GetOrderedShipDesigns())
+        if (premade && premade->ID() == design_id)
+            design = premade;
+    if (!app || !empire || !design)
+        return -1;
+    // A copy with its own UUID, so the empire's design is distinct.
+    auto copy{*design};
+    copy.SetUUID(boost::uuids::random_generator()());
+    try {
+        auto order = app->Orders().IssueOrder<ShipDesignOrder>(app->GetContext(), empire->EmpireID(), copy);
+        return order ? order->DesignID() : -1;
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FODesigner::add_premade: " << e.what();
+    }
+    return -1;
 }

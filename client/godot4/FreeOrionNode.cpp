@@ -9,6 +9,7 @@
 
 #include "GodotClientApp.h"
 #include "GodotI18n.h"
+#include "designer/FODesigner.h"
 
 #include "../ClientNetworking.h"
 #include "../../Empire/Empire.h"
@@ -256,6 +257,16 @@ void FreeOrionNode::new_single_player_game()
 
 void FreeOrionNode::start_turn() {
     m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_END);
+    // The empire's designs and those put aside, so a save keeps both.
+    auto& designs = m_ui_data.ordered_ship_design_ids_and_obsolete;
+    designs.clear();
+    if (const auto* empire = m_app->GetEmpire(m_app->EmpireID())) {
+        for (const int id : empire->ShipDesigns())
+            if (!FODesigner::ObsoleteDesigns().contains(id))
+                designs.emplace_back(id, std::pair{false, 0});
+    }
+    for (const int id : FODesigner::ObsoleteDesigns())
+        designs.emplace_back(id, std::pair{true, 0});
     m_app->StartTurn(m_ui_data);
 }
 
@@ -419,9 +430,14 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             // with the next orders; the view is restored by GameShell.
             m_loaded_ui_data.reset();
             m_ui_data = SaveGameUIData{};
+            FODesigner::ObsoleteDesigns().clear();
             if (loaded_game_data && ui_data_available) {
                 m_loaded_ui_data = ui_data;
                 m_ui_data = ui_data;
+                // Designs the player put aside, as the GG client saves them.
+                for (const auto& [design_id, obsolete] : ui_data.ordered_ship_design_ids_and_obsolete)
+                    if (obsolete && obsolete->first)
+                        FODesigner::ObsoleteDesigns().insert(design_id);
             }
 
             bool is_new_game = !(loaded_game_data && ui_data_available);
