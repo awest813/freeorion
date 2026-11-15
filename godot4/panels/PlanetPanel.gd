@@ -14,26 +14,24 @@ signal link_activated(kind: String, arg: String)
 signal scrap_requested(building_id: int)
 
 const WIDTH := 340
-## Meter icons (icons/meter/*.png) where the file isn't the meter's name.
-const METER_ICONS := {
-	"METER_POPULATION": "pop",
-	"METER_HAPPINESS": "happiness",
-	"METER_CONSTRUCTION": "construction",
-}
-## Changes smaller than this show as steady.
-const STEADY := 0.05
-
-var planet_id := -1
+var planet_id := -1:
+	set(value):
+		planet_id = value
+		if _meters:
+			_meters.object_id = value
 ## Returns get_meter_accounting() for (planet_id, meter); tests replace it.
-var accounting_provider := func(id: int, meter: String) -> Dictionary:
-	return FOUniverse.get_meter_accounting(id, meter)
+var accounting_provider: Callable:
+	get:
+		return _meters.accounting_provider
+	set(value):
+		_meters.accounting_provider = value
 
 var _data := {}
 var _type_icon: TextureRect
 var _title: Label
 var _swatch: ColorRect
 var _subtitle: Label
-var _meters: GridContainer
+var _meters: MeterGrid
 var _buildings_title: Label
 var _buildings: VBoxContainer
 var _specials_title: Label
@@ -75,7 +73,7 @@ func show_data(data: Dictionary) -> void:
 	_swatch.visible = not owner_name.is_empty()
 	_swatch.color = data.get("owner_color", Color.WHITE)
 	_subtitle.text = subtitle(data)
-	_fill_meters(data.get("meters", []))
+	_meters.fill(data.get("meters", []))
 	_fill_buildings(data.get("buildings", []), data.get("own", false))
 	_fill_specials(data.get("specials", []))
 
@@ -108,10 +106,12 @@ static func subtitle(data: Dictionary) -> String:
 
 ## Text for a meter's change: "+0.4", "−1.0", or "" when steady.
 static func change_text(now: float, next: float) -> String:
-	var change := next - now
-	if absf(change) < STEADY:
-		return ""
-	return ("+%.1f" if change > 0.0 else "−%.1f") % absf(change)
+	return MeterGrid.change_text(now, next)
+
+
+## Tooltip content for \a meter's breakdown (MeterGrid.accounting_tooltip()).
+func accounting_tooltip(meter: String) -> Control:
+	return _meters.accounting_tooltip(meter)
 
 
 func _build() -> void:
@@ -144,10 +144,7 @@ func _build() -> void:
 	close.pressed.connect(close_requested.emit)
 	header.add_child(close)
 
-	_meters = GridContainer.new()
-	_meters.columns = 4
-	_meters.add_theme_constant_override("h_separation", FOUi.tokens.space_2)
-	_meters.add_theme_constant_override("v_separation", 0)
+	_meters = MeterGrid.new()
 	box.add_child(_meters)
 	_buildings_title = ScreenKit.label(tr("PLANET_PANEL_BUILDINGS"), "SecondaryLabel")
 	box.add_child(_buildings_title)
@@ -157,92 +154,6 @@ func _build() -> void:
 	box.add_child(_specials_title)
 	_specials = VBoxContainer.new()
 	box.add_child(_specials)
-
-
-# Meter rows: icon, name, value this turn with next turn's change, target.
-# Meters that are zero throughout (an empty planet's industry) are left out.
-func _fill_meters(meters: Array) -> void:
-	ScreenKit.clear(_meters)
-	for meter: Dictionary in meters:
-		var now: float = meter.get("now", 0.0)
-		var next: float = meter.get("next", 0.0)
-		var target: float = meter.get("target", 0.0)
-		if absf(now) < STEADY and absf(next) < STEADY and absf(target) < STEADY:
-			continue
-		var key: String = meter.get("meter", "")
-		var icon_name: String = METER_ICONS.get(key, key.trim_prefix("METER_").to_lower())
-		_meters.add_child(ScreenKit.icon("icons/meter/%s.png" % icon_name, FOUi.tokens.icon_small))
-		# Hovering the name explains the value, effect by effect.
-		var label := FOTooltipLabel.new()
-		label.text = tr(key)
-		label.theme_type_variation = "SmallLabel"
-		label.mouse_filter = Control.MOUSE_FILTER_PASS
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.tooltip_builder = accounting_tooltip.bind(meter.get("accounting_meter", key))
-		_meters.add_child(label)
-		var value := ScreenKit.label("%.1f" % now)
-		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		var change := change_text(now, next)
-		if not change.is_empty():
-			value.text += " " + change
-			value.add_theme_color_override(
-				"font_color", FOUi.tokens.positive if next > now else FOUi.tokens.negative
-			)
-		_meters.add_child(value)
-		var goal := ScreenKit.label("/ %.1f" % target, "SmallLabel")
-		goal.tooltip_text = tr("PLANET_PANEL_TARGET")
-		_meters.add_child(goal)
-		for cell in _meters.get_children().slice(-4):
-			if cell is FOTooltipLabel:
-				cell.tooltip_text = tr(key)
-				continue
-			cell.tooltip_text = (
-				tr("PLANET_PANEL_METER_TIP")
-				. replace("%1%", tr(key))
-				. replace("%2%", "%.1f" % now)
-				. replace("%3%", "%.1f" % next)
-				. replace("%4%", "%.1f" % target)
-			)
-
-
-## Tooltip content for \a meter: its total, then each effect with its
-## change; null (plain tooltip) when no breakdown is known.
-func accounting_tooltip(meter: String) -> Control:
-	var accounting: Dictionary = accounting_provider.call(planet_id, meter)
-	var lines: Array = accounting.get("lines", [])
-	if lines.is_empty():
-		return null
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 0)
-	box.add_child(
-		ScreenKit.label(
-			tr("TT_BREAKDOWN_SUMMARY").replace("%1%", tr(meter)).replace(
-				"%2%", "%.2f" % accounting.get("total", 0.0)
-			),
-			"TitleLabel"
-		)
-	)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", FOUi.tokens.space_4)
-	box.add_child(grid)
-	for line: Dictionary in lines:
-		var text := RichTextLabel.new()
-		text.bbcode_enabled = true
-		text.fit_content = true
-		text.scroll_active = false
-		text.autowrap_mode = TextServer.AUTOWRAP_OFF
-		text.custom_minimum_size.x = 280
-		text.text = FORichText.to_bbcode(line.get("label", ""))
-		grid.add_child(text)
-		var change: float = line.get("change", 0.0)
-		var value := ScreenKit.label("%+.2f" % change)
-		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		value.add_theme_color_override(
-			"font_color", FOUi.tokens.positive if change >= 0.0 else FOUi.tokens.negative
-		)
-		grid.add_child(value)
-	return box
 
 
 func _fill_buildings(buildings: Array, own: bool) -> void:
@@ -284,20 +195,7 @@ func _fill_specials(specials: Array) -> void:
 
 # A Pedia link: \a text for article \a arg of \a kind.
 func _link(kind: String, arg: String, text: String) -> RichTextLabel:
-	var label := RichTextLabel.new()
-	label.bbcode_enabled = true
-	label.fit_content = true
-	label.scroll_active = false
-	label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	label.text = FORichText.to_bbcode("<%s %s>%s</%s>" % [kind, arg, text, kind])
-	label.meta_clicked.connect(
-		func(meta: Variant):
-			var link := FORichText.parse_link(str(meta))
-			link_activated.emit(link["kind"], link["arg"])
-	)
-	return label
+	return ScreenKit.pedia_link(kind, arg, text, link_activated.emit)
 
 
 static func _tr(key: String) -> String:

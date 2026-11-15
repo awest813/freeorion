@@ -12,6 +12,8 @@ signal split_requested(ship_ids: PackedInt32Array)
 signal merge_requested(dest_fleet_id: int, ship_ids: PackedInt32Array)
 ## Scrap the ships (or cancel their scrapping) at the next turn.
 signal scrap_requested(ship_ids: PackedInt32Array)
+## A ship's name was clicked: show its details.
+signal ship_selected(ship_id: int)
 
 const WIDTH := 340
 ## Ship rows shown before the list scrolls.
@@ -239,8 +241,12 @@ func _ship_row(ship: Dictionary) -> Control:
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_constant_override("separation", 0)
 	row.add_child(text)
-	var title := ScreenKit.label(ship.get("name", ""))
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var title := LinkButton.new()
+	title.text = ship.get("name", "")
+	title.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	title.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+	title.tooltip_text = tr("FLEET_PANEL_SHIP_DETAIL")
+	title.pressed.connect(ship_selected.emit.bind(ship["id"]))
 	text.add_child(title)
 	var roles: PackedStringArray = [ship.get("design", "")]
 	for role in [

@@ -98,3 +98,22 @@ static func tr_or_name(key: String) -> String:
 	if parts.size() > 1 and parts[0].length() <= 3:
 		parts.remove_at(0)
 	return " ".join(parts).capitalize()
+
+
+## A link to Pedia article \a arg of \a kind, showing \a text; clicking it
+## calls \a on_link(kind, arg).
+static func pedia_link(kind: String, arg: String, text: String, on_link: Callable) -> RichTextLabel:
+	var label := RichTextLabel.new()
+	label.bbcode_enabled = true
+	label.fit_content = true
+	label.scroll_active = false
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.text = FORichText.to_bbcode("<%s %s>%s</%s>" % [kind, arg, text, kind])
+	label.meta_clicked.connect(
+		func(meta: Variant):
+			var link := FORichText.parse_link(str(meta))
+			on_link.call(link["kind"], link["arg"])
+	)
+	return label

@@ -2389,6 +2389,22 @@ Move all ships of this fleet into the chosen fleet.
 FLEET_PANEL_SELECT_SHIP
 Check to include this ship when splitting.
 
+FLEET_PANEL_SHIP_DETAIL
+Show this ship's details: meters, parts, combat strength
+
+# Ship details beside the fleet panel.
+SHIP_PANEL_PARTS
+Parts
+
+SHIP_PANEL_CAPACITY
+Capacity: damage per shot, fuel, detection range, fighters, ... depending on the part
+
+SHIP_PANEL_DAMAGE_TIP
+Damage per combat against an unshielded ship, fighters included.
+
+SHIP_PANEL_DESTROY_TIP
+Fighters this ship can shoot down per combat.
+
 FLEET_PANEL_SCRAPPING
 scrapped at the next turn
 

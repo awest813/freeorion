@@ -3,7 +3,8 @@ extends Node
 ## the GG client uses: music and effects on/off and volume (0-255). Every
 ## button clicks when pressed and ticks softly when hovered; a button can
 ## pick another sound with set_meta("sound", name) or none with "". The new
-## turn has its own sound.
+## turn has its own sound. Nothing is heard until the Shell calls
+## set_audible(), so tests and tools stay silent.
 
 const OPTION_MUSIC := "audio.music.enabled"
 const OPTION_MUSIC_VOLUME := "audio.music.volume"
@@ -34,6 +35,8 @@ var effects_volume := 255
 ## Sounds asked for so far, and the last one (also when nothing is heard).
 var played_count := 0
 var last_sound := ""
+## Whether sounds are heard at all (see set_audible()).
+var audible := false
 
 var _music: AudioStreamPlayer
 var _effects: Array[AudioStreamPlayer] = []
@@ -76,9 +79,7 @@ func play(sound_name: String, gain_db := 0.0) -> void:
 		return
 	played_count += 1
 	last_sound = sound_name
-	# Headless runs (tests) have nothing to play to, and streams still
-	# playing at exit would be reported as leaked.
-	if _headless():
+	if not audible:
 		return
 	var stream := _stream(SOUNDS[sound_name])
 	if stream == null:
@@ -99,8 +100,15 @@ func is_music_playing() -> bool:
 	return _music.playing
 
 
+## Let sounds be heard (the Shell does, unless headless). Streams still
+## playing when a test run exits would be reported as leaked.
+func set_audible(on: bool) -> void:
+	audible = on
+	_apply_music()
+
+
 func _apply_music() -> void:
-	if not music_enabled or _headless():
+	if not music_enabled or not audible:
 		_music.stop()
 		return
 	if _music.stream == null:
@@ -111,10 +119,6 @@ func _apply_music() -> void:
 	_music.volume_db = volume_db(music_volume)
 	if _music.stream and not _music.playing:
 		_music.play()
-
-
-static func _headless() -> bool:
-	return DisplayServer.get_name() == "headless"
 
 
 func _stream(file: String) -> AudioStream:

@@ -19,6 +19,7 @@ var top_bar: TopBar
 var system_panel: SystemPanel
 var fleet_panel: FleetPanel
 var planet_panel: PlanetPanel
+var ship_panel: ShipPanel
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
@@ -170,6 +171,11 @@ func _ready() -> void:
 	fleet_panel.split_requested.connect(_on_fleet_split)
 	fleet_panel.merge_requested.connect(_on_fleet_merge)
 	fleet_panel.scrap_requested.connect(_on_fleet_scrap)
+	fleet_panel.ship_selected.connect(show_ship)
+	ship_panel = ShipPanel.new()
+	ship_panel.close_requested.connect(ship_panel.show_data.bind({}))
+	ship_panel.link_activated.connect(_on_link_activated)
+	column.add_child(ship_panel)
 	system_panel.planet_action_requested.connect(_on_planet_action)
 	system_panel.focus_requested.connect(_on_focus_requested)
 	system_panel.planet_selected.connect(_on_planet_selected)
@@ -182,7 +188,7 @@ func _ready() -> void:
 	add_child(game_menu)
 
 	# Panels pass the mouse wheel on to the scroll area around them.
-	for panel in [system_panel, planet_panel, fleet_panel]:
+	for panel in [system_panel, planet_panel, fleet_panel, ship_panel]:
 		panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	top_bar.resized.connect(_update_frame_margins)
 	map_view.map.camera.view_changed.connect(_report_view)
@@ -411,6 +417,7 @@ func _update_frame_margins() -> void:
 func _on_system_selected(system_id: int) -> void:
 	system_panel.select_fleet(-1)
 	planet_panel.show_data({})
+	ship_panel.show_data({})
 	if follow_game:
 		system_panel.show_system(system_id)
 
@@ -447,11 +454,32 @@ func _on_building_scrap(building_id: int) -> void:
 func _on_fleet_selected(fleet_id: int) -> void:
 	if fleet_id >= 0:
 		planet_panel.show_data({})
+	if fleet_id < 0 or ship_panel.visible and not _fleet_has_ship(fleet_id, ship_panel.ship_id):
+		ship_panel.show_data({})
 	_show_route(fleet_id)
 	if follow_game:
 		fleet_panel.show_fleet(fleet_id)
 	elif fleet_id < 0:
 		fleet_panel.show_data({})
+
+
+## Show ship \a ship_id's details below its fleet.
+func show_ship(ship_id: int) -> void:
+	if not follow_game:
+		return
+	ship_panel.show_ship(ship_id)
+	# Scroll the side column to it once it has its size.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if ship_panel.visible:
+		_side_scroll.ensure_control_visible(ship_panel)
+
+
+func _fleet_has_ship(fleet_id: int, ship_id: int) -> bool:
+	if not follow_game:
+		return false
+	var ship: FOShip = FOUniverse.get_ship(ship_id)
+	return ship != null and ship.get_fleet_id() == fleet_id
 
 
 func _on_fleet_rename(fleet_id: int, new_name: String) -> void:
@@ -478,6 +506,8 @@ func _on_fleet_scrap(ship_ids: PackedInt32Array) -> void:
 	for ship_id in ship_ids:
 		FOPlanetActions.scrap(ship_id)
 	_refresh_fleet_views(fleet_panel.fleet_id)
+	if ship_panel.visible:
+		ship_panel.refresh()
 
 
 # Colonise, invade, annex or bombard (each toggles the order), then show
@@ -632,6 +662,8 @@ func _on_turn_update() -> void:
 		fleet_panel.refresh()
 	if planet_panel.visible:
 		planet_panel.refresh()
+	if ship_panel.visible:
+		ship_panel.refresh()
 	if production_screen.visible:
 		production_screen.refresh()
 	if research_screen.visible:
@@ -691,10 +723,17 @@ func _on_link_activated(kind: String, arg: String) -> void:
 				fleet_id = ship.get_fleet_id() if ship else -1
 			var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
 			if fleet:
-				system_id = fleet.get_system_id()
-				if system_id < 0:
-					map_view.map.camera.center_on(fleet.get_position())
-					return
+				# Select the fleet too, and show the ship's details.
+				go_to(
+					{
+						"system_id": fleet.get_system_id(),
+						"fleet_id": fleet_id,
+						"position": fleet.get_position(),
+					}
+				)
+				if kind == "ship":
+					show_ship(arg.to_int())
+				return
 	if system_id >= 0:
 		map_view.map.focus_system(system_id)
 

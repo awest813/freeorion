@@ -24,6 +24,7 @@
 #include "../../../universe/Ship.h"
 #include "../../../universe/ShipDesign.h"
 #include "../../../universe/ShipHull.h"
+#include "../../../universe/ShipPart.h"
 #include "../../../universe/Special.h"
 #include "../../../universe/Species.h"
 #include "../../../universe/System.h"
@@ -445,6 +446,7 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_name", "empire_id"), &FOUniverse::get_empire_name);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_resources"), &FOUniverse::get_empire_resources);
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_detail", "planet_id"), &FOUniverse::get_planet_detail);
+    ClassDB::bind_static_method(cls, D_METHOD("get_ship_detail", "ship_id"), &FOUniverse::get_ship_detail);
     ClassDB::bind_static_method(cls, D_METHOD("get_meter_accounting", "object_id", "meter_name"),
                                 &FOUniverse::get_meter_accounting);
     ClassDB::bind_static_method(cls, D_METHOD("get_playable_species"), &FOUniverse::get_playable_species);
@@ -718,6 +720,42 @@ namespace {
         {MeterType::METER_STEALTH,      MeterType::NUM_METER_TYPES},
     }};
 
+    // Ship meters and their maximum, in the order of the GG ship panel.
+    constexpr std::array<std::pair<MeterType, MeterType>, 9> SHIP_METERS{{
+        {MeterType::METER_STRUCTURE,    MeterType::METER_MAX_STRUCTURE},
+        {MeterType::METER_SHIELD,       MeterType::METER_MAX_SHIELD},
+        {MeterType::METER_FUEL,         MeterType::METER_MAX_FUEL},
+        {MeterType::METER_DETECTION,    MeterType::NUM_METER_TYPES},
+        {MeterType::METER_STEALTH,      MeterType::NUM_METER_TYPES},
+        {MeterType::METER_SPEED,        MeterType::NUM_METER_TYPES},
+        {MeterType::METER_INDUSTRY,     MeterType::METER_TARGET_INDUSTRY},
+        {MeterType::METER_RESEARCH,     MeterType::METER_TARGET_RESEARCH},
+        {MeterType::METER_INFLUENCE,    MeterType::METER_TARGET_INFLUENCE},
+    }};
+
+    // Meter rows for get_planet_detail() and get_ship_detail().
+    template <typename Meters>
+    godot::Array MeterRows(const UniverseObject& object, const Meters& types) {
+        godot::Array meters;
+        for (const auto& [type, target_type] : types) {
+            const auto* meter = object.GetMeter(type);
+            if (!meter)
+                continue;
+            const auto* target = target_type != MeterType::NUM_METER_TYPES ? object.GetMeter(target_type) : nullptr;
+            godot::Dictionary entry;
+            entry["meter"] = ToGodot(::to_string(type));
+            entry["now"] = meter->Initial();
+            entry["next"] = meter->Current();
+            // Only meters that move towards a target or maximum have one.
+            if (target)
+                entry["target"] = target->Current();
+            // The breakdown explains the target or maximum where there is one.
+            entry["accounting_meter"] = ToGodot(::to_string(target ? target_type : type));
+            meters.push_back(entry);
+        }
+        return meters;
+    }
+
     bool IsScrapping(const OrderSet& orders, int object_id) {
         for (const auto& [order_id, order] : orders)
             if (auto scrap = std::dynamic_pointer_cast<ScrapOrder>(order); scrap && scrap->ObjectID() == object_id)
@@ -750,22 +788,7 @@ godot::Dictionary FOUniverse::get_planet_detail(int planet_id) {
     result["environment"] = planet->SpeciesName().empty() ? godot::String() :
         ToGodot(::to_string(planet->EnvironmentForSpecies(context.species)));
 
-    godot::Array meters;
-    for (const auto& [type, target_type] : PLANET_METERS) {
-        const auto* meter = planet->GetMeter(type);
-        if (!meter)
-            continue;
-        const auto* target = target_type != MeterType::NUM_METER_TYPES ? planet->GetMeter(target_type) : nullptr;
-        godot::Dictionary entry;
-        entry["meter"] = ToGodot(::to_string(type));
-        entry["now"] = meter->Initial();
-        entry["next"] = meter->Current();
-        entry["target"] = target ? target->Current() : meter->Current();
-        // The breakdown explains the target or maximum where there is one.
-        entry["accounting_meter"] = ToGodot(::to_string(target ? target_type : type));
-        meters.push_back(entry);
-    }
-    result["meters"] = meters;
+    result["meters"] = MeterRows(*planet, PLANET_METERS);
 
     godot::Array buildings;
     for (const auto* building : context.ContextObjects().findRaw<Building>(planet->BuildingIDs())) {
@@ -792,6 +815,97 @@ godot::Dictionary FOUniverse::get_planet_detail(int planet_id) {
         specials.push_back(entry);
     }
     result["specials"] = specials;
+    return result;
+}
+
+godot::Dictionary FOUniverse::get_ship_detail(int ship_id) {
+    godot::Dictionary result;
+    const auto* app = ClientApp::GetApp();
+    const auto* ship = Lookup<Ship>(ship_id);
+    if (!app || !ship)
+        return result;
+    const auto& context = app->GetContext();
+    const auto& universe = context.ContextUniverse();
+    result["id"] = ship_id;
+    result["name"] = ToGodot(ship->PublicName(app->EmpireID(), universe));
+    result["species"] = ToGodot(ship->SpeciesName());
+    result["owner_id"] = ship->Owner();
+    result["own"] = !ship->Unowned() && ship->OwnedBy(app->EmpireID());
+    const auto owner = context.GetEmpire(ship->Owner());
+    result["owner_name"] = owner ? ToGodot(owner->Name()) : godot::String();
+    if (owner) {
+        const auto c = owner->Color();
+        result["owner_color"] = godot::Color::from_rgba8(c[0], c[1], c[2], c[3]);
+    }
+    result["fleet_id"] = ship->FleetID();
+    result["age"] = ship->AgeInTurns(context.current_turn);
+    result["scrapping"] = IsScrapping(app->Orders(), ship_id);
+    const auto* design = universe.GetShipDesign(ship->DesignID());
+    result["design_id"] = ship->DesignID();
+    result["design"] = design ? ToGodot(design->Name()) : godot::String();
+    result["hull"] = design ? ToGodot(design->Hull()) : godot::String();
+    result["icon"] = design ? ToGodot(design->Icon()) : godot::String();
+    if (const auto* hull = design ? GetShipHull(design->Hull()) : nullptr) {
+        if (result["icon"].operator godot::String().is_empty())
+            result["icon"] = ToGodot(hull->Icon());
+    }
+
+    result["meters"] = MeterRows(*ship, SHIP_METERS);
+
+    // Combat and cargo, as UI/FleetWnd.cpp's ShipDataPanel::StatValue().
+    godot::Array stats;
+    const auto stat = [&stats](const char* key, double value) {
+        godot::Dictionary entry;
+        entry["stat"] = key;
+        entry["value"] = value;
+        stats.push_back(entry);
+    };
+    if (ship->IsArmed(context)) {
+        stat("damage", ship->TotalWeaponsShipDamage(context, 0.0f, true));
+        stat("destroy", ship->TotalWeaponsFighterDamage(context, true));
+    }
+    if (ship->HasFighters(universe))
+        stat("fighters", ship->FighterCount());
+    if (ship->HasTroops(universe))
+        stat("troops", ship->TroopCapacity(universe));
+    if (ship->CanColonize(universe, context.species))
+        stat("colony", ship->ColonyCapacity(universe));
+    result["stats"] = stats;
+
+    // Parts once per name, with how many and their meters.
+    godot::Array parts;
+    if (design) {
+        std::vector<std::pair<std::string, int>> counts;
+        for (const auto& part_name : design->Parts()) {
+            if (part_name.empty())
+                continue;
+            auto it = std::find_if(counts.begin(), counts.end(),
+                                   [&part_name](const auto& entry) { return entry.first == part_name; });
+            if (it == counts.end())
+                counts.emplace_back(part_name, 1);
+            else
+                ++it->second;
+        }
+        const auto part_meter = [ship](MeterType type, const std::string& name) {
+            const auto* meter = ship->GetPartMeter(type, name);
+            return meter ? static_cast<double>(meter->Initial()) : -1.0;
+        };
+        for (const auto& [part_name, count] : counts) {
+            godot::Dictionary entry;
+            entry["name"] = ToGodot(part_name);
+            entry["count"] = count;
+            const auto* part = GetShipPart(part_name);
+            entry["class"] = part ? ToGodot(::to_string(part->Class())) : godot::String();
+            entry["icon"] = part ? ToGodot(part->Icon()) : godot::String();
+            // -1 where the part has no such meter.
+            entry["capacity"] = part_meter(MeterType::METER_CAPACITY, part_name);
+            entry["max_capacity"] = part_meter(MeterType::METER_MAX_CAPACITY, part_name);
+            entry["secondary"] = part_meter(MeterType::METER_SECONDARY_STAT, part_name);
+            entry["max_secondary"] = part_meter(MeterType::METER_MAX_SECONDARY_STAT, part_name);
+            parts.push_back(entry);
+        }
+    }
+    result["parts"] = parts;
     return result;
 }
 

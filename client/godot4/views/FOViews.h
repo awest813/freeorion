@@ -161,6 +161,9 @@ public:
       * has), buildings ({id, type, name, icon, scrapping}) and specials
       * ({name, icon, capacity}). {} if unknown. */
     static godot::Dictionary get_planet_detail(int planet_id);
+    /** One ship: design, species, owner, meters (as get_planet_detail()),
+      * combat and cargo stats, and parts grouped by name. */
+    static godot::Dictionary get_ship_detail(int ship_id);
 
     /** Why meter \a meter_name of object \a object_id has its value: the
       * effects that changed it this turn, as the GG meter tooltips list them.

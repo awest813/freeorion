@@ -25,6 +25,9 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_build_menus()
+	var audio := get_node_or_null("/root/FOAudio")
+	if audio:
+		audio.set_audible(DisplayServer.get_name() != "headless")
 	if not is_instance_valid(GlobalFreeOrionNode):
 		return
 	# Closing the window in game shuts the server down first, as Exit does.

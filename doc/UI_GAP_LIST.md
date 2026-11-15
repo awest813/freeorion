@@ -27,7 +27,7 @@ so are meter breakdowns. Multiplayer is the last P1 item.
 |---|---|---|
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
-| P2 | 8 | Tech tree graph; where to build; ship detail; graphs; hotkey rebinding |
+| P2 | 7 | Tech tree graph; where to build; graphs; hotkey rebinding |
 | P3 | 17 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
@@ -55,7 +55,7 @@ Closed on 2026-11-15:
 - **Bombard:** in the planet actions, with ships chosen by their bombard tags as in `SidePanel`. Covered by unit tests only so far; no bombard-capable ships early in a game.
 - **Diplomacy:** an Empires screen (F9) lists every empire with your standing (war, peace, allied) and proposals waiting either way. It offers the GG player list's actions: propose, accept or reject peace or alliance, withdraw, declare war, end an alliance. The top bar counts proposals made to you. Options moved to the in-game menu (F10 still opens it).
 - **Game rules in galaxy setup:** a second tab lists all 78 rules by category, generated from their metadata (type, range, choices), with a reset per changed rule. Changes are validated and reach the game.
-- **Meter breakdowns:** hovering a meter in the planet panel lists every effect behind its value (techs, buildings, species, policies, ...) as the GG meter tooltips do. This needed the client to compute effect accounting and meter estimates each turn, as `MapWnd::InitTurn` does; that also re-applies orders loaded with a saved game. Ship and fleet meters don't have breakdowns yet (P2).
+- **Meter breakdowns:** hovering a meter in the planet panel lists every effect behind its value (techs, buildings, species, policies, ...) as the GG meter tooltips do. This needed the client to compute effect accounting and meter estimates each turn, as `MapWnd::InitTurn` does; that also re-applies orders loaded with a saved game. Ship meters have them too (see Ship detail under P2).
 - **Fields (ion storms, nebulae, ...):** drawn with their art at their real radius. Their names and effects on hover are still missing (P2).
 
 ### Map and panels
@@ -94,12 +94,12 @@ Closed:
   - Still open: saving designs to disk between games, and renaming in the UI (the bridge can rename).
 - **Sound and music:** the game's music plays in a loop; buttons click and sound on hover; new turns, ending a turn and dialogs have their sounds. Options has a Sound section to turn music and effects on or off and set their volumes (the GG client's `audio.*` options).
 - **Turn readiness check:** End turn first lists what may have been forgotten: unspent PP or RP (saying so when a queue is empty), fleets with colony ships but no orders, and new fleets without orders. Each entry goes to its screen or fleet; "End turn anyway" ends it. The check can be turned off in the dialog or in Options (`ui.turn.readiness.check`).
+- **Ship detail:** a ship's name in the fleet panel opens its details below: design, hull and species (linked to the Pedia), damage, fighters shot down, fighters, troops and colonists as the GG ship rows show them, its meters with next turn's change, maximum and effect breakdown, and its parts with their capacities. Ship links in turn events select the fleet and open the ship.
 
 | Gap | Legacy | Size | Notes |
 |---|---|---|---|
 | Tech tree graph | `TechTreeWnd`, `TechTreeLayout`, `TechTreeArcs` | L | The fork has the list view only. |
 | Production: where can I build this | `BuildDesignatorWnd` | M | Highlight valid locations on the map, build at several at once. |
-| Ship detail | `FleetWnd` ship data panel | M | Per-ship meters with breakdowns, parts, attack, fighters. |
 | Drag ships between fleets | `FleetWnd` | M | Split and merge exist; drag-and-drop doesn't. |
 | Graphs | `ui.map.graphs`, `GraphControl` | M | Empire statistics over time. |
 | Pedia extras | `EncyclopediaDetailPanel` | M | Graphs, the planet suitability table, "show on map". |
