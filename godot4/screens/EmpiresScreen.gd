@@ -3,8 +3,11 @@ extends PanelContainer
 ## Empires: every empire with its player, how the player stands with it
 ## (war, peace, alliance), proposals waiting either way, and the diplomatic
 ## actions open now (propose, accept, reject, withdraw, declare war, end an
-## alliance). Actions go to the server at once. The Statistics tab charts
-## the empires' statistics (output, ships, planets, ...) turn by turn.
+## alliance). Actions go to the server at once. Each empire shows, as GG's
+## player list, who plays it (human or AI, and whether they've finished the
+## turn) and what this client knows of it: ships, planets, and their
+## industry, research and influence, and its detection strength. The
+## Statistics tab charts the empires' statistics turn by turn.
 
 signal close_requested
 
@@ -24,6 +27,16 @@ const STATUS_KEYS := {
 	"peace": "DIPLOMACY_STATUS_PEACE",
 	"allied": "DIPLOMACY_STATUS_ALLIED",
 }
+
+## Summary numbers: key, icon, tooltip key.
+const SUMMARY := [
+	["ships", "icons/sitrep/fleet_arrived.png", "EMPIRES_SUMMARY_SHIPS"],
+	["planets", "icons/meter/pop.png", "EMPIRES_SUMMARY_PLANETS"],
+	["industry", "icons/meter/industry.png", "EMPIRES_SUMMARY_INDUSTRY"],
+	["research", "icons/meter/research.png", "EMPIRES_SUMMARY_RESEARCH"],
+	["influence", "icons/meter/influence.png", "EMPIRES_SUMMARY_INFLUENCE"],
+	["detection", "icons/meter/detection.png", "EMPIRES_SUMMARY_DETECTION"],
+]
 
 ## Tabs: label key.
 const TABS := ["EMPIRES_TAB_DIPLOMACY", "EMPIRES_TAB_STATISTICS"]
@@ -224,6 +237,15 @@ func _empire_card(empire: Dictionary) -> Control:
 	swatch.color = empire.get("color", Color.GRAY)
 	swatch.custom_minimum_size = Vector2(FOUi.tokens.space_2, FOUi.tokens.icon_large)
 	row.add_child(swatch)
+	var marks := VBoxContainer.new()
+	marks.add_theme_constant_override("separation", 0)
+	marks.custom_minimum_size.x = FOUi.tokens.icon_small
+	row.add_child(marks)
+	for mark: Array in player_marks(empire):
+		var icon := ScreenKit.icon(mark[0], FOUi.tokens.icon_small)
+		icon.tooltip_text = tr(mark[1])
+		icon.mouse_filter = Control.MOUSE_FILTER_PASS
+		marks.add_child(icon)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_constant_override("separation", 0)
@@ -244,6 +266,8 @@ func _empire_card(empire: Dictionary) -> Control:
 	if not str(empire.get("incoming", "")).is_empty():
 		status.add_theme_color_override("font_color", FOUi.tokens.warning)
 	text.add_child(status)
+	if empire.has("ships"):
+		text.add_child(_summary_row(empire))
 	if empire.get("eliminated", false):
 		card.modulate = Color(1, 1, 1, 0.5)
 	for action: String in empire.get("actions", []):
@@ -256,6 +280,51 @@ func _empire_card(empire: Dictionary) -> Control:
 		button.pressed.connect(_on_action.bind(empire.get("id", -1), action))
 		row.add_child(button)
 	return card
+
+
+## Who plays \a empire, and whether they're done: [[icon, tooltip key]].
+static func player_marks(empire: Dictionary) -> Array:
+	var marks := []
+	match empire.get("client_type", ""):
+		"ai":
+			marks.push_back(["icons/ai.png", "AI_PLAYER"])
+		"player":
+			marks.push_back(["icons/human.png", "EMPIRES_HUMAN_PLAYER"])
+			if empire.get("ready", false):
+				marks.push_back(["icons/ready.png", "MP_TURN_DONE"])
+			else:
+				marks.push_back(["icons/not_ready.png", "MP_TURN_PLAYING"])
+	if empire.get("won", false):
+		marks.push_back(["icons/sitrep/victory.png", "EMPIRES_WON"])
+	elif empire.get("eliminated", false):
+		marks.push_back(["icons/sitrep/empire_eliminated.png", "EMPIRES_ELIMINATED"])
+	return marks
+
+
+## The numbers on an empire's card: [[key, text]] (output to 1 decimal).
+static func summary_values(empire: Dictionary) -> Array:
+	var values := []
+	for entry: Array in SUMMARY:
+		var value: float = empire.get(entry[0], 0.0)
+		var text := str(int(value)) if entry[0] in ["ships", "planets"] else "%.1f" % value
+		values.push_back([entry[0], text])
+	return values
+
+
+func _summary_row(empire: Dictionary) -> HFlowContainer:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
+	var values := summary_values(empire)
+	for i in SUMMARY.size():
+		var cell := HBoxContainer.new()
+		cell.tooltip_text = tr(SUMMARY[i][2])
+		cell.mouse_filter = Control.MOUSE_FILTER_PASS
+		var icon := ScreenKit.icon(SUMMARY[i][1], FOUi.tokens.icon_small)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cell.add_child(icon)
+		cell.add_child(ScreenKit.label(values[i][1], "SmallLabel"))
+		row.add_child(cell)
+	return row
 
 
 func _on_action(empire_id: int, action: String) -> void:

@@ -106,16 +106,16 @@ done; sizes as in the gap list (S ≤ 1 day, M ≤ 1 week, L > 1 week).
 ## Title, options, saves, messages, Pedia, empires
 
 - [x] Continue the newest save from the title screen; Pedia from the title screen — S
-- [ ] Command line: `--continue`, `--load`, `--auto-connect`, `-f` — S
+- [x] Command line: `--continue`, `--load`, `--auto-connect`, `-f` — S
 - [x] Video: fullscreen (Alt+Enter), window size and position remembered — M
 - [x] Language picker in Options — S
-- [ ] Hide options this client doesn't use (colours, fonts, ...) — M
+- [x] Hide options this client doesn't use (colours, fonts, ...) — M
 - [x] Randomise-seed button in galaxy setup — S
-- [ ] Save list: galaxy details, sortable columns — S
-- [ ] Message log: turn begun, game saved, diplomatic changes, chat, `/pedia` — M
+- [x] Save list: galaxy details, sortable columns — S
+- [x] Message log: turn begun, game saved, diplomatic changes, chat, `/pedia` — M
 - [x] Content checksum mismatch warning — S
 - [x] Pedia: empire articles; species opinions and who likes or dislikes what — M
 - [x] Pedia: unlocked by, prerequisites and exclusions, location requirements — M
 - [x] Pedia: meter types, galaxy setup and game rules, objects; full-text search — S
-- [ ] Empires: summary numbers per empire, player type and ready marks — S
-- [ ] Remaining interface sounds (list select, drop, panel open and close, fleet and system hover) — S
+- [x] Empires: summary numbers per empire, player type and ready marks — S
+- [x] Remaining interface sounds (list select, drop, panel open and close, fleet and system hover) — S

@@ -1,12 +1,16 @@
 class_name ChatWindow
 extends PanelContainer
-## In-game messages (multiplayer): the chat with the other players, to
-## everyone or whispered to one, in a window over the top left of the
-## map. As the GG client's messages window; toggled from the top bar or
-## with its hotkey. Counts what arrived while it was closed.
+## In-game messages: the chat with the other players, to everyone or
+## whispered to one, and what happened to the game (turns begun, games
+## saved, wars and treaties), in a window over the top left of the map. As
+## the GG client's messages window, with its commands: /pedia [article],
+## /pm [player] [message], /help. Toggled from the top bar or with its
+## hotkey; counts what arrived while it was closed.
 
 ## Unread messages changed (for the top bar's badge).
 signal unread_changed(count: int)
+## "/pedia text": open the Pedia at what \a text names (or its index).
+signal pedia_requested(text: String)
 
 const EVERYONE := -1
 
@@ -14,6 +18,8 @@ var source: Variant = LobbySource.new()
 var chat: ChatPanel
 var recipient: OptionButton
 var unread := 0
+## The game's own messages: [{text, after (chat lines before it)}].
+var events: Array = []
 
 var _seen := 0
 
@@ -65,9 +71,28 @@ func toggle() -> void:
 		open()
 
 
+## Note \a text (FreeOrion markup allowed) in the log, after the chat so far.
+func add_event(text: String) -> void:
+	events.push_back({"text": text, "after": source.chat().size()})
+	refresh()
+
+
+## Chat \a lines with the events interleaved where they happened.
+func merged(lines: Array) -> Array:
+	var result := []
+	var event_index := 0
+	for i in lines.size() + 1:
+		while event_index < events.size() and events[event_index]["after"] <= i:
+			result.push_back({"text": events[event_index]["text"], "event": true})
+			event_index += 1
+		if i < lines.size():
+			result.push_back(lines[i])
+	return result
+
+
 ## Show the chat so far; while closed, count what's new.
 func refresh() -> void:
-	var lines: Array = source.chat()
+	var lines: Array = merged(source.chat())
 	chat.set_lines(lines)
 	if visible:
 		_seen = lines.size()
@@ -78,7 +103,7 @@ func refresh() -> void:
 
 ## Count everything so far as read (the lobby's chat when the game starts).
 func mark_read() -> void:
-	_seen = source.chat().size()
+	_seen = merged(source.chat()).size()
 	unread = 0
 	unread_changed.emit(unread)
 
@@ -101,5 +126,41 @@ func _fill_recipients() -> void:
 
 
 func _send(text: String) -> void:
+	if text.begins_with("/"):
+		run_command(text)
+		return
 	var to: int = recipient.get_item_metadata(recipient.selected) if recipient.selected >= 0 else -1
 	source.send_chat(text, PackedInt32Array() if to == EVERYONE else PackedInt32Array([to]))
+
+
+## Do chat command \a text (GG's MessageWnd commands).
+func run_command(text: String) -> void:
+	var space := text.find(" ")
+	var command := text.substr(1, space - 1 if space > 0 else -1).to_lower()
+	var params := text.substr(space + 1).strip_edges() if space > 0 else ""
+	match command:
+		"pedia":
+			pedia_requested.emit(params)
+		"pm":
+			var target := _player_named(params)
+			var message := params.substr(str(target.get("name", "")).length()).strip_edges()
+			if target.is_empty() or message.is_empty():
+				add_event(tr("MESSAGES_INVALID"))
+			else:
+				source.send_chat(message, PackedInt32Array([target["player_id"]]))
+		_:
+			add_event(tr("MESSAGES_HELP_COMMAND"))
+
+
+# The player whose name \a text starts with (the longest such name).
+func _player_named(text: String) -> Dictionary:
+	var found := {}
+	for player: Dictionary in source.players():
+		var player_name: String = player.get("name", "")
+		if (
+			not player_name.is_empty()
+			and text.begins_with(player_name)
+			and player_name.length() > str(found.get("name", "")).length()
+		):
+			found = player
+	return found

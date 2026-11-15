@@ -14,6 +14,14 @@ var empires: Array = [
 		"incoming": "",
 		"outgoing": "",
 		"actions": [],
+		"client_type": "player",
+		"ready": true,
+		"ships": 12,
+		"planets": 4,
+		"industry": 31.5,
+		"research": 18.25,
+		"influence": 3.0,
+		"detection": 30.0,
 	},
 	{
 		"id": 2,
@@ -26,6 +34,7 @@ var empires: Array = [
 		"incoming": "peace",
 		"outgoing": "",
 		"actions": ["accept_peace", "reject"],
+		"client_type": "ai",
 	},
 	{
 		"id": 3,

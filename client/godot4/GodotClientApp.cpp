@@ -33,6 +33,9 @@ namespace {
         db.Add("setup.multiplayer.player.name",  UserStringNop("OPTIONS_DB_MP_PLAYER_NAME"),     std::string(""),            Validator<std::string>());
         db.Add("setup.multiplayer.host.address", UserStringNop("OPTIONS_DB_MP_HOST_ADDRESS"),    std::string("localhost"),   Validator<std::string>());
         // Hosting a multiplayer game, as the GG intro screen registers them.
+        // Start-up flags, as the GG client's (chmain.cpp).
+        db.AddFlag("continue", UserStringNop("OPTIONS_DB_CONTINUE"), OptionsDB::Storable::UNSTORABLE);
+        db.AddFlag('A', "auto-connect", UserStringNop("OPTIONS_DB_AUTO_CONNECT"), OptionsDB::Storable::UNSTORABLE);
         db.AddFlag("network.server.external.force", UserStringNop("OPTIONS_DB_FORCE_EXTERNAL_SERVER"), OptionsDB::Storable::UNSTORABLE);
         db.Add<std::string>("network.server.uri", UserStringNop("OPTIONS_DB_EXTERNAL_SERVER_ADDRESS"), "localhost");
         db.Add<int>("auto-advance-n-turns",      UserStringNop("OPTIONS_DB_AUTO_N_TURNS"),           0,

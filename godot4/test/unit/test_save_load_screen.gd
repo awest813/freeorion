@@ -92,3 +92,16 @@ func test_delete_asks_then_deletes():
 	assert_eq(
 		screen._status.text, tr("SAVES_DELETED").replace("%1%", "Terran_Imperium_turn_42.sav")
 	)
+
+
+func test_galaxy_details_and_sorting():
+	var saves: Array = FakeSource.new().saves.duplicate()
+	assert_string_contains(SaveLoadScreen.galaxy_summary(saves[0]), "150")
+	assert_eq(SaveLoadScreen.galaxy_summary(saves[1]), "", "Nothing known, nothing shown")
+	assert_string_contains(SaveLoadScreen.galaxy_details(saves[0]), "zzX9")
+	SaveLoadScreen.sort_saves(saves, "oldest")
+	assert_eq(saves[0]["turn"], 40)
+	SaveLoadScreen.sort_saves(saves, "turn")
+	assert_eq(saves[0]["turn"], 42)
+	SaveLoadScreen.sort_saves(saves, "file")
+	assert_true(str(saves[0]["file"]).begins_with("FreeOrion"))

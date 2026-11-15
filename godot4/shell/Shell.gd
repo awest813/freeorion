@@ -228,8 +228,32 @@ func _on_parsing_completed() -> void:
 	_content_ready = true
 	title.set_content_ready(true)
 	title.set_can_continue(not saves.source.list_saves().is_empty())
+	_start_from_command_line()
+
+
+# What the command line asks for once content is ready, as the GG client:
+# --quickstart (-q), --continue (the newest save), --load FILE,
+# --auto-connect (-A: join the multiplayer server remembered).
+func _start_from_command_line() -> void:
 	if GlobalFreeOrionNode.options_get_bool("quickstart"):
 		_start_game()
+	elif _flag("continue"):
+		continue_game()
+	elif not str(GlobalFreeOrionNode.options_get_string("load")).is_empty():
+		var path: String = GlobalFreeOrionNode.options_get_string("load")
+		if saves.source.load_game(path):
+			_on_load_started(path)
+		else:
+			title.show_notice(tr("SAVES_LOAD_FAILED"))
+	elif _flag("auto-connect"):
+		_show_connect()
+		connect_screen._on_join()
+
+
+func _flag(option: String) -> bool:
+	return (
+		GlobalFreeOrionNode.options_exists(option) and GlobalFreeOrionNode.options_get_bool(option)
+	)
 
 
 # The game began: replace the menus with the game shell.

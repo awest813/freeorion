@@ -10,6 +10,12 @@ var saves: Array = [
 		"color": Color("#3d9bff"),
 		"turn": 42,
 		"time": "2026-11-15T10:42:07Z",
+		"systems": 150,
+		"shape": "Spiral, 3 arms",
+		"empires": 5,
+		"humans": 1,
+		"seed": "zzX9",
+		"age": "Mature",
 	},
 	{
 		"path": "/saves/auto/FreeOrion_Admiral_Terran_Imperium_0040.sav",

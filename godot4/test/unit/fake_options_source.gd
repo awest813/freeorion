@@ -6,6 +6,14 @@ var options := {
 	"ui.theme": {"value": "default", "default": "default", "description": "OPTIONS_DB_UI_THEME"},
 	"ui.reduce-motion":
 	{"value": false, "default": false, "description": "OPTIONS_DB_UI_REDUCE_MOTION"},
+	"save.auto.file.limit":
+	{
+		"value": 150,
+		"default": 150,
+		"description": "OPTIONS_DB_GAMESETUP_STARS",
+		"min": 10,
+		"max": 5000,
+	},
 	"setup.star.count":
 	{
 		"value": 150,
@@ -14,7 +22,7 @@ var options := {
 		"min": 10,
 		"max": 5000,
 	},
-	"ui.map.detection.shown":
+	"ui.detection.legend.shown":
 	{"value": false, "default": false, "description": "OPTIONS_DB_UI_MAP_DETECTION_SHOWN"},
 	"audio.music.enabled": {"value": true, "default": true, "description": "OPTIONS_DB_MUSIC_ON"},
 	"audio.music.volume": {"value": 127, "default": 127, "description": "OPTIONS_DB_MUSIC_VOLUME"},

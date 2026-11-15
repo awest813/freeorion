@@ -30,6 +30,11 @@ static func restore(options: Object) -> void:
 	add_options(options)
 	if not has_window():
 		return
+	# Started with -f / --fullscreen (the engine takes the flag): remember
+	# it, as the GG client's -f sets this option.
+	if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		options.set_value(OPTION_FULLSCREEN, true)
+		options.commit()
 	if bool(options.get_value(OPTION_FULLSCREEN)):
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		return

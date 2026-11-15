@@ -2,9 +2,12 @@ extends Node
 ## Music and interface sounds (autoload "FOAudio"), from the audio.* options
 ## the GG client uses: music and effects on/off and volume (0-255). Every
 ## button clicks when pressed and ticks softly when hovered; a button can
-## pick another sound with set_meta("sound", name) or none with "". The new
-## turn has its own sound. Nothing is heard until the Shell calls
-## set_audible(), so tests and tools stay silent.
+## pick another sound with set_meta("sound", name) or none with "". As in the
+## GG client, drop-downs have their own sound, choosing in a list and
+## dropping a dragged item sound, side panels and screens sound as they open
+## and close, and fleets and systems on the map as they're hovered and
+## fleets as they're clicked. The new turn has its own sound. Nothing is
+## heard until the Shell calls set_audible(), so tests and tools stay silent.
 
 const OPTION_MUSIC := "audio.music.enabled"
 const OPTION_MUSIC_VOLUME := "audio.music.volume"
@@ -22,7 +25,29 @@ const SOUNDS := {
 	"close": "window_close.ogg",
 	"select": "item_select.ogg",
 	"open": "sidepanel_open.ogg",
+	"list_select": "list_select.ogg",
+	"drop": "list_select.ogg",
+	"pulldown": "list_pulldown.ogg",
+	"fleet_click": "fleet_button_click.ogg",
+	"fleet_rollover": "fleet_button_rollover.ogg",
+	"system_rollover": "fleet_button_rollover.ogg",
 }
+## Panels and screens that sound as they open ("open") and close ("close").
+const PANELS := [
+	"SystemPanel",
+	"PlanetPanel",
+	"FleetPanel",
+	"ShipPanel",
+	"ProductionScreen",
+	"ResearchScreen",
+	"GovernmentScreen",
+	"DesignerScreen",
+	"ObjectsScreen",
+	"CombatScreen",
+	"EmpiresScreen",
+	"PediaScreen",
+	"ChatWindow",
+]
 ## Hover ticks are quieter than clicks.
 const ROLLOVER_DB := -9.0
 const EFFECT_PLAYERS := 4
@@ -128,13 +153,48 @@ func _stream(file: String) -> AudioStream:
 	return _streams[file]
 
 
-# Buttons click when pressed and tick when hovered, unless they say otherwise.
+# A dragged item dropped somewhere that took it.
+func _notification(what: int) -> void:
+	if (
+		what == NOTIFICATION_DRAG_END
+		and is_inside_tree()
+		and get_viewport().gui_is_drag_successful()
+	):
+		play("drop")
+
+
+# Buttons click when pressed and tick when hovered, unless they say otherwise;
+# lists, panels and the map have their sounds (see the class description).
 func _on_node_added(node: Node) -> void:
+	if node is ItemList:
+		node.item_selected.connect(func(_i): play("list_select"))
+	elif node is Tree:
+		node.item_selected.connect(play.bind("list_select"))
+	var script: Script = node.get_script()
+	var script_name := script.get_global_name() if script else &""
+	if script_name in PANELS:
+		node.visibility_changed.connect(_on_panel_visibility.bind(node))
+	elif script_name == &"GalaxyMap":
+		node.system_hovered.connect(_on_map_hover.bind("system_rollover"))
+		node.fleet_hovered.connect(_on_map_hover.bind("fleet_rollover"))
+		node.fleet_clicked.connect(func(_id): play("fleet_click"))
 	if not node is BaseButton:
 		return
 	var button := node as BaseButton
+	if (node is OptionButton or node is MenuButton) and not button.has_meta("sound"):
+		button.set_meta("sound", "pulldown")
 	button.pressed.connect(_on_button_pressed.bind(button))
 	button.mouse_entered.connect(_on_button_hovered.bind(button))
+
+
+func _on_map_hover(id: int, sound_name: String) -> void:
+	if id >= 0:
+		play(sound_name, ROLLOVER_DB)
+
+
+func _on_panel_visibility(panel: CanvasItem) -> void:
+	if panel.is_inside_tree():
+		play("open" if panel.visible else "close")
 
 
 func _on_button_pressed(button: BaseButton) -> void:

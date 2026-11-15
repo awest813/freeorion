@@ -88,6 +88,18 @@ godot::Array FOSaves::list_saves() {
         save["empires"] = p.number_of_empires;
         save["humans"] = p.number_of_human_players;
         save["version"] = ToGodot(p.freeorion_version);
+        // The galaxy, as the GG save list's columns show it.
+        const auto& g = full.galaxy;
+        save["seed"] = ToGodot(g.seed);
+        save["systems"] = g.size;
+        save["shape"] = ToGodot(TextForGalaxyShape(g.shape));
+        save["age"] = ToGodot(TextForGalaxySetupSetting(g.age));
+        save["starlanes"] = ToGodot(TextForGalaxySetupSetting(g.starlane_freq));
+        save["planets"] = ToGodot(TextForGalaxySetupSetting(g.planet_density));
+        save["specials"] = ToGodot(TextForGalaxySetupSetting(g.specials_freq));
+        save["monsters"] = ToGodot(TextForGalaxySetupSetting(g.monster_freq));
+        save["natives"] = ToGodot(TextForGalaxySetupSetting(g.native_freq));
+        save["ai_aggression"] = ToGodot(TextForAIAggression(g.ai_aggr));
         result.push_back(save);
     }
     return result;

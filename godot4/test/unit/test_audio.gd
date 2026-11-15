@@ -64,3 +64,35 @@ func test_options_screen_sound_controls():
 	assert_true(effects[1].editable)
 	var listed := screen._list.find_children("*", "Label", true, false).map(func(l): return l.text)
 	assert_does_not_have(listed, "audio.music.volume", "Sound options have their own controls")
+
+
+func test_lists_dropdowns_panels_and_the_map_sound():
+	var list := ItemList.new()
+	list.add_item("a")
+	add_child_autofree(list)
+	list.item_selected.emit(0)
+	assert_eq(FOAudio.last_sound, "list_select")
+	var pick := OptionButton.new()
+	add_child_autofree(pick)
+	pick.pressed.emit()
+	assert_eq(FOAudio.last_sound, "pulldown")
+	var panel := FleetPanel.new()
+	add_child_autofree(panel)
+	panel.visible = true
+	panel.visible = false
+	assert_eq(FOAudio.last_sound, "close")
+	panel.visible = true
+	assert_eq(FOAudio.last_sound, "open")
+	var view: Node = load("res://map/GalaxyMapView.tscn").instantiate()
+	view.follow_game = false
+	add_child_autofree(view)
+	var map: GalaxyMap = view.map
+	map.fleet_hovered.emit(5)
+	assert_eq(FOAudio.last_sound, "fleet_rollover")
+	map.system_hovered.emit(3)
+	assert_eq(FOAudio.last_sound, "system_rollover")
+	var before: int = FOAudio.played_count
+	map.system_hovered.emit(-1)
+	assert_eq(FOAudio.played_count, before, "Leaving a system is silent")
+	map.fleet_clicked.emit(5)
+	assert_eq(FOAudio.last_sound, "fleet_click")

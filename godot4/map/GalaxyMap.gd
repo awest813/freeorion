@@ -21,6 +21,8 @@ signal fleets_boxed(fleet_ids: PackedInt32Array)
 signal system_activated(system_id: int)
 ## A fleet's marker was clicked.
 signal fleet_clicked(fleet_id: int)
+## The pointer moved onto a fleet marker (-1: off them).
+signal fleet_hovered(fleet_id: int)
 ## Right-click (not drag) on a system, e.g. to order the active fleet there.
 signal system_context_requested(system_id: int)
 ## Right-click (not drag) on empty space: the map's options menu.
@@ -137,6 +139,7 @@ var _field_ids := PackedInt32Array()
 var _field_graphics := PackedStringArray()
 var _field_types := PackedStringArray()
 var _hovered_field := -1
+var _hovered_fleet := -1
 var _hover_point := Vector2()
 var _detection_layer: MapLayer
 var _mode_layer: ModeLayer
@@ -445,6 +448,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var world := camera.screen_to_world(event.position)
 		var hovered_id := pick_system(world)
+		var fleet_id := fleets.pick(world, 1.0 / camera.zoom_level())
+		if fleet_id != _hovered_fleet:
+			_hovered_fleet = fleet_id
+			fleet_hovered.emit(fleet_id)
 		var index: int = _index_by_id.get(hovered_id, NO_SYSTEM)
 		if index != _hovered:
 			_hovered = index

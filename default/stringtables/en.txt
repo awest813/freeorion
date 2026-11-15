@@ -3228,6 +3228,63 @@ Owner
 PEDIA_PLAYER
 Player
 
+SAVES_SORT
+Sort the saves
+
+SAVES_SORT_NEWEST
+Newest first
+
+SAVES_SORT_OLDEST
+Oldest first
+
+SAVES_SORT_TURN
+Latest turn first
+
+SAVES_SORT_EMPIRE
+By empire
+
+SAVES_SORT_FILE
+By file name
+
+SAVES_SORT_SYSTEMS
+Largest galaxy first
+
+SAVES_GALAXY
+%1% systems · %2% · %3% empires (%4% human)
+
+SAVES_PLAYER
+Player
+
+SAVES_VERSION
+Version
+
+EMPIRES_SUMMARY_SHIPS
+Ships known
+
+EMPIRES_SUMMARY_PLANETS
+Planets known
+
+EMPIRES_SUMMARY_INDUSTRY
+Industry of the planets known
+
+EMPIRES_SUMMARY_RESEARCH
+Research of the planets known
+
+EMPIRES_SUMMARY_INFLUENCE
+Influence of the planets known
+
+EMPIRES_SUMMARY_DETECTION
+Detection strength
+
+EMPIRES_HUMAN_PLAYER
+Human player
+
+EMPIRES_WON
+Won the game
+
+EMPIRES_ELIMINATED
+Eliminated
+
 OPTIONS_LANGUAGE_NAME
 Language
 

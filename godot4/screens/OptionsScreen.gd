@@ -10,8 +10,10 @@ signal close_requested
 const SCALE_STEPS := [0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
 const THEMES := ["default", "high_contrast"]
 const MAX_LISTED := 120
-## Internal or launch-only options that make no sense to edit in game.
-## The interface options have their own controls on the left.
+## Internal or launch-only options that make no sense to edit in game, and
+## those other screens edit. The interface options have their own controls on
+## the left. Options only the GG client uses (its colours, fonts, window
+## layouts) aren't registered by this client, so they never show.
 const HIDDEN_PREFIXES := [
 	"version",
 	"misc.server-local-binary",
@@ -29,6 +31,16 @@ const HIDDEN_PREFIXES := [
 	"resource.stringtable.path",
 	"video.fullscreen.enabled",
 	"video.windowed.",
+	# Command-line flags for one launch.
+	"continue",
+	"load",
+	"quickstart",
+	"auto-connect",
+	"auto-advance-n-turns",
+	# Edited on their own screens: galaxy setup (and its game rules), the
+	# multiplayer connect screen, the map's menu.
+	"setup.",
+	"ui.map.",
 ]
 ## Sound controls: on/off option, volume option, label key.
 const AUDIO := [

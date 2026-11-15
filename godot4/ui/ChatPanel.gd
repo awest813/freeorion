@@ -36,8 +36,11 @@ func set_lines(lines: Array) -> void:
 		log_view.append_text(format_line(lines[i]))
 
 
-## One message as BBCode, the text escaped: "12:03 [Name] text".
+## One message as BBCode, the text escaped: "12:03 [Name] text"; the
+## game's own messages ({text, event}) in FreeOrion markup, in italics.
 static func format_line(line: Dictionary) -> String:
+	if line.get("event", false):
+		return "[i]%s[/i]" % FORichText.to_bbcode(line.get("text", ""))
 	var text := ""
 	var time: String = line.get("time", "")
 	if not time.is_empty():

@@ -287,6 +287,7 @@ func _ready() -> void:
 	chat_window.unread_changed.connect(top_bar.set_unread_messages)
 	screens.add_child(chat_window)
 	top_bar.messages_requested.connect(chat_window.toggle)
+	add_child(MessageLog.new(self))
 
 	# The menu covers everything, the top bar included.
 	# First-time hints, over the map and screens but under the menu; only in

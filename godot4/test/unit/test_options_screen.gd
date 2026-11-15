@@ -38,29 +38,29 @@ func test_list_and_search():
 	screen._search.text = "detection"
 	screen._search.text_changed.emit("detection")
 	await wait_process_frames(1)
-	assert_eq(_row_names(), ["ui.map.detection.shown"])
+	assert_eq(_row_names(), ["ui.detection.legend.shown"])
 
 
 func test_bool_editor():
-	var row := _row("ui.map.detection.shown")
+	var row := _row("ui.detection.legend.shown")
 	row.find_children("*", "CheckBox", true, false)[0].button_pressed = true
-	assert_eq(fake.get_value("ui.map.detection.shown"), true)
+	assert_eq(fake.get_value("ui.detection.legend.shown"), true)
 
 
 func test_invalid_number_is_reverted():
-	var spin: SpinBox = _row("setup.star.count").find_children("*", "SpinBox", true, false)[0]
+	var spin: SpinBox = _row("save.auto.file.limit").find_children("*", "SpinBox", true, false)[0]
 	spin.value = 3
-	assert_eq(fake.get_value("setup.star.count"), 150, "Rejected")
+	assert_eq(fake.get_value("save.auto.file.limit"), 150, "Rejected")
 	assert_eq(spin.value, 150.0, "Editor reverted")
-	assert_eq(screen._status.text, tr("OPTIONS_INVALID").replace("%1%", "setup.star.count"))
+	assert_eq(screen._status.text, tr("OPTIONS_INVALID").replace("%1%", "save.auto.file.limit"))
 	spin.value = 300
-	assert_eq(fake.get_value("setup.star.count"), 300)
+	assert_eq(fake.get_value("save.auto.file.limit"), 300)
 
 
 func test_reset_only_when_changed():
 	var reset := _button(_row("save.format.binary"), "↺")
 	assert_false(reset.disabled)
-	assert_true(_button(_row("ui.map.detection.shown"), "↺").disabled)
+	assert_true(_button(_row("ui.detection.legend.shown"), "↺").disabled)
 	reset.pressed.emit()
 	assert_true(fake.is_default("save.format.binary"))
 
@@ -93,3 +93,9 @@ func _button(node: Node, text: String) -> Button:
 		if button.text == text:
 			return button
 	return null
+
+
+func test_launch_flags_and_other_screens_options_hidden():
+	for option in ["continue", "load", "quickstart", "setup.rules.RULE_X", "ui.map.minimap.shown"]:
+		assert_true(OptionsScreen._is_hidden(option), option)
+	assert_false(OptionsScreen._is_hidden("save.format.binary"))

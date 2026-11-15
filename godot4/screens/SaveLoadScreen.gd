@@ -9,6 +9,16 @@ signal close_requested
 ## chosen to be loaded).
 signal load_started(path: String)
 
+## Sort orders: key, label key.
+const SORTS := [
+	["newest", "SAVES_SORT_NEWEST"],
+	["oldest", "SAVES_SORT_OLDEST"],
+	["turn", "SAVES_SORT_TURN"],
+	["empire", "SAVES_SORT_EMPIRE"],
+	["file", "SAVES_SORT_FILE"],
+	["systems", "SAVES_SORT_SYSTEMS"],
+]
+
 var source: Variant = SavesSource.new()
 var mode := "load"
 ## Suggested name in save mode (e.g. empire and turn).
@@ -25,6 +35,7 @@ var _action: Button
 var _delete: Button
 var _selected_path := ""
 var _saves: Array = []
+var _sort: OptionButton
 
 
 func _init() -> void:
@@ -51,12 +62,70 @@ func refresh() -> void:
 	# Saving picks a save to overwrite; autosaves are the game's own.
 	if mode == "save":
 		_saves = _saves.filter(func(save): return not save.get("auto", false))
+	sort_saves(_saves, SORTS[maxi(_sort.selected, 0)][0])
 	ScreenKit.clear(_list)
 	for save: Dictionary in _saves:
 		_list.add_child(_save_card(save))
 	if _saves.is_empty():
 		_list.add_child(ScreenKit.label(tr("SAVES_EMPTY"), "SecondaryLabel"))
 	_update_action()
+
+
+## Sort \a saves by \a key (a SORTS key), as the GG save list's columns.
+static func sort_saves(saves: Array, key: String) -> void:
+	saves.sort_custom(
+		func(a, b):
+			match key:
+				"oldest":
+					return str(a.get("time", "")) < str(b.get("time", ""))
+				"turn":
+					return a.get("turn", 0) > b.get("turn", 0)
+				"empire":
+					return (
+						str(a.get("empire", "")).naturalnocasecmp_to(str(b.get("empire", ""))) < 0
+					)
+				"file":
+					return str(a.get("file", "")).naturalnocasecmp_to(str(b.get("file", ""))) < 0
+				"systems":
+					return a.get("systems", 0) > b.get("systems", 0)
+			return str(a.get("time", "")) > str(b.get("time", ""))
+	)
+
+
+## The galaxy a save is in, in one line: systems, shape, empires, seed.
+static func galaxy_summary(save: Dictionary) -> String:
+	if not save.has("systems"):
+		return ""
+	return (
+		TranslationServer
+		. translate("SAVES_GALAXY")
+		. replace("%1%", str(save.get("systems", 0)))
+		. replace("%2%", str(save.get("shape", "")))
+		. replace("%3%", str(save.get("empires", 0)))
+		. replace("%4%", str(save.get("humans", 0)))
+	)
+
+
+## Every detail of a save's galaxy (GG's columns), for its tooltip.
+static func galaxy_details(save: Dictionary) -> String:
+	var t := TranslationServer.translate
+	var lines: PackedStringArray = [
+		"%s: %s" % [t.call("SAVES_PLAYER"), save.get("player", "")],
+		"%s: %s" % [t.call("SAVES_VERSION"), save.get("version", "")],
+	]
+	for entry in [
+		["seed", "GSETUP_SEED"],
+		["age", "GSETUP_AGE"],
+		["starlanes", "GSETUP_STARLANE_FREQ"],
+		["planets", "GSETUP_PLANET_DENSITY"],
+		["specials", "GSETUP_SPECIALS_FREQ"],
+		["monsters", "GSETUP_MONSTER_FREQ"],
+		["natives", "GSETUP_NATIVE_FREQ"],
+		["ai_aggression", "GSETUP_AI_AGGR"],
+	]:
+		if save.has(entry[0]):
+			lines.push_back("%s: %s" % [t.call(entry[1]), save[entry[0]]])
+	return "\n".join(lines)
 
 
 ## Report that the server wrote \a filename (FreeOrionNode.save_completed).
@@ -83,6 +152,14 @@ func _build() -> void:
 	var close := ScreenKit.small_button("✕", "PANEL_CLOSE")
 	close.pressed.connect(close_requested.emit)
 	header.add_child(close)
+	_sort = OptionButton.new()
+	for entry in SORTS:
+		_sort.add_item(tr(entry[1]))
+	_sort.tooltip_text = tr("SAVES_SORT")
+	_sort.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_sort.item_selected.connect(func(_i): refresh())
+	header.add_child(_sort)
+	header.move_child(_sort, 1)
 	_list = ScreenKit.list()
 	box.add_child(ScreenKit.scrolling(_list))
 	_status = ScreenKit.label("", "SecondaryLabel")
@@ -145,6 +222,11 @@ func _save_card(save: Dictionary) -> Control:
 	if save.get("auto", false):
 		details = tr("SAVES_AUTOSAVE") + " · " + details
 	text.add_child(ScreenKit.label(details, "SmallLabel"))
+	var galaxy := galaxy_summary(save)
+	if not galaxy.is_empty():
+		text.add_child(ScreenKit.label(galaxy, "SmallLabel"))
+		card.custom_minimum_size.y += FOUi.tokens.font_size_small + 4
+	card.tooltip_text = galaxy_details(save)
 	return card
 
 

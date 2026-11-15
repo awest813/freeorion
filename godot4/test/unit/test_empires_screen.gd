@@ -100,3 +100,15 @@ func test_chart_helpers():
 	var plot: Rect2 = chart._plot_rect()
 	assert_eq(chart.turn_at(plot.position.x), 1)
 	assert_eq(chart.turn_at(plot.end.x), 4)
+
+
+func test_player_marks_and_summary_numbers():
+	var own: Dictionary = screen.source.empires[0]
+	var marks: Array = EmpiresScreen.player_marks(own).map(func(m): return m[0])
+	assert_eq(marks, ["icons/human.png", "icons/ready.png"])
+	var ai_marks: Array = EmpiresScreen.player_marks(screen.source.empires[1])
+	assert_eq(ai_marks[0][0], "icons/ai.png")
+	var values: Array = EmpiresScreen.summary_values(own).map(func(v): return v[1])
+	assert_eq(values, ["12", "4", "31.5", "18.2", "3.0", "30.0"])
+	var texts := screen._list.find_children("*", "Label", true, false).map(func(l): return l.text)
+	assert_has(texts, "31.5", "Shown on the card")

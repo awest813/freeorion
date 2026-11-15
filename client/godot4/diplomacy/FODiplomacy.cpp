@@ -9,6 +9,9 @@
 #include "../../../Empire/Empire.h"
 #include "../../../Empire/EmpireManager.h"
 #include "../../../network/Message.h"
+#include "../../../universe/Planet.h"
+#include "../../../universe/Ship.h"
+#include "../../../universe/Universe.h"
 #include "../../../util/Logger.h"
 
 namespace {
@@ -112,6 +115,33 @@ godot::Array FODiplomacy::get_empires() {
         entry["incoming"] = other ? ToGodot(ProposalName(PendingType(empires, id, self))) : godot::String();
         entry["outgoing"] = other ? ToGodot(ProposalName(PendingType(empires, self, id))) : godot::String();
         entry["actions"] = other && !empire->Eliminated() ? Actions(empires, self, id) : godot::PackedStringArray();
+        entry["won"] = empire->Won();
+        // What this client knows of it, as GG's player list counts it:
+        // ships and planets, and the planets' output.
+        const auto& context = app->GetContext();
+        const auto& universe = context.ContextUniverse();
+        const auto& destroyed = universe.EmpireKnownDestroyedObjectIDs(self);
+        const auto& stale = universe.EmpireStaleKnowledgeObjectIDs(self);
+        int ships = 0, planets = 0;
+        double industry = 0.0, research = 0.0, influence = 0.0;
+        for (const auto* ship : context.ContextObjects().allRaw<Ship>())
+            if (ship->Owner() == id && !destroyed.contains(ship->ID()) && !stale.contains(ship->ID()))
+                ++ships;
+        for (const auto* planet : context.ContextObjects().allRaw<Planet>()) {
+            if (planet->Owner() != id)
+                continue;
+            ++planets;
+            industry += planet->GetMeter(MeterType::METER_INDUSTRY)->Initial();
+            research += planet->GetMeter(MeterType::METER_RESEARCH)->Initial();
+            influence += planet->GetMeter(MeterType::METER_INFLUENCE)->Initial();
+        }
+        entry["ships"] = ships;
+        entry["planets"] = planets;
+        entry["industry"] = industry;
+        entry["research"] = research;
+        entry["influence"] = influence;
+        const auto* detection = empire->GetMeter("METER_DETECTION_STRENGTH");
+        entry["detection"] = detection ? detection->Initial() : 0.0f;
         if (id == self)
             result.push_front(entry);
         else

@@ -165,3 +165,39 @@ func test_concede_replaces_load_in_multiplayer():
 	menu.open("")
 	assert_true(menu._load.visible)
 	assert_false(menu._concede.visible)
+
+
+func test_messages_log_game_events_and_commands():
+	var window := ChatWindow.new()
+	window.source = source
+	add_child_autofree(window)
+	window.add_event("Begin Turn 5")
+	var lines := window.merged(source.chat_lines)
+	assert_eq(lines.size(), source.chat_lines.size() + 1)
+	assert_true(lines[-1].get("event", false), "Events come after the chat so far")
+	assert_string_contains(ChatPanel.format_line(lines[-1]), "[i]Begin Turn 5")
+	watch_signals(window)
+	window.chat.input.text_submitted.emit("/pedia Robotic Hull")
+	assert_signal_emitted_with_parameters(window, "pedia_requested", ["Robotic Hull"])
+	assert_eq(source.chat_sent, [], "Commands aren't sent")
+	window.chat.input.text_submitted.emit("/pm Bob hello there")
+	assert_eq(source.chat_sent[-1], ["hello there", PackedInt32Array([2])])
+	window.chat.input.text_submitted.emit("/pm Nobody hi")
+	assert_eq(window.events[-1]["text"], tr("MESSAGES_INVALID"))
+	window.chat.input.text_submitted.emit("/help")
+	assert_eq(window.events[-1]["text"], tr("MESSAGES_HELP_COMMAND"))
+
+
+func test_diplomacy_changes_are_logged():
+	var known := {}
+	var empires := [
+		{"id": 1, "name": "Us", "own": true, "color": Color.BLUE},
+		{"id": 2, "name": "Them", "status": "war", "color": Color.RED},
+	]
+	assert_eq(MessageLog.diplomacy_changes(known, empires).size(), 0, "First look: no change")
+	empires[1]["status"] = "peace"
+	var messages := MessageLog.diplomacy_changes(known, empires)
+	assert_eq(messages.size(), 1)
+	assert_string_contains(messages[0], "Them")
+	assert_string_contains(messages[0], "<rgba 0 0 255 255>Us</rgba>")
+	assert_eq(MessageLog.diplomacy_changes(known, empires).size(), 0, "Only changes")
