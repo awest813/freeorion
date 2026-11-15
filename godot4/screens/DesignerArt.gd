@@ -74,6 +74,7 @@ static func slot_color(slot_type: String) -> Color:
 static func slot_button(slot_type: String, part: Texture2D, size: int) -> Button:
 	var t: FOTokens = FOUi.tokens
 	var button := Button.new()
+	button.set_meta("slot_type", slot_type)
 	button.custom_minimum_size = Vector2(size, size)
 	button.size = button.custom_minimum_size
 	button.toggle_mode = true
@@ -111,10 +112,8 @@ static func slot_button(slot_type: String, part: Texture2D, size: int) -> Button
 		picture.offset_bottom = -inset
 		picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(picture)
-	button.mouse_entered.connect(
-		func(): shape.self_modulate = slot_color(slot_type).lightened(0.35)
-	)
-	button.mouse_exited.connect(func(): shape.self_modulate = slot_color(slot_type))
+	button.mouse_entered.connect(func(): shape.self_modulate = _slot_shade(button).lightened(0.35))
+	button.mouse_exited.connect(func(): shape.self_modulate = _slot_shade(button))
 	return button
 
 
@@ -141,6 +140,44 @@ static func legend(slot_types: Array) -> HBoxContainer:
 		)
 		row.add_child(item)
 	return row
+
+
+## Mark slot \a button (from slot_button()) as one the part in hand fits
+## (\a fit 1), doesn't fit (-1, faded) or neither (0).
+static func set_slot_fit(button: Control, fit: int) -> void:
+	button.set_meta("fit", fit)
+	button.modulate.a = 0.35 if fit < 0 else 1.0
+	var shape: CanvasItem = button.get_node_or_null("Shape")
+	if shape:
+		shape.self_modulate = _slot_shade(button)
+
+
+# The shape's colour for slot \a button: lighter when the part in hand fits.
+static func _slot_shade(button: Control) -> Color:
+	var color := slot_color(button.get_meta("slot_type", ""))
+	return color.lightened(0.45) if button.get_meta("fit", 0) > 0 else color
+
+
+## A soft light for behind the hull art, from the centre outwards.
+static func stage_backdrop() -> TextureRect:
+	var t: FOTokens = FOUi.tokens
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(t.surface_overlay, 0.9))
+	gradient.set_color(1, Color(t.surface_overlay, 0.0))
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	texture.width = 256
+	texture.height = 128
+	var backdrop := TextureRect.new()
+	backdrop.texture = texture
+	backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	backdrop.stretch_mode = TextureRect.STRETCH_SCALE
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return backdrop
 
 
 ## What follows the pointer while \a texture's part is dragged.

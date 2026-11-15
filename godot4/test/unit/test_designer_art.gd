@@ -59,3 +59,40 @@ func test_legend_and_switching_hulls():
 	screen._layout_slots()
 	await wait_process_frames(1)
 	assert_eq(screen._slot_layer.get_child_count(), 1)
+
+
+func _screen() -> DesignerScreen:
+	var screen := DesignerScreen.new()
+	screen.source = FakeSource.new()
+	screen.size = Vector2(1280, 800)
+	add_child_autofree(screen)
+	screen.refresh()
+	return screen
+
+
+func test_slots_a_part_fits_stand_out():
+	var screen := _screen()
+	await wait_process_frames(2)
+	screen.select_hull("SH_BASIC_MEDIUM")
+	await wait_process_frames(1)
+	screen.highlight_slots_for("SR_WEAPON_1_1")
+	var fits: Array = screen._slot_layer.get_children().map(func(b): return b.get_meta("fit"))
+	assert_eq(fits, [1, 1, -1], "Two external slots fit a weapon, the internal one doesn't")
+	assert_lt(screen._slot_layer.get_child(2).modulate.a, 1.0, "Faded")
+	screen._palette.part_hovered.emit("")
+	assert_eq(screen._slot_layer.get_child(2).modulate.a, 1.0, "Back as usual")
+
+
+func test_stats_icons_design_thumbnails_and_hull_caption():
+	var screen := _screen()
+	await wait_process_frames(2)
+	screen.select_hull("SH_BASIC_MEDIUM")
+	await wait_process_frames(1)
+	var icons := screen._stats.find_children("*", "TextureRect", true, false)
+	assert_eq(icons.size(), DesignerScreen.STATS.size(), "A meter icon per stat")
+	assert_true(icons.all(func(i): return i.texture != null), "All found")
+	assert_string_contains(screen._hull_caption.text, tr("SH_BASIC_MEDIUM"))
+	screen.show_design_kind("empire")
+	await wait_process_frames(1)
+	var row_button: Button = screen._design_list.get_child(0).get_child(0)
+	assert_not_null(row_button.icon, "The design's hull shown")

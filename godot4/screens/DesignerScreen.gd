@@ -44,18 +44,19 @@ const DESIGN_KINDS := [
 ## Stats where less is better (their changes are coloured the other way).
 const LOWER_IS_BETTER := ["cost", "turns"]
 const SIDE_WIDTH := 300
+## Stats: key, label key, meter icon (as the game's meters show them).
 const STATS := [
-	["attack", "DESIGNER_STAT_ATTACK"],
-	["structure", "DESIGNER_STAT_STRUCTURE"],
-	["shields", "DESIGNER_STAT_SHIELDS"],
-	["speed", "DESIGNER_STAT_SPEED"],
-	["fuel", "DESIGNER_STAT_FUEL"],
-	["detection", "DESIGNER_STAT_DETECTION"],
-	["stealth", "DESIGNER_STAT_STEALTH"],
-	["colony", "DESIGNER_STAT_COLONY"],
-	["troops", "DESIGNER_STAT_TROOPS"],
-	["cost", "DESIGNER_STAT_COST"],
-	["turns", "DESIGNER_STAT_TURNS"],
+	["attack", "DESIGNER_STAT_ATTACK", "damage"],
+	["structure", "DESIGNER_STAT_STRUCTURE", "structure"],
+	["shields", "DESIGNER_STAT_SHIELDS", "shield"],
+	["speed", "DESIGNER_STAT_SPEED", "speed"],
+	["fuel", "DESIGNER_STAT_FUEL", "fuel"],
+	["detection", "DESIGNER_STAT_DETECTION", "detection"],
+	["stealth", "DESIGNER_STAT_STEALTH", "stealth"],
+	["colony", "DESIGNER_STAT_COLONY", "colony"],
+	["troops", "DESIGNER_STAT_TROOPS", "troops"],
+	["cost", "DESIGNER_STAT_COST", "industry"],
+	["turns", "DESIGNER_STAT_TURNS", "construction"],
 ]
 
 var source: Variant = DesignerSource.new()
@@ -82,6 +83,7 @@ var _baseline := {}
 var _art: TextureRect
 var _slot_layer: Control
 var _legend: Container
+var _hull_caption: Label
 var _name: LineEdit
 var _stats: GridContainer
 var _validity: Label
@@ -97,7 +99,38 @@ func _init() -> void:
 	# Texts are translated with tr() where needed; never auto-translate names.
 	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	theme_type_variation = "BackgroundPanel"
+	# The hull renders and part pictures are drawn much smaller than their
+	# size: mipmaps keep them smooth.
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_build()
+
+
+# A part dragged: the slots it fits stand out, the others fade (as GG
+# lights the slots a dragged part can go into).
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_DRAG_BEGIN:
+			var data: Variant = get_viewport().gui_get_drag_data()
+			if data is Dictionary and data.get("type", "") == DesignerPalette.PART_DRAG:
+				highlight_slots_for(data["name"])
+			elif data is Dictionary and data.get("type", "") == DesignerPalette.SLOT_DRAG:
+				highlight_slots_for(parts[data["slot"]], data["slot"])
+		NOTIFICATION_DRAG_END:
+			highlight_slots_for("")
+
+
+## Show which slots \a part_name fits ("" for none: all as usual); \a
+## from is the slot it is dragged from, if any (swaps must fit both ways).
+func highlight_slots_for(part_name: String, from := -1) -> void:
+	for button: Node in _slot_layer.get_children():
+		var slot: int = button.get_meta("slot", -1)
+		if part_name.is_empty() or button.is_queued_for_deletion():
+			DesignerArt.set_slot_fit(button, 0)
+			continue
+		var fits := part_fits(part_name, slot)
+		if from >= 0 and fits and not parts[slot].is_empty():
+			fits = part_fits(parts[slot], from)
+		DesignerArt.set_slot_fit(button, 1 if fits or slot == from else -1)
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -133,6 +166,7 @@ func select_hull(name_key: String) -> void:
 	# The big design art, or the small hull icon when a hull has none.
 	var art := FOArt.icon(hull.get("graphic", ""))
 	_art.texture = art if art else FOArt.icon(hull.get("icon", ""))
+	_hull_caption.text = "%s  ·  %s" % [tr(name_key), DesignerPalette.slot_summary(hull)]
 	_refresh_design()
 
 
@@ -292,6 +326,8 @@ func _build() -> void:
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stage.custom_minimum_size.y = 260
 	center.add_child(stage)
+	# A soft light behind the hull, and which hull it is.
+	stage.add_child(DesignerArt.stage_backdrop())
 	_art = TextureRect.new()
 	_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -302,6 +338,9 @@ func _build() -> void:
 	_slot_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(_slot_layer)
 	stage.resized.connect(_layout_slots)
+	_hull_caption = ScreenKit.label("", "SecondaryLabel")
+	_hull_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(_hull_caption)
 	# Which shape is which slot type.
 	_legend = CenterContainer.new()
 	center.add_child(_legend)
@@ -365,6 +404,7 @@ func _build() -> void:
 	_palette.fits = func(part_name: String) -> bool:
 		return selected_slot < 0 or part_fits(part_name, selected_slot)
 	_palette.part_chosen.connect(place_part)
+	_palette.part_hovered.connect(highlight_slots_for)
 	_palette.slot_cleared.connect(clear_slot)
 	_palette.pedia_requested.connect(pedia_requested.emit)
 	columns.add_child(_palette)
@@ -525,7 +565,11 @@ func _design_row(design: Dictionary, kind: String) -> Control:
 	var title: String = design.get("name", "")
 	if not design.get("producible", true):
 		title = "⚠ " + title
-	var button: Button = DesignerPalette.list_button(title, tr(design.get("hull", "")), "")
+	# The hull's picture, as the hulls list shows it.
+	var hull_icon: String = _hull(design.get("hull", "")).get("icon", "")
+	var button: Button = DesignerPalette.list_button(title, tr(design.get("hull", "")), hull_icon)
+	# Smaller than in the hulls list, to leave the name room.
+	button.add_theme_constant_override("icon_max_width", FOUi.tokens.icon + FOUi.tokens.space_2)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.tooltip_text = DesignerPalette.design_tooltip(design)
 	if not design.get("producible", true):
@@ -633,7 +677,11 @@ func _refresh_design() -> void:
 		else ""
 	)
 	for stat in STATS:
-		_stats.add_child(ScreenKit.label(tr(stat[1]), "SecondaryLabel"))
+		var name_cell := HBoxContainer.new()
+		name_cell.add_theme_constant_override("separation", FOUi.tokens.space_1)
+		name_cell.add_child(ScreenKit.icon("icons/meter/%s.png" % stat[2], FOUi.tokens.icon_small))
+		name_cell.add_child(ScreenKit.label(tr(stat[1]), "SecondaryLabel"))
+		_stats.add_child(name_cell)
 		var cell := HBoxContainer.new()
 		cell.add_child(
 			ScreenKit.label(_number(stats.get(stat[0], 0.0)) if stats.get("valid") else "–")

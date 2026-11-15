@@ -9,6 +9,8 @@ extends VBoxContainer
 ## are removed. Also the designer's hull, part and design tooltips.
 
 signal part_chosen(part_name: String, fill_all: bool)
+## The pointer is on \a part_name's row ("" when it leaves).
+signal part_hovered(part_name: String)
 signal slot_cleared(slot: int)
 signal pedia_requested(kind: String, article_name: String)
 ## A part was marked obsolete or not.
@@ -284,6 +286,8 @@ func _part_row(part: Dictionary) -> Button:
 	# or core), as GG's parts list.
 	button.icon = DesignerArt.part_badge(part)
 	button.tooltip_text = part_tooltip(part)
+	button.mouse_entered.connect(part_hovered.emit.bind(part_name))
+	button.mouse_exited.connect(part_hovered.emit.bind(""))
 	if availability_of(part) != "available":
 		button.modulate.a = 0.6
 	button.pressed.connect(func(): part_chosen.emit(part_name, Input.is_key_pressed(KEY_SHIFT)))
