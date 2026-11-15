@@ -100,6 +100,7 @@ var show_detection := false:
 		if _detection_layer:
 			_detection_layer.get_parent().visible = value or map_mode == "detection"
 			_detection_layer.queue_redraw()
+			_overlay.queue_redraw()  # other empires' ranges
 
 var _system_ids := PackedInt32Array()
 var _positions := PackedVector2Array()
@@ -147,6 +148,9 @@ var _supply_group: CanvasGroup
 var _detection_group: CanvasGroup
 var _detection_positions := PackedVector2Array()
 var _detection_radii := PackedFloat32Array()
+## Each circle's owner and colour (own ones are filled, others ringed).
+var _detection_owners := PackedInt32Array()
+var _detection_colors := PackedColorArray()
 ## Systems ringed for the player to pick (e.g. where something can be built).
 var _highlighted := {}
 
@@ -231,6 +235,12 @@ func load_from_universe() -> void:
 			color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
 		owner_colors.push_back(color_by_owner[owner_id])
 	snapshot["system_owner_colors"] = owner_colors
+	var detection_colors := PackedColorArray()
+	for owner_id in snapshot.get("detection_owner_ids", PackedInt32Array()):
+		if not color_by_owner.has(owner_id):
+			color_by_owner[owner_id] = FOUniverse.get_empire_color(owner_id)
+		detection_colors.push_back(color_by_owner[owner_id])
+	snapshot["detection_colors"] = detection_colors
 	for kind in ["supply_lane", "supply_system"]:
 		var kind_colors := PackedColorArray()
 		for owner_id in snapshot.get(kind + "_owners", PackedInt32Array()):
@@ -258,6 +268,8 @@ func set_snapshot(
 	_field_types = snapshot.get("field_types", PackedStringArray())
 	_detection_positions = snapshot.get("detection_positions", PackedVector2Array())
 	_detection_radii = snapshot.get("detection_radii", PackedFloat32Array())
+	_detection_owners = snapshot.get("detection_owner_ids", PackedInt32Array())
+	_detection_colors = snapshot.get("detection_colors", PackedColorArray())
 	_hovered_field = -1
 	_supply_lanes = snapshot.get("supply_lanes", PackedInt32Array())
 	_supply_lane_colors = snapshot.get("supply_lane_colors", PackedColorArray())
@@ -630,6 +642,7 @@ func _draw_overlay(layer: CanvasItem) -> void:
 	var px := 1.0 / camera.zoom_level()
 	var view := visible_world_rect()
 	_draw_unexplored_rings(layer, px, view)
+	_draw_other_detection(layer, px, view)
 	if show_system_circles:
 		_draw_owner_circles(layer, px, view)
 	_draw_highlights(layer, px, view)
@@ -844,10 +857,34 @@ func _draw_detection(layer: CanvasItem) -> void:
 	var view := visible_world_rect()
 	var color := MapStyle.DETECTION_COLOR
 	for i in _detection_positions.size():
+		if not _own_detection(i):
+			continue
 		var center := _detection_positions[i]
 		var radius := _detection_radii[i]
 		if view.grow(radius).has_point(center):
 			layer.draw_circle(center, radius, color)
+
+
+# Whether detection circle \a i is the player's (all are, without owners).
+func _own_detection(i: int) -> bool:
+	return i >= _detection_owners.size() or _detection_owners[i] == own_empire_id
+
+
+# Other empires' detection ranges, ringed in their colours (where they can
+# see the player's ships), as GG's map shows them.
+func _draw_other_detection(layer: CanvasItem, px: float, view: Rect2) -> void:
+	if not (show_detection or map_mode == "detection"):
+		return
+	for i in _detection_positions.size():
+		if _own_detection(i):
+			continue
+		var center := _detection_positions[i]
+		var radius := _detection_radii[i]
+		if not view.grow(radius).has_point(center):
+			continue
+		var color: Color = _detection_colors[i] if i < _detection_colors.size() else Color.WHITE
+		layer.draw_circle(center, radius, Color(color, 0.06))
+		layer.draw_arc(center, radius, 0, TAU, 64, Color(color, 0.55), 1.5 * px, true)
 
 
 # Label priority: selected system, then explored systems, then the rest.

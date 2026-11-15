@@ -38,7 +38,7 @@ func test_turn_off_and_reset():
 	coach.offer("design")
 	assert_eq(coach.current, "", "Off")
 	coach.reset()
-	coach.offer("production")
+	coach.screen_shown("production")
 	assert_eq(coach.current, "production")
 
 
@@ -84,3 +84,23 @@ func test_hints_name_the_current_key():
 	coach.offer("end_turn")
 	assert_string_contains(coach._text.text, FOHotkeys.binding("end_turn"))
 	assert_false(coach._text.text.contains("%1%"))
+
+
+func test_map_hints_wait_while_a_screen_is_open():
+	coach.offer("end_turn")
+	assert_eq(coach.current, "end_turn")
+	coach.screen_shown("research")
+	assert_eq(coach.current, "research", "The screen's own hint, not one about the map")
+	coach.dismiss()
+	assert_eq(coach.current, "", "The map hint waits for the map")
+	coach.screen_shown("")
+	assert_eq(coach.current, "end_turn", "Back on the map: it comes back")
+
+
+func test_screen_hints_sit_in_the_bottom_right():
+	coach.size = Vector2(1280, 800)
+	coach.screen_shown("production")
+	await wait_process_frames(2)
+	var card: Rect2 = coach._card.get_rect()
+	assert_gt(card.position.y, 400.0, "Clear of the screen's top rows")
+	assert_gt(card.position.x, 640.0)

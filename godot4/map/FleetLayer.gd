@@ -15,6 +15,9 @@ const ICON_DIR := "icons/fleet/med-"
 const ICON_PX := 20.0
 const STACK_PX := 18.0
 
+## Turn-end markers: radius and number size, in screen pixels.
+const MARK_PX := 7.0
+const MARK_FONT := 10
 var map: GalaxyMap
 ## The selected fleet, ringed (-1 for none).
 var selected_fleet := -1:
@@ -38,11 +41,17 @@ var _heads := PackedStringArray()
 var _ship_counts := PackedInt32Array()
 var _stale := PackedByteArray()
 var _turn_ends: Array = []
+## Per fleet, per turn end: the turn it gets there, and 1 (blockade stops
+## it) or 2 (out of supply by then), as GG's ETA markers.
+var _turn_etas: Array = []
+var _turn_flags: Array = []
 ## Fleets marked as selected together (box selection): id -> true.
 var _marked := {}
 var _preview := PackedVector2Array()
 var _preview_turn_ends := PackedVector2Array()
 var _preview_label := ""
+var _preview_etas := PackedInt32Array()
+var _preview_flags := PackedInt32Array()
 
 
 func _init() -> void:
@@ -56,6 +65,8 @@ func set_fleets(snapshot: Dictionary, colors: PackedColorArray) -> void:
 	_owners = snapshot.get("fleet_owner_ids", PackedInt32Array())
 	_paths = snapshot.get("fleet_paths", [])
 	_turn_ends = snapshot.get("fleet_turn_ends", [])
+	_turn_etas = snapshot.get("fleet_turn_etas", [])
+	_turn_flags = snapshot.get("fleet_turn_flags", [])
 	_blockaded = snapshot.get("fleet_blockaded", PackedByteArray())
 	_heads = snapshot.get("fleet_heads", PackedStringArray())
 	_ship_counts = snapshot.get("fleet_ship_counts", PackedInt32Array())
@@ -125,9 +136,17 @@ func marker_of(fleet_id: int, px: float) -> Vector2:
 
 ## Show where a fleet would go: its move path \a points, the turn ends on it,
 ## and \a label (the ETA) by its end. Empty points clear it.
-func set_preview(points: PackedVector2Array, turn_ends: PackedVector2Array, label := "") -> void:
+func set_preview(
+	points: PackedVector2Array,
+	turn_ends: PackedVector2Array,
+	label := "",
+	etas := PackedInt32Array(),
+	flags := PackedInt32Array()
+) -> void:
 	_preview = points
 	_preview_turn_ends = turn_ends
+	_preview_etas = etas
+	_preview_flags = flags
 	_preview_label = label if points.size() > 1 else ""
 	queue_redraw()
 
@@ -180,8 +199,20 @@ func _draw_paths(px: float, view: Rect2) -> void:
 				points[j], points[j + 1], line, 1.5 * px, MapStyle.ROUTE_DASH_PX * px, true, true
 			)
 		if i < _turn_ends.size():
-			for point: Vector2 in _turn_ends[i]:
-				draw_circle(point, 2.5 * px, line)
+			var ends: PackedVector2Array = _turn_ends[i]
+			var etas: PackedInt32Array = (
+				_turn_etas[i] if i < _turn_etas.size() else PackedInt32Array()
+			)
+			var flags: PackedInt32Array = (
+				_turn_flags[i] if i < _turn_flags.size() else PackedInt32Array()
+			)
+			for k in ends.size():
+				if k < etas.size():
+					_draw_turn_mark(
+						ends[k], etas[k], flags[k] if k < flags.size() else 0, color, px
+					)
+				else:
+					draw_circle(ends[k], 2.5 * px, line)
 
 
 func _draw_preview(px: float) -> void:
@@ -193,9 +224,48 @@ func _draw_preview(px: float) -> void:
 		draw_dashed_line(
 			_preview[i], _preview[i + 1], line, 2.0 * px, MapStyle.ROUTE_DASH_PX * px, true, true
 		)
-	for point in _preview_turn_ends:
-		draw_circle(point, 3.0 * px, line)
+	for k in _preview_turn_ends.size():
+		if k < _preview_etas.size():
+			var flag := _preview_flags[k] if k < _preview_flags.size() else 0
+			_draw_turn_mark(_preview_turn_ends[k], _preview_etas[k], flag, accent, px)
+		else:
+			draw_circle(_preview_turn_ends[k], 3.0 * px, line)
 	draw_arc(_preview[_preview.size() - 1], 5.0 * px, 0, TAU, 20, accent, 1.5 * px, true)
+
+
+# A turn end as GG marks it: a disc in \a color with the turn number, ringed
+# in red and black where a blockade stops the fleet, yellow and black where
+# it's out of supply.
+func _draw_turn_mark(at: Vector2, eta: int, flag: int, color: Color, px: float) -> void:
+	var radius := MARK_PX * px
+	if flag > 0:
+		var ring := Color.RED if flag == 1 else Color.YELLOW
+		for n in 12:
+			var from := n * TAU / 12.0
+			draw_arc(
+				at,
+				radius + 2.0 * px,
+				from,
+				from + TAU / 12.0,
+				4,
+				ring if n % 2 else Color.BLACK,
+				2.5 * px
+			)
+	draw_circle(at, radius, Color(color.darkened(0.35), 0.9))
+	var font := ThemeDB.fallback_font
+	var text := str(eta)
+	draw_set_transform(at, 0.0, Vector2.ONE * px)
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, MARK_FONT).x
+	draw_string(
+		font,
+		Vector2(-width / 2.0, font.get_ascent(MARK_FONT) / 2.0 - 1.0),
+		text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1,
+		MARK_FONT,
+		Color.WHITE
+	)
+	draw_set_transform(Vector2.ZERO)
 
 
 ## Index of GG's size mark for \a ships ships: 0 for one, one more for

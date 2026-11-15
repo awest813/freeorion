@@ -28,6 +28,9 @@ var owner_pick: OptionButton
 
 var _shell: GameShell
 var _buttons := {}
+var _title: Label
+var _fold: Button
+var _content: VBoxContainer
 
 
 func _init(shell: GameShell) -> void:
@@ -39,9 +42,20 @@ func _init(shell: GameShell) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	grow_horizontal = Control.GROW_DIRECTION_BOTH
 	offset_top = FOUi.tokens.space_4
+	var outer := VBoxContainer.new()
+	add_child(outer)
+	# Title and collapse: folded, only the title (with the action) shows.
+	var header := HBoxContainer.new()
+	outer.add_child(header)
+	_title = ScreenKit.label(tr("MODERATOR"), "TitleLabel")
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_title)
+	_fold = ScreenKit.small_button("▾", "MODERATOR_FOLD")
+	_fold.pressed.connect(func(): set_folded(_content.visible))
+	header.add_child(_fold)
 	var box := VBoxContainer.new()
-	add_child(box)
-	box.add_child(ScreenKit.label(tr("MODERATOR"), "TitleLabel"))
+	_content = box
+	outer.add_child(box)
 	var row := HFlowContainer.new()
 	row.custom_minimum_size.x = 560
 	box.add_child(row)
@@ -106,8 +120,24 @@ func fill_choices(choices: Dictionary, empires: Array) -> void:
 
 
 ## Pick action \a key (an ACTIONS key); only the pickers it uses show.
+## Fold the tools away to their title (\a folded) or open them.
+func set_folded(folded: bool) -> void:
+	_content.visible = not folded
+	_fold.text = "▸" if folded else "▾"
+	_update_title()
+
+
+func _update_title() -> void:
+	_title.text = tr("MODERATOR")
+	if not _content.visible:
+		for entry in ACTIONS:
+			if entry[0] == action:
+				_title.text += " · " + tr(entry[1])
+
+
 func select(key: String) -> void:
 	action = key
+	_update_title()
 	for other in _buttons:
 		_buttons[other].set_pressed_no_signal(other == key)
 	star_type.visible = key == "create_system"

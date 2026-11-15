@@ -240,6 +240,24 @@ namespace {
                 turn_ends.push_back(at);
         }
     }
+
+    // Turn ends' numbers and warnings, as GG's ETA markers: the turn the
+    // fleet gets there, and 1 if a blockade stops it there, 2 if the path has
+    // left the player's unobstructed supply by then (\a unobstructed null:
+    // not checked, e.g. other empires' fleets).
+    void TurnMarks(const std::vector<MovePathNode>& path, const std::set<int>* unobstructed,
+                   godot::PackedInt32Array& etas, godot::PackedInt32Array& flags)
+    {
+        bool out_of_supply = false;
+        for (const auto& node : path) {
+            if (unobstructed && node.object_id != INVALID_OBJECT_ID && !unobstructed->contains(node.object_id))
+                out_of_supply = true;
+            if (!node.turn_end)
+                continue;
+            etas.push_back(node.eta);
+            flags.push_back(node.post_blockade ? 1 : out_of_supply ? 2 : 0);
+        }
+    }
 }
 
 godot::Dictionary FOFleet::preview_route(int dest_system_id, bool append) const {
@@ -276,6 +294,14 @@ godot::Dictionary FOFleet::preview_route(int dest_system_id, bool append) const 
     godot::PackedVector2Array points, turn_ends;
     points.push_back(Position(*fleet));
     PathPoints(move_path, points, turn_ends);
+    godot::PackedInt32Array turn_etas, turn_flags;
+    if (const auto empire = context.GetEmpire(app->EmpireID())) {
+        const auto unobstructed = empire->SupplyUnobstructedSystems();
+        const std::set<int> systems(unobstructed.begin(), unobstructed.end());
+        TurnMarks(move_path, &systems, turn_etas, turn_flags);
+    }
+    result["turn_etas"] = turn_etas;
+    result["turn_flags"] = turn_flags;
     const auto eta = fleet->ETA(move_path).first;
     const bool never = eta == Fleet::ETA_NEVER || eta == Fleet::ETA_UNKNOWN || eta == Fleet::ETA_OUT_OF_RANGE;
     result["systems"] = ToPacked(route);
@@ -668,6 +694,8 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     godot::PackedInt32Array system_owner_ids;
     godot::Array fleet_paths;
     godot::Array fleet_turn_ends;
+    godot::Array fleet_turn_etas;
+    godot::Array fleet_turn_flags;
     godot::PackedInt32Array supply_systems;
     godot::PackedInt32Array supply_system_owners;
     godot::PackedInt32Array supply_lanes;
@@ -679,6 +707,7 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     godot::PackedStringArray field_graphics;
     godot::PackedVector2Array detection_positions;
     godot::PackedFloat32Array detection_radii;
+    godot::PackedInt32Array detection_owner_ids;
 
     if (auto* app = ClientApp::GetApp()) {
         const auto& objects = app->GetUniverse().Objects();
@@ -725,6 +754,11 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
         // Fleets, and the paths of those under way (each turn's end marked).
         const auto& destroyed = app->GetUniverse().EmpireKnownDestroyedObjectIDs(app->EmpireID());
         const auto& context = app->GetContext();
+        std::set<int> own_supply;
+        if (const auto empire = context.GetEmpire(app->EmpireID())) {
+            const auto unobstructed = empire->SupplyUnobstructedSystems();
+            own_supply.insert(unobstructed.begin(), unobstructed.end());
+        }
         for (const auto* fleet : objects.allRaw<Fleet>()) {
             if (destroyed.contains(fleet->ID()) || fleet->Empty())
                 continue;
@@ -732,15 +766,21 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
             fleet_positions.push_back(Position(*fleet));
             fleet_owner_ids.push_back(fleet->Owner());
             godot::PackedVector2Array points, turn_ends;
+            godot::PackedInt32Array turn_etas, turn_flags;
             const int destination = fleet->FinalDestinationID();
             if (destination != INVALID_OBJECT_ID && destination != fleet->SystemID() &&
                 !fleet->TravelRoute().empty())
             {
                 points.push_back(Position(*fleet));
-                PathPoints(fleet->MovePath(false, context), points, turn_ends);
+                const auto move_path = fleet->MovePath(false, context);
+                PathPoints(move_path, points, turn_ends);
+                TurnMarks(move_path, fleet->OwnedBy(app->EmpireID()) ? &own_supply : nullptr,
+                          turn_etas, turn_flags);
             }
             fleet_paths.push_back(points);
             fleet_turn_ends.push_back(turn_ends);
+            fleet_turn_etas.push_back(turn_etas);
+            fleet_turn_flags.push_back(turn_flags);
             // The fleet's icon, as GG's FleetButton picks it: monster,
             // warship, colony, outpost, lander, else scout.
             {
@@ -776,25 +816,26 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
                                                                             : std::string{"fields/ion_storm.png"}));
         }
 
-        // The player's detection ranges: one circle per own object that
-        // detects (a fleet's ships share one place; keep each circle once).
+        // Detection ranges of every empire's objects the player knows, as
+        // GG draws them: one circle per object that detects (a fleet's ships
+        // share one place; keep each circle once per owner).
         {
-            std::set<std::tuple<int, int, int>> seen;
-            const int self = app->EmpireID();
+            std::set<std::tuple<int, int, int, int>> seen;
             for (const auto* object : objects.allRaw()) {
-                if (self == ALL_EMPIRES || !object->OwnedBy(self) || destroyed.contains(object->ID()))
+                if (object->Unowned() || destroyed.contains(object->ID()))
                     continue;
                 const auto* meter = object->GetMeter(MeterType::METER_DETECTION);
                 const float radius = meter ? meter->Initial() : 0.0f;
                 if (radius <= 0.0f)
                     continue;
                 const auto key = std::tuple{static_cast<int>(object->X()), static_cast<int>(object->Y()),
-                                            static_cast<int>(radius)};
+                                            static_cast<int>(radius), object->Owner()};
                 if (!seen.insert(key).second)
                     continue;
                 detection_positions.push_back(godot::Vector2(static_cast<float>(object->X()),
                                                              static_cast<float>(object->Y())));
                 detection_radii.push_back(radius);
+                detection_owner_ids.push_back(object->Owner());
             }
         }
 
@@ -842,6 +883,8 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["fleet_stale"] = fleet_stale;
     snapshot["system_owner_ids"] = system_owner_ids;
     snapshot["fleet_turn_ends"] = fleet_turn_ends;
+    snapshot["fleet_turn_etas"] = fleet_turn_etas;
+    snapshot["fleet_turn_flags"] = fleet_turn_flags;
     snapshot["supply_systems"] = supply_systems;
     snapshot["supply_system_owners"] = supply_system_owners;
     snapshot["supply_lanes"] = supply_lanes;
@@ -853,6 +896,7 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["field_graphics"] = field_graphics;
     snapshot["detection_positions"] = detection_positions;
     snapshot["detection_radii"] = detection_radii;
+    snapshot["detection_owner_ids"] = detection_owner_ids;
     return snapshot;
 }
 

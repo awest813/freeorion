@@ -304,9 +304,17 @@ static func player_marks(empire: Dictionary) -> Array:
 ## The numbers on an empire's card: [[key, text]] (output to 1 decimal).
 static func summary_values(empire: Dictionary) -> Array:
 	var values := []
+	# Nothing seen of another empire is unknown, not zero ("?").
+	var unknown: bool = (
+		not empire.get("own", false)
+		and empire.get("ships", 0) == 0
+		and empire.get("planets", 0) == 0
+	)
 	for entry: Array in SUMMARY:
 		var value: float = empire.get(entry[0], 0.0)
 		var text := str(int(value)) if entry[0] in ["ships", "planets"] else "%.1f" % value
+		if unknown and entry[0] != "detection":
+			text = "?"
 		values.push_back([entry[0], text])
 	return values
 
@@ -318,6 +326,8 @@ func _summary_row(empire: Dictionary) -> HFlowContainer:
 	for i in SUMMARY.size():
 		var cell := HBoxContainer.new()
 		cell.tooltip_text = tr(SUMMARY[i][2])
+		if values[i][1] == "?":
+			cell.tooltip_text += "\n" + tr("EMPIRES_NOT_KNOWN")
 		cell.mouse_filter = Control.MOUSE_FILTER_PASS
 		var icon := ScreenKit.icon(SUMMARY[i][1], FOUi.tokens.icon_small)
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE

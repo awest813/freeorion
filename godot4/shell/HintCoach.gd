@@ -22,6 +22,9 @@ const HINTS := {
 	"empires": "HINT_EMPIRES",
 	"pedia": "HINT_PEDIA",
 }
+## Hints about the map: they wait while a full screen is open (they'd
+## cover its controls). A screen's hint shows only on that screen.
+const MAP_HINTS := ["map", "end_turn", "fleet", "planet"]
 ## Hotkeys hints name, filled in for %1%.
 const HINT_HOTKEYS := {"end_turn": "end_turn"}
 const WIDTH := 340
@@ -33,6 +36,8 @@ var enabled := true
 var seen := {}
 ## The hint on screen ("" for none) and those waiting: [id, anchor].
 var current := ""
+## The full screen open ("" for the map).
+var screen := ""
 var _queue: Array = []
 var _anchor: Control
 var _card: PanelContainer
@@ -108,6 +113,29 @@ func offer(id: String, anchor: Control = null) -> void:
 		_show_next()
 
 
+## The full screen \a screen_name opened ("" for back to the map): hints
+## for elsewhere step aside, and the screen's own hint comes first.
+func screen_shown(screen_name: String) -> void:
+	screen = screen_name
+	if not current.is_empty() and not _fits(current):
+		_queue.push_front([current, _anchor])
+		current = ""
+		_card.visible = false
+	if not screen_name.is_empty() and enabled and HINTS.has(screen_name):
+		if not seen.has(screen_name) and current != screen_name:
+			_queue = _queue.filter(func(w): return w[0] != screen_name)
+			_queue.push_front([screen_name, null])
+	if current.is_empty():
+		_show_next()
+
+
+# Whether hint \a id belongs where the player is now.
+func _fits(id: String) -> bool:
+	if id in MAP_HINTS:
+		return screen.is_empty()
+	return id == screen
+
+
 ## Mark the shown hint seen and show the next one.
 func dismiss() -> void:
 	if current.is_empty():
@@ -136,10 +164,12 @@ func reset() -> void:
 
 
 func _show_next() -> void:
-	while not _queue.is_empty():
-		var next: Array = _queue.pop_front()
-		if seen.has(next[0]):
+	# The first waiting hint that belongs here; the others keep waiting.
+	_queue = _queue.filter(func(w): return not seen.has(w[0]))
+	for i in _queue.size():
+		if not _fits(_queue[i][0]):
 			continue
+		var next: Array = _queue.pop_at(i)
 		current = next[0]
 		_anchor = next[1] if is_instance_valid(next[1]) else null
 		# %1% is the key of the hotkey a hint mentions (it can be rebound).
@@ -154,7 +184,7 @@ func _show_next() -> void:
 
 
 # Below the anchor if there's room, else above it; near the top middle
-# without one. Always inside the screen.
+# without one (a screen's hint: its bottom right). Always inside the screen.
 func _place() -> void:
 	if not _card.visible or _placing:
 		return
@@ -164,6 +194,10 @@ func _place() -> void:
 	var card_size := _card.size
 	var gap := FOUi.tokens.space_2
 	var position := Vector2((size.x - card_size.x) / 2.0, size.y * 0.15)
+	# A screen's hint sits in its bottom right corner, clear of the filters
+	# and pickers along the top.
+	if not current in MAP_HINTS:
+		position = size - card_size - Vector2.ONE * gap * 2.0
 	if _anchor and _anchor.is_visible_in_tree():
 		var rect := _anchor.get_global_rect()
 		var local := rect.position - global_position

@@ -27,6 +27,13 @@ func _ready() -> void:
 	node.diplomacy_changed.connect(func(): diplomacy(FODiplomacy.get_empires()))
 	node.server_error.connect(func(_message, _fatal): _shell.top_bar.set_auto_end_turn(false))
 	node.players_changed.connect(players_changed)
+	# The server's saves arrived: an open save or load screen lists them.
+	node.server_saves.connect(
+		func():
+			for screen: SaveLoadScreen in [_shell.save_screen, _shell.load_screen]:
+				if screen.visible:
+					screen.refresh()
+	)
 	diplomacy(FODiplomacy.get_empires())
 
 

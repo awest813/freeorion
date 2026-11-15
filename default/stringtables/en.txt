@@ -3366,6 +3366,12 @@ Exploring.
 FLEETS_EXPLORE
 Explore
 
+EMPIRES_NOT_KNOWN
+Not known: none of its ships or planets have been seen.
+
+MODERATOR_FOLD
+Fold the tools away, or open them
+
 OPTIONS_LANGUAGE_NAME
 Language
 

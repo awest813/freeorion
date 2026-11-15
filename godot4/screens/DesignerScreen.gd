@@ -451,10 +451,12 @@ func _design_menu(design: Dictionary) -> MenuButton:
 # A design: click to start from it; actions for the list it's in.
 func _design_row(design: Dictionary, kind: String) -> Control:
 	var row := HBoxContainer.new()
-	var detail := tr(design.get("hull", ""))
+	# Can't be built: a mark before the name (the narrow column would cut a
+	# word off); the tooltip says it in words.
+	var title: String = design.get("name", "")
 	if not design.get("producible", true):
-		detail += " · " + tr("DESIGNER_CANT_BUILD")
-	var button: Button = DesignerPalette.list_button(design.get("name", ""), detail, "")
+		title = "⚠ " + title
+	var button: Button = DesignerPalette.list_button(title, tr(design.get("hull", "")), "")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.tooltip_text = DesignerPalette.design_tooltip(design)
 	if not design.get("producible", true):

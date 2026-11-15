@@ -515,7 +515,7 @@ func show_screen(screen_name: String) -> void:
 		map_modes.cancel_placement()
 	active_screen = screen_name
 	top_bar.set_active_screen(screen_name)
-	hints.offer(screen_name)
+	hints.screen_shown(screen_name)
 	var screens := _screens()
 	for key in screens:
 		screens[key].visible = key == screen_name
@@ -722,7 +722,9 @@ func preview_route_to(system_id: int) -> void:
 	fleets.set_preview(
 		preview.get("points", PackedVector2Array()),
 		preview.get("turn_ends", PackedVector2Array()),
-		eta_text(eta) if not preview.is_empty() else ""
+		eta_text(eta) if not preview.is_empty() else "",
+		preview.get("turn_etas", PackedInt32Array()),
+		preview.get("turn_flags", PackedInt32Array())
 	)
 
 

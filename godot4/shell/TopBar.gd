@@ -121,6 +121,9 @@ func set_role(new_role: String) -> void:
 	for key in ["production", "research", "government", "design"]:
 		_screen_buttons[key].visible = not spectating
 	_auto_turn.visible = role != "observer"
+	# No empire: no resources to show (the row keeps the messages button).
+	for chip: Control in _resource_chips.values():
+		chip.visible = not spectating
 	if spectating:
 		_empire.text = tr(role.to_upper())
 		_swatch.visible = false
@@ -232,7 +235,7 @@ func set_resources(data: Dictionary) -> void:
 	_resources = data
 	for entry in RESOURCES:
 		var chip: Button = _resource_chips[entry[0]]
-		chip.visible = data.has(entry[0])
+		chip.visible = data.has(entry[0]) and role == "player"
 		if chip.visible:
 			_fill_chip(chip, entry, data)
 

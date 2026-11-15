@@ -17,6 +17,8 @@ const MAX_ZOOM := 1.6
 const ICON := 38.0
 ## Below this zoom, cards show their icon only.
 const TEXT_ZOOM := 0.55
+## The overview in the corner when the tree is bigger than the view.
+const OVERVIEW := Vector2(180, 112)
 
 ## Techs as FOResearch.get_techs() lists them.
 var techs: Array = []:
@@ -164,7 +166,8 @@ func zoom_step(direction: int) -> void:
 	if direction == 0:
 		var content := content_size() / zoom
 		var fit := minf(size.x / maxf(content.x, 1.0), size.y / maxf(content.y, 1.0))
-		zoom = clampf(fit, MIN_ZOOM, MAX_ZOOM)
+		# Never so small the names can't be read: the overview shows the rest.
+		zoom = clampf(fit, TEXT_ZOOM, MAX_ZOOM)
 		# Centred when it fits; from the top left when even the smallest
 		# zoom can't show it all.
 		var spare := (size - content * zoom) / 2.0
@@ -172,6 +175,48 @@ func zoom_step(direction: int) -> void:
 		queue_redraw()
 		return
 	zoom_at(center, clampf(zoom * (1.25 if direction > 0 else 0.8), MIN_ZOOM, MAX_ZOOM))
+
+
+## The overview's place (empty when the whole tree is in view).
+func overview_rect() -> Rect2:
+	var content := content_size()
+	if content.x <= size.x and content.y <= size.y:
+		return Rect2()
+	var gap: float = FOUi.tokens.space_2 if FOUi.tokens else 8.0
+	# Bottom left: the zoom buttons are top right, a screen's tip bottom right.
+	return Rect2(Vector2(gap, size.y - OVERVIEW.y - gap), OVERVIEW)
+
+
+## Centre the view on the tree point under \a at in the overview.
+func jump_to_overview_point(at: Vector2) -> void:
+	var box := overview_rect()
+	if box.size == Vector2.ZERO:
+		return
+	var tree := content_size() / zoom
+	var world := (at - box.position) / box.size * tree
+	offset = size / 2.0 - world * zoom
+	queue_redraw()
+
+
+func _draw_overview() -> void:
+	var box := overview_rect()
+	if box.size == Vector2.ZERO:
+		return
+	var tokens := FOUi.tokens
+	draw_rect(box, Color(tokens.surface, 0.92))
+	draw_rect(box, tokens.border, false, 1.0)
+	var tree := content_size() / zoom
+	var ratio := box.size / tree
+	for tech_name in _layout["cells"]:
+		var status: String = _by_name[tech_name].get("status", "")
+		var color := tokens.positive if status == "complete" else tokens.text_secondary
+		if tech_name == selected:
+			color = tokens.accent
+		var at := box.position + cell_position(tech_name) * ratio
+		draw_rect(Rect2(at, Vector2(maxf(NODE_SIZE.x * ratio.x, 2.0), 2.0)), Color(color, 0.8))
+	# What the view shows now.
+	var view := Rect2(-offset / zoom * ratio + box.position, size / zoom * ratio).intersection(box)
+	draw_rect(view, tokens.accent, false, 1.5)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -183,7 +228,12 @@ func _gui_input(event: InputEvent) -> void:
 					zoom_at(event.position, zoom * factor)
 				accept_event()
 			MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE:
-				if event.pressed and event.double_click and event.button_index == MOUSE_BUTTON_LEFT:
+				if event.pressed and overview_rect().has_point(event.position):
+					jump_to_overview_point(event.position)
+					_dragging = true
+				elif (
+					event.pressed and event.double_click and event.button_index == MOUSE_BUTTON_LEFT
+				):
 					var tech_name := tech_at(event.position)
 					if not tech_name.is_empty():
 						tech_activated.emit(tech_name)
@@ -271,6 +321,7 @@ func _draw() -> void:
 		var rect := Rect2(offset + cell_position(tech_name) * zoom, NODE_SIZE * zoom)
 		if view.intersects(rect):
 			_draw_card(tech_name, rect)
+	_draw_overview()
 
 
 func _curve(from: Vector2, to: Vector2) -> PackedVector2Array:
