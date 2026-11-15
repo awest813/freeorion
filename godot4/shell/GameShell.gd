@@ -23,6 +23,8 @@ var planet_panel: PlanetPanel
 var ship_panel: ShipPanel
 ## Shown while production is being placed on the map.
 var placement_banner: PanelContainer
+## Own fleets selected together by dragging a box on the map.
+var selected_fleets := PackedInt32Array()
 var feed: NotificationFeed
 var production_screen: ProductionScreen
 var research_screen: ResearchScreen
@@ -43,6 +45,7 @@ var _side_scroll: ScrollContainer
 ## While placing production on the map: {item, locations, added}.
 var _placement := {}
 var _placement_label: Label
+var _banner_buttons: HBoxContainer
 var _navigator := MapNavigator.new()
 
 ## Newest combat the player has seen in the combat screen.
@@ -101,11 +104,8 @@ func _ready() -> void:
 	placement_banner.add_child(banner_row)
 	_placement_label = ScreenKit.label("")
 	banner_row.add_child(_placement_label)
-	var done := Button.new()
-	done.text = tr("PRODUCTION_PLACE_DONE")
-	done.theme_type_variation = "PrimaryButton"
-	done.pressed.connect(end_placement)
-	banner_row.add_child(done)
+	_banner_buttons = HBoxContainer.new()
+	banner_row.add_child(_banner_buttons)
 	production_screen = ProductionScreen.new()
 	research_screen = ResearchScreen.new()
 	pedia_screen = PediaScreen.new()
@@ -224,6 +224,9 @@ func _ready() -> void:
 
 	map_view.system_selected.connect(_on_system_selected)
 	map_view.map.system_clicked.connect(_on_system_clicked)
+	map_view.map.fleets_boxed.connect(select_fleets)
+	if follow_game and is_instance_valid(GlobalFreeOrionNode):
+		map_view.map.own_empire_id = FOUniverse.get_empire_id()
 	map_view.map.system_context_requested.connect(_on_system_context_requested)
 	map_view.map.field_activated.connect(
 		func(field_type: String): open_pedia("fieldtype", field_type)
@@ -260,6 +263,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	if is_placing():
 		end_placement()
+	elif not selected_fleets.is_empty():
+		clear_fleet_selection()
 	elif map_view.map.selected_system_id() != GalaxyMap.NO_SYSTEM:
 		map_view.map.select_system(GalaxyMap.NO_SYSTEM)
 	else:
@@ -371,7 +376,7 @@ func show_screen(screen_name: String) -> void:
 	if not screen_name.is_empty() and is_placing():
 		_placement = {}
 		map_view.map.set_highlighted(PackedInt32Array())
-		placement_banner.visible = false
+		hide_banner()
 	active_screen = screen_name
 	top_bar.set_active_screen(screen_name)
 	var screens := _screens()
@@ -462,9 +467,8 @@ func start_placement(item: Dictionary, locations: Array) -> void:
 			systems.push_back(location["system_id"])
 	map_view.map.set_highlighted(systems)
 	show_screen("")
+	clear_fleet_selection()
 	_update_placement_banner()
-	placement_banner.visible = true
-	FOUi.fade_in(placement_banner)
 
 
 ## Leave placing: rings off, banner gone, back to the production screen if
@@ -475,7 +479,7 @@ func end_placement() -> void:
 	var added: int = _placement.get("added", 0)
 	_placement = {}
 	map_view.map.set_highlighted(PackedInt32Array())
-	placement_banner.visible = false
+	hide_banner()
 	if added > 0:
 		show_screen("production")
 
@@ -490,7 +494,115 @@ func _update_placement_banner() -> void:
 	)
 	if _placement["added"] > 0:
 		text += "  " + tr("PRODUCTION_PLACE_ADDED").replace("%1%", str(_placement["added"]))
+	show_banner(text, [[tr("PRODUCTION_PLACE_DONE"), "PrimaryButton", end_placement]])
+
+
+## A message over the top of the map with buttons: [label, variation,
+## action] each.
+func show_banner(text: String, actions: Array) -> void:
 	_placement_label.text = text
+	ScreenKit.clear(_banner_buttons)
+	for action: Array in actions:
+		var button := Button.new()
+		button.text = action[0]
+		button.theme_type_variation = action[1]
+		button.pressed.connect(action[2])
+		_banner_buttons.add_child(button)
+	if not placement_banner.visible:
+		placement_banner.visible = true
+		FOUi.fade_in(placement_banner)
+
+
+func hide_banner() -> void:
+	placement_banner.visible = false
+
+
+## Select own fleets \a fleet_ids together (box selection): one is selected
+## as usual; several are ringed on the map and move together on right-click.
+func select_fleets(fleet_ids: PackedInt32Array) -> void:
+	if is_placing():
+		return
+	if fleet_ids.size() == 1:
+		clear_fleet_selection()
+		_go_to_fleet(fleet_ids[0])
+		return
+	selected_fleets = fleet_ids
+	map_view.map.set_marked_fleets(fleet_ids)
+	if fleet_ids.is_empty():
+		hide_banner()
+		return
+	system_panel.select_fleet(-1)
+	_update_fleet_banner("")
+
+
+func clear_fleet_selection() -> void:
+	if selected_fleets.is_empty():
+		return
+	selected_fleets = PackedInt32Array()
+	map_view.map.set_marked_fleets(selected_fleets)
+	if not is_placing():
+		hide_banner()
+
+
+func _update_fleet_banner(note: String) -> void:
+	var text := tr("FLEETS_SELECTED").replace("%1%", str(selected_fleets.size()))
+	if not note.is_empty():
+		text += "  " + note
+	var actions := []
+	if follow_game and _same_system(selected_fleets):
+		actions.push_back([tr("FLEETS_MERGE_ALL"), "", merge_selected_fleets])
+	actions.push_back([tr("FLEETS_CLEAR"), "GhostButton", clear_fleet_selection])
+	show_banner(text, actions)
+
+
+func _same_system(fleet_ids: PackedInt32Array) -> bool:
+	var system_id := -1
+	for fleet_id in fleet_ids:
+		var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
+		if not fleet or fleet.get_system_id() < 0:
+			return false
+		if system_id >= 0 and fleet.get_system_id() != system_id:
+			return false
+		system_id = fleet.get_system_id()
+	return system_id >= 0
+
+
+## Move the ships of every selected fleet into the first one.
+func merge_selected_fleets() -> void:
+	if selected_fleets.size() < 2:
+		return
+	var target := selected_fleets[0]
+	for fleet_id in selected_fleets.slice(1):
+		var fleet: FOFleet = FOUniverse.get_fleet(fleet_id)
+		if fleet:
+			FOOrders.merge_ships(target, fleet.get_ship_ids())
+	clear_fleet_selection()
+	_refresh_fleet_views(target)
+
+
+# Order every selected fleet to \a system_id; say how many could go.
+func _move_selected_fleets(system_id: int) -> void:
+	var append := Input.is_key_pressed(KEY_SHIFT)
+	var moved := 0
+	for fleet_id in selected_fleets:
+		if FOOrders.issue_fleet_move(fleet_id, system_id, append) >= 0:
+			moved += 1
+	_update_fleet_banner(
+		tr("FLEETS_ORDERED").replace("%1%", str(moved)).replace("%2%", str(selected_fleets.size()))
+	)
+	system_panel.refresh()
+
+
+func _go_to_fleet(fleet_id: int) -> void:
+	var fleet: FOFleet = FOUniverse.get_fleet(fleet_id) if follow_game else null
+	if fleet:
+		go_to(
+			{
+				"system_id": fleet.get_system_id(),
+				"fleet_id": fleet_id,
+				"position": fleet.get_position(),
+			}
+		)
 
 
 func _on_system_clicked(system_id: int) -> void:
@@ -515,6 +627,9 @@ func _on_system_selected(system_id: int) -> void:
 
 # Right-click on a system while an own fleet is selected: order it there.
 func _on_system_context_requested(system_id: int) -> void:
+	if not selected_fleets.is_empty() and follow_game:
+		_move_selected_fleets(system_id)
+		return
 	var fleet_id := system_panel.selected_fleet_id()
 	if fleet_id < 0 or not follow_game:
 		return
@@ -545,6 +660,7 @@ func _on_building_scrap(building_id: int) -> void:
 func _on_fleet_selected(fleet_id: int) -> void:
 	if fleet_id >= 0:
 		planet_panel.show_data({})
+		clear_fleet_selection()
 	if fleet_id < 0 or ship_panel.visible and not _fleet_has_ship(fleet_id, ship_panel.ship_id):
 		ship_panel.show_data({})
 	_show_route(fleet_id)

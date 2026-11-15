@@ -199,6 +199,10 @@ func test_fields_are_picked_and_clicked():
 	click.pressed = true
 	click.position = map.camera.world_to_screen(Vector2(130, 175))
 	map._unhandled_input(click)
+	assert_signal_not_emitted(map, "field_activated", "Opens on release, not press")
+	var release := click.duplicate()
+	release.pressed = false
+	map._unhandled_input(release)
 	assert_signal_emitted_with_parameters(map, "field_activated", ["FLD_ION_STORM"])
 
 

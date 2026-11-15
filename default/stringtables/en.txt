@@ -2613,6 +2613,20 @@ PRODUCTION_PLACE_ADDED
 PRODUCTION_PLACE_DONE
 Done
 
+# %1% number of fleets selected by dragging a box on the map
+FLEETS_SELECTED
+%1% fleets selected: right-click a system to send them all.
+
+FLEETS_MERGE_ALL
+Merge into one
+
+FLEETS_CLEAR
+Clear
+
+# %1% fleets that could go, %2% fleets selected
+FLEETS_ORDERED
+%1% of %2% on their way.
+
 PRODUCTION_NEVER
 Never
 

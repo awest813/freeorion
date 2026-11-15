@@ -31,7 +31,7 @@ shortcuts, Pedia extras and the tech tree.
 | P0 | 0 | (planet actions closed on 2026-11-15) |
 | P1 | 1 | Multiplayer |
 | P2 | 0 | (all closed on 2026-11-15) |
-| P3 | 15 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
+| P3 | 14 | Minimap, box select, combat replay, object filters, moderator, packaging, cut-over cleanup |
 
 ## P0: blocks a normal game
 
@@ -111,11 +111,11 @@ Closed:
 - **Build locations on the map:** "Show on map" in the production item's location list returns to the map with every system that can build it ringed; each click on a ringed system queues the item there, until Done or Esc.
 - **Sitrep filters and snoozing:** ☰ in the turn-event feed shows or hides each kind of report, kept in the GG client's `ui.map.sitrep.hidden.stringlist` option. Right-clicking a report ignores it for 5 or 10 turns or for the session, hides its whole kind, or copies its text. The header counts what is hidden.
 - **About:** the title screen's About shows the version and tabs for the credits, the project's vision, its licence (COPYING) and the Godot Engine's licence and third-party notices, as Godot asks projects to include.
+- **Box-select fleets:** dragging from empty map space (fields included) draws a box; your fleets inside are selected together and ringed. Right-click a system sends them all (Shift appends), "Merge into one" joins them when they share a system, Esc or Clear ends the selection. Fields now open their Pedia article on release, so a drag can start over one.
 
 | Gap | Legacy / plan | Size | Notes |
 |---|---|---|---|
 | Minimap, scale legend and circle | `MapWnd` | M | |
-| Box-select fleets | Plan, phase 3 | M | |
 | Map modes (political, supply, detection, resources, threat) | Plan, phase 3 | L | |
 | Combat replay and charts | `CombatReport/GraphicalSummary`, plan phase 5 | L | |
 | Object list filters, grouping, column chooser, actions | `ObjectListWnd` | M | |

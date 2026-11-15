@@ -13,6 +13,8 @@ signal system_selected(system_id: int)
 signal system_hovered(system_id: int)
 ## A system was left-clicked (also when it was selected already).
 signal system_clicked(system_id: int)
+## A box was dragged from empty space: \a fleet_ids are the fleets inside.
+signal fleets_boxed(fleet_ids: PackedInt32Array)
 ## Right-click (not drag) on a system, e.g. to order the active fleet there.
 signal system_context_requested(system_id: int)
 ## A field (no system under the cursor) was clicked: its type, for the Pedia.
@@ -23,9 +25,13 @@ const GRID_CELL := 64.0
 const NO_SYSTEM := -1
 ## Extra margin around the view when culling, in screen pixels.
 const CULL_MARGIN_PX := 32.0
+## Screen pixels the mouse must move before a press becomes a box.
+const BOX_SLOP_PX := 6.0
 
 var bounds := Rect2()
 ## Show the player's detection ranges (option ui.map.detection.shown).
+## Only this empire's fleets are box-selected (-2: any).
+var own_empire_id := -2
 var show_detection := false:
 	set(value):
 		show_detection = value
@@ -39,6 +45,17 @@ var _star_types := PackedInt32Array()
 var _names := PackedStringArray()
 var _lanes := PackedInt32Array()
 var _fleet_positions := PackedVector2Array()
+var _fleet_ids := PackedInt32Array()
+var _fleet_owners := PackedInt32Array()
+## Fleets marked as selected together (box selection): id -> true.
+var _marked_fleets := {}
+## Box selection: where the press started (screen), and whether it's a box.
+var _box_from := Vector2.INF
+var _box_to := Vector2.ZERO
+var _boxing := false
+## Field under a left press away from systems: opened on release unless the
+## press became a box.
+var _pressed_field := -1
 var _fleet_colors := PackedColorArray()
 var _fleet_stack := PackedInt32Array()
 var _supply_lanes := PackedInt32Array()
@@ -152,6 +169,8 @@ func set_snapshot(
 	_star_types = snapshot.get("system_star_types", PackedInt32Array())
 	_lanes = snapshot.get("lanes", PackedInt32Array())
 	_fleet_positions = snapshot.get("fleet_positions", PackedVector2Array())
+	_fleet_ids = snapshot.get("fleet_ids", PackedInt32Array())
+	_fleet_owners = snapshot.get("fleet_owner_ids", PackedInt32Array())
 	_field_ids = snapshot.get("field_ids", PackedInt32Array())
 	_field_positions = snapshot.get("field_positions", PackedVector2Array())
 	_field_radii = snapshot.get("field_radii", PackedFloat32Array())
@@ -200,6 +219,27 @@ func set_highlighted(system_ids: PackedInt32Array) -> void:
 	for system_id in system_ids:
 		if _index_by_id.has(system_id):
 			_highlighted[system_id] = true
+	_overlay.queue_redraw()
+
+
+## Fleets whose position lies in world rectangle \a rect, optionally only
+## those of empire \a owner_id.
+func fleets_in_rect(rect: Rect2, owner_id := -2) -> PackedInt32Array:
+	var result := PackedInt32Array()
+	for i in mini(_fleet_ids.size(), _fleet_positions.size()):
+		if not rect.abs().grow(0.001).has_point(_fleet_positions[i]):
+			continue
+		if owner_id != -2 and (i >= _fleet_owners.size() or _fleet_owners[i] != owner_id):
+			continue
+		result.push_back(_fleet_ids[i])
+	return result
+
+
+## Ring the markers of \a fleet_ids (fleets selected together).
+func set_marked_fleets(fleet_ids: PackedInt32Array) -> void:
+	_marked_fleets.clear()
+	for fleet_id in fleet_ids:
+		_marked_fleets[fleet_id] = true
 	_overlay.queue_redraw()
 
 
@@ -297,6 +337,34 @@ func visible_world_rect() -> Rect2:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and _box_from != Vector2.INF:
+		if event.button_mask & MOUSE_BUTTON_MASK_LEFT:
+			_box_to = event.position
+			if not _boxing and _box_from.distance_to(_box_to) > BOX_SLOP_PX:
+				_boxing = true
+			if _boxing:
+				_overlay.queue_redraw()
+				get_viewport().set_input_as_handled()
+				return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if not event.pressed and _box_from != Vector2.INF:
+			var was_boxing := _boxing
+			var rect := Rect2(camera.screen_to_world(_box_from), Vector2.ZERO).expand(
+				camera.screen_to_world(event.position)
+			)
+			_box_from = Vector2.INF
+			_boxing = false
+			var field := _pressed_field
+			_pressed_field = -1
+			if was_boxing:
+				_overlay.queue_redraw()
+				fleets_boxed.emit(fleets_in_rect(rect, own_empire_id))
+				get_viewport().set_input_as_handled()
+				return
+			if field >= 0 and field < _field_types.size():
+				field_activated.emit(_field_types[field])
+				get_viewport().set_input_as_handled()
+				return
 	if event is InputEventMouseMotion:
 		var world := camera.screen_to_world(event.position)
 		var hovered_id := pick_system(world)
@@ -317,13 +385,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
 			var world := camera.screen_to_world(button.position)
 			var system_id := pick_system(world)
-			var field := pick_field(world) if system_id == NO_SYSTEM else -1
-			if field >= 0 and field < _field_types.size():
-				field_activated.emit(_field_types[field])
+			# Away from systems a press may become a selection box; if it
+			# doesn't, a field there opens on release.
+			if system_id == NO_SYSTEM:
+				_box_from = button.position
+				_box_to = button.position
+				_pressed_field = pick_field(world)
+				if _pressed_field < 0:
+					select_system(NO_SYSTEM)
 			else:
 				select_system(system_id)
-				if system_id != NO_SYSTEM:
-					system_clicked.emit(system_id)
+				system_clicked.emit(system_id)
 			get_viewport().set_input_as_handled()
 		elif (
 			button.button_index == MOUSE_BUTTON_RIGHT and not button.pressed and camera.was_click()
@@ -466,6 +538,7 @@ func _draw_overlay(layer: CanvasItem) -> void:
 	_draw_highlights(layer, px, view)
 	_draw_route(layer, px)
 	_draw_fleets(layer, px, view)
+	_draw_box(layer, px)
 	var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
 	var ring := MapStyle.SELECTION_RING_PX * px
 	if _hovered != NO_SYSTEM and _hovered != _selected:
@@ -507,6 +580,17 @@ func _draw_unexplored_rings(layer: CanvasItem, px: float, view: Rect2) -> void:
 			)
 
 
+func _draw_box(layer: CanvasItem, px: float) -> void:
+	if not _boxing:
+		return
+	var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
+	var rect := Rect2(camera.screen_to_world(_box_from), Vector2.ZERO).expand(
+		camera.screen_to_world(_box_to)
+	)
+	layer.draw_rect(rect, Color(accent, 0.1))
+	layer.draw_rect(rect, accent, false, 1.5 * px)
+
+
 func _draw_fleets(layer: CanvasItem, px: float, view: Rect2) -> void:
 	var size := MapStyle.FLEET_PX * px
 	var tip := Vector2(size, 0)
@@ -518,6 +602,9 @@ func _draw_fleets(layer: CanvasItem, px: float, view: Rect2) -> void:
 		# Fleets at the same spot are stacked to the upper right of the star.
 		var origin := _fleet_positions[i] + Vector2(12.0, -10.0 + 9.0 * _fleet_stack[i]) * px
 		var color: Color = _fleet_colors[i] if i < _fleet_colors.size() else Color.WHITE
+		if i < _fleet_ids.size() and _marked_fleets.has(_fleet_ids[i]):
+			var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
+			layer.draw_arc(origin, size * 1.1, 0, TAU, 20, accent, 1.5 * px, true)
 		layer.draw_primitive(
 			PackedVector2Array([origin + tip, origin + top, origin + bottom]),
 			PackedColorArray([color, color, color]),
