@@ -143,6 +143,13 @@ public:
     static godot::Color get_empire_color(int empire_id);
     static godot::String get_empire_name(int empire_id); ///< empty if unknown
 
+    /** The player's empire at a glance, as the GG map toolbar shows it:
+      * industry / industry_spent (PP), research / research_spent (RP),
+      * influence (IP stockpile) and influence_change (expected next turn),
+      * pp_stockpile, population, ships, detection; eliminated and won.
+      * {} without an empire. */
+    static godot::Dictionary get_empire_resources();
+
     /** The player's situation reports for \a turn (default: current turn),
       * as dictionaries {text, icon, label, turn}. text keeps FreeOrion link
       * markup (<planet 12>Name</planet>), for FORichText. */

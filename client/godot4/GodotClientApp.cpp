@@ -1,6 +1,9 @@
 
 #include "GodotClientApp.h"
 
+#include <boost/format.hpp>
+#include <map>
+
 #ifdef FREEORION_ANDROID
 #  include <godot_cpp/classes/engine.hpp>
 #  include <godot_cpp/classes/object.hpp>
@@ -11,6 +14,7 @@
 #include "../../Empire/Empire.h"
 #include "../../parse/PythonParser.h"
 #include "../../util/Directories.h"
+#include "../../util/SaveGamePreviewUtils.h"
 #include "../../util/GameRules.h"
 #include "../../util/i18n.h"
 #include "../../util/Logger.h"
@@ -30,6 +34,12 @@ namespace {
         db.Add("setup.multiplayer.host.address", UserStringNop("OPTIONS_DB_MP_HOST_ADDRESS"),    std::string("localhost"),   Validator<std::string>());
         db.Add<int>("auto-advance-n-turns",      UserStringNop("OPTIONS_DB_AUTO_N_TURNS"),           0,
                     RangedValidator<int>(0, 400),       OptionsDB::Storable::UNSTORABLE);
+        // Autosave, as in the GG client (save.auto.exit.enabled is in MultiplayerCommon).
+        db.Add("save.auto.turn.start.enabled",   UserStringNop("OPTIONS_DB_AUTOSAVE_SINGLE_PLAYER_TURN_START"), true,  Validator<bool>());
+        db.Add("save.auto.turn.end.enabled",     UserStringNop("OPTIONS_DB_AUTOSAVE_SINGLE_PLAYER_TURN_END"),   false, Validator<bool>());
+        db.Add("save.auto.turn.interval",        UserStringNop("OPTIONS_DB_AUTOSAVE_TURNS"),                    1,     RangedValidator<int>(1, 50));
+        db.Add("save.auto.file.limit",           UserStringNop("OPTIONS_DB_AUTOSAVE_LIMIT"),                    10,    RangedValidator<int>(1, 10000));
+        db.Add("save.auto.initial.enabled",      UserStringNop("OPTIONS_DB_AUTOSAVE_GALAXY_CREATION"),          true,  Validator<bool>());
     }
     bool temp_bool = RegisterOptions(&AddOptions);
 
@@ -347,6 +357,84 @@ void GodotClientApp::SaveGameCompleted() {
         m_networking->SendMessage(HostSaveGameInitiateMessage(m_game_saves_in_progress.front()));
 }
 
+namespace {
+    // Keep the newest \a limit - 1 saves in \a dir, making room for one more.
+    void RemoveOldestSaves(int limit, const std::filesystem::path& dir) {
+        try {
+            if (!std::filesystem::is_directory(dir))
+                return;
+            std::multimap<std::filesystem::file_time_type, std::filesystem::path> by_time;
+            for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+                std::error_code ec;
+                if (entry.is_regular_file(ec) && entry.path().extension() == SP_SAVE_FILE_EXTENSION)
+                    by_time.emplace(entry.last_write_time(), entry.path());
+            }
+            auto excess = static_cast<int>(by_time.size()) - limit + 1;
+            for (auto it = by_time.begin(); excess > 0 && it != by_time.end(); ++it, --excess)
+                std::filesystem::remove(it->second);
+        } catch (const std::exception& e) {
+            ErrorLogger() << "RemoveOldestSaves: " << e.what();
+        }
+    }
+
+    // "FreeOrion_<player>_<empire>_<turn>_<time>.sav", as the GG client names them.
+    std::string AutosaveName(const Empire* empire, int turn) {
+        const auto filtered = [](std::string text) {
+            static constexpr std::string_view legal =
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-";
+            const auto first = text.find_first_of(legal);
+            if (first == std::string::npos)
+                return std::string{};
+            const auto last = text.find_first_not_of(legal, first);
+            return text.substr(first, last == std::string::npos ? std::string::npos : last - first);
+        };
+        const auto player = filtered(empire ? empire->PlayerName() : std::string{});
+        const auto empire_name = filtered(empire ? empire->Name() : UserString("OBSERVER"));
+        return boost::io::str(boost::format("FreeOrion_%s_%s_%04d_%s%s") % player % empire_name % turn %
+                              FilenameTimestamp() % SP_SAVE_FILE_EXTENSION);
+    }
+}
+
+void GodotClientApp::Autosave(AutosaveMoment moment) {
+    if (!m_single_player_game || !m_networking->IsConnected() || CurrentTurn() == INVALID_GAME_TURN)
+        return;
+    auto& db = GetOptionsDB();
+    const int interval = db.Get<int>("save.auto.turn.interval");
+    const bool every_turn = interval > 0 && CurrentTurn() % interval == 0;
+    bool wanted = false;
+    switch (moment) {
+    case AutosaveMoment::TURN_START:
+        wanted = (every_turn && db.Get<bool>("save.auto.turn.start.enabled")) ||
+            (CurrentTurn() == 1 && db.Get<bool>("save.auto.initial.enabled"));
+        break;
+    case AutosaveMoment::TURN_END:
+        wanted = every_turn && db.Get<bool>("save.auto.turn.end.enabled");
+        break;
+    case AutosaveMoment::EXIT:
+        wanted = db.Get<bool>("save.auto.exit.enabled");
+        break;
+    }
+    if (!wanted)
+        return;
+
+    const auto dir = GetSaveDir() / "auto";
+    try {
+        std::filesystem::create_directories(dir);
+    } catch (const std::exception& e) {
+        ErrorLogger() << "GodotClientApp::Autosave: can't create " << PathToString(dir) << ": " << e.what();
+        return;
+    }
+    // Room for the kept turns (two saves a turn when saving at start and end),
+    // plus the first-turn and exit saves.
+    const bool twice_a_turn = db.Get<bool>("save.auto.turn.start.enabled") && db.Get<bool>("save.auto.turn.end.enabled");
+    const int limit = std::max(1, db.Get<int>("save.auto.file.limit")) * (twice_a_turn ? 2 : 1) +
+        (db.Get<bool>("save.auto.initial.enabled") ? 1 : 0) + (db.Get<bool>("save.auto.exit.enabled") ? 1 : 0);
+    RemoveOldestSaves(limit, dir);
+    const auto path = PathToString(dir / AutosaveName(m_empires.GetEmpire(EmpireID()).get(), CurrentTurn()));
+    DebugLogger() << "GodotClientApp::Autosave to " << path;
+    SaveGame(path);
+}
+
 void GodotClientApp::RequestCombatLogs() {
     const auto incomplete_ids = GetCombatLogManager().IncompleteLogIDs();
     // At most 50 logs per message, so neither side allocates too much at once.
@@ -382,6 +470,9 @@ void GodotClientApp::StartQuitting() {
     if (m_quitting)
         return;
     DebugLogger() << "GodotClientApp::StartQuitting";
+    // The server saves before it handles the shutdown sent after this.
+    if (m_game_started)
+        Autosave(AutosaveMoment::EXIT);
     m_quitting = true;
     m_game_started = false;
     m_auto_turns = 0;

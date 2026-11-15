@@ -58,6 +58,10 @@ void FreeOrionNode::_bind_methods() {
     ADD_SIGNAL(godot::MethodInfo("turn_update"));
     ADD_SIGNAL(godot::MethodInfo("game_ended"));
     ADD_SIGNAL(godot::MethodInfo("combat_logs_updated"));
+    ADD_SIGNAL(godot::MethodInfo("server_error",
+                                 godot::PropertyInfo(godot::Variant::STRING, "message"),
+                                 godot::PropertyInfo(godot::Variant::BOOL, "fatal")));
+    ADD_SIGNAL(godot::MethodInfo("game_aborted", godot::PropertyInfo(godot::Variant::STRING, "message")));
     ADD_SIGNAL(godot::MethodInfo("save_completed",
                                  godot::PropertyInfo(godot::Variant::STRING, "filename"),
                                  godot::PropertyInfo(godot::Variant::INT, "bytes_written")));
@@ -178,7 +182,17 @@ void FreeOrionNode::_process(double) {
         if (!msg)
             break;
         HandleMessage(std::move(*msg));
-    } while (m_app && std::chrono::steady_clock::now() < deadline);
+    } while (m_app && !m_app->Quitting() && std::chrono::steady_clock::now() < deadline);
+
+    // The server went away mid-game (crashed or was killed).
+    if (m_app && m_app->GameStarted() && !m_app->Quitting() && !m_app->Networking().IsConnected())
+        AbortGame(UserString("SERVER_LOST"));
+}
+
+void FreeOrionNode::AbortGame(const std::string& message) {
+    ErrorLogger() << "FreeOrionNode::AbortGame: " << message;
+    m_app->StartQuitting();
+    emit_signal("game_aborted", godot::String::utf8(message.c_str()));
 }
 
 void FreeOrionNode::_exit_tree() {
@@ -229,6 +243,7 @@ void FreeOrionNode::new_single_player_game()
 { m_app->NewSinglePlayerGame(); }
 
 void FreeOrionNode::start_turn() {
+    m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_END);
     SaveGameUIData ui_data;
     m_app->StartTurn(ui_data);
 }
@@ -340,6 +355,8 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
 
             bool is_new_game = !(loaded_game_data && ui_data_available);
             m_app->StartGame(is_new_game);
+            if (is_new_game)
+                m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
             call_deferred("emit_signal", "start_game", is_new_game);
 
             if (m_app->AutoTurnsLeft() > 0) {
@@ -369,6 +386,7 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             m_app->SetCurrentTurn(current_turn);
             InitTurnState();
             m_app->RequestCombatLogs();
+            m_app->Autosave(GodotClientApp::AutosaveMoment::TURN_START);
             call_deferred("emit_signal", "turn_update");
 
             if (m_app->AutoTurnsLeft() > 0) {
@@ -394,6 +412,39 @@ void FreeOrionNode::HandleMessage(Message&& msg) {
             for (auto& [log_id, log] : logs)
                 manager.CompleteLog(log_id, std::move(log));
             call_deferred("emit_signal", "combat_logs_updated");
+            break;
+        }
+        case Message::MessageType::ERROR_MSG: {
+            int player_id = Networking::INVALID_PLAYER_ID;
+            std::string problem_key, unlocalized_info;
+            bool fatal = false;
+            ExtractErrorMessageData(msg, player_id, problem_key, unlocalized_info, fatal);
+            ErrorLogger() << "FreeOrionNode::HandleMessage : server error " << problem_key
+                          << (fatal ? " (fatal) " : " ") << unlocalized_info;
+            m_app->InitAutoTurns(0);
+            const auto& text = UserStringExists(problem_key) ? UserString(problem_key) : problem_key;
+            if (fatal && m_app->GameStarted())
+                AbortGame(text);
+            else
+                emit_signal("server_error", godot::String::utf8(text.c_str()), fatal);
+            break;
+        }
+        case Message::MessageType::END_GAME: {
+            Message::EndGameReason reason = Message::EndGameReason::UNKNOWN;
+            std::string player_name;
+            ExtractEndGameMessageData(msg, reason, player_name);
+            std::string text;
+            switch (reason) {
+            case Message::EndGameReason::LOCAL_CLIENT_DISCONNECT:
+                text = UserString("SERVER_LOST");
+                break;
+            case Message::EndGameReason::PLAYER_DISCONNECT:
+                text = boost::io::str(FlexibleFormat(UserString("PLAYER_DISCONNECTED")) % player_name);
+                break;
+            default:
+                text = UserString("UNKNOWN");
+            }
+            AbortGame(text);
             break;
         }
         case Message::MessageType::PLAYER_CHAT:

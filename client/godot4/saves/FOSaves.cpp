@@ -52,10 +52,17 @@ godot::String FOSaves::get_extension()
 
 godot::Array FOSaves::list_saves() {
     godot::Array result;
-    std::vector<FullPreview> previews;
+    // Player saves and autosaves (in "auto"), each with the directory it is in.
+    std::vector<std::pair<std::filesystem::path, FullPreview>> previews;
     try {
-        if (std::filesystem::exists(GetSaveDir()))
-            LoadSaveGamePreviews(GetSaveDir(), SP_SAVE_FILE_EXTENSION, previews);
+        for (const auto& dir : {GetSaveDir(), GetSaveDir() / "auto"}) {
+            if (!std::filesystem::exists(dir))
+                continue;
+            std::vector<FullPreview> in_dir;
+            LoadSaveGamePreviews(dir, SP_SAVE_FILE_EXTENSION, in_dir);
+            for (auto& preview : in_dir)
+                previews.emplace_back(dir, std::move(preview));
+        }
     } catch (const std::exception& e) {
         // An exception must not unwind into Godot, which would abort the process.
         ErrorLogger() << "FOSaves::list_saves: " << e.what();
@@ -63,13 +70,14 @@ godot::Array FOSaves::list_saves() {
     }
     // Newest first; ISO 8601 times sort as strings.
     std::sort(previews.begin(), previews.end(), [](const auto& a, const auto& b)
-              { return a.preview.save_time > b.preview.save_time; });
-    for (const auto& full : previews) {
+              { return a.second.preview.save_time > b.second.preview.save_time; });
+    for (const auto& [dir, full] : previews) {
         const auto& p = full.preview;
         godot::Dictionary save;
-        const auto path = GetSaveDir() / std::filesystem::path(full.filename);
+        const auto path = dir / std::filesystem::path(full.filename);
         save["path"] = ToGodot(PathToString(path));
         save["file"] = ToGodot(full.filename);
+        save["auto"] = dir != GetSaveDir();
         save["player"] = ToGodot(p.main_player_name);
         save["empire"] = ToGodot(p.main_player_empire_name);
         const auto& c = p.main_player_empire_colour;

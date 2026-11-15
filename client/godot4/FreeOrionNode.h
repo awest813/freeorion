@@ -71,6 +71,10 @@ private:
 
     void InitTurnState(); ///< System graph and resource pools for a new turn
 
+    /** Leaves the game because of \a message (server lost, game ended by the
+      * server): starts quitting and emits game_aborted. */
+    void AbortGame(const std::string& message);
+
     std::unique_ptr<GodotClientApp> m_app;
     godot::Ref<godot::Thread> m_parsing_thread;
 };

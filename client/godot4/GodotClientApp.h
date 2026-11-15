@@ -40,6 +40,13 @@ public:
     /** The server finished the oldest pending save; sends the next one. */
     void SaveGameCompleted();
 
+    enum class AutosaveMoment { TURN_START, TURN_END, EXIT };
+
+    /** Saves to the "auto" save directory if the save.auto.* options ask
+      * for it at \a moment, keeping only the newest autosaves. Single
+      * player only, as the GG client. */
+    void Autosave(AutosaveMoment moment);
+
     /** Asks the server for the contents of combat logs the client only
       * knows by ID, in batches, as the GG client does each turn. */
     void RequestCombatLogs();
@@ -53,6 +60,9 @@ public:
       * to a few seconds for the server to disconnect, then terminates it and
       * clears the game data. Returns true once done (or if not quitting). */
     bool UpdateQuitting();
+
+    /** True from the game's start until leaving it. */
+    bool GameStarted() const noexcept { return m_game_started; }
 
     /** True from StartQuitting() until UpdateQuitting() completes. */
     bool Quitting() const noexcept { return m_quitting; }

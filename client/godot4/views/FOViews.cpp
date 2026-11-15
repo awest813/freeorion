@@ -428,6 +428,7 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_ids"), &FOUniverse::get_planet_ids);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_color", "empire_id"), &FOUniverse::get_empire_color);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_name", "empire_id"), &FOUniverse::get_empire_name);
+    ClassDB::bind_static_method(cls, D_METHOD("get_empire_resources"), &FOUniverse::get_empire_resources);
     ClassDB::bind_static_method(cls, D_METHOD("get_sitreps", "turn"), &FOUniverse::get_sitreps, DEFVAL(-1));
     ClassDB::bind_static_method(cls, D_METHOD("get_map_snapshot"), &FOUniverse::get_map_snapshot);
 }
@@ -557,4 +558,35 @@ godot::Dictionary FOUniverse::get_map_snapshot() {
     snapshot["fleet_positions"] = fleet_positions;
     snapshot["fleet_owner_ids"] = fleet_owner_ids;
     return snapshot;
+}
+
+godot::Dictionary FOUniverse::get_empire_resources() {
+    godot::Dictionary result;
+    const auto* app = ClientApp::GetApp();
+    if (!app)
+        return result;
+    const auto& context = app->GetContext();
+    const auto empire = context.GetEmpire(app->EmpireID());
+    if (!empire)
+        return result;
+    result["industry"] = empire->GetIndustryPool().TotalOutput();
+    result["industry_spent"] = empire->GetProductionQueue().TotalPPsSpent();
+    result["pp_stockpile"] = empire->GetIndustryPool().Stockpile();
+    result["research"] = empire->GetResearchPool().TotalOutput();
+    result["research_spent"] = empire->GetResearchQueue().TotalRPsSpent();
+    const float influence = empire->GetInfluencePool().Stockpile();
+    result["influence"] = influence;
+    result["influence_change"] = empire->GetInfluenceQueue().ExpectedNewStockpileAmount() - influence;
+    result["population"] = empire->GetPopulationPool().Population();
+    const auto& destroyed = context.ContextUniverse().EmpireKnownDestroyedObjectIDs(empire->EmpireID());
+    int ships = 0;
+    for (const auto* ship : context.ContextObjects().allRaw<Ship>())
+        if (ship->OwnedBy(empire->EmpireID()) && !destroyed.contains(ship->ID()))
+            ++ships;
+    result["ships"] = ships;
+    const auto* detection = empire->GetMeter("METER_DETECTION_STRENGTH");
+    result["detection"] = detection ? detection->Current() : 0.0f;
+    result["eliminated"] = empire->Eliminated();
+    result["won"] = empire->Won();
+    return result;
 }
