@@ -154,11 +154,19 @@ public:
     /** Everything the planet panel shows about planet \a planet_id: name,
       * type, size, species, focus, owner_id, own, owner_name, owner_color,
       * environment (for its species, a PlanetEnvironment name), meters
-      * (array of {meter, now, next, target}: this turn, projected next
-      * turn and the target or maximum it moves to; only meters the planet
+      * (array of {meter, now, next, target, accounting_meter}: this turn,
+      * projected next turn, the target or maximum it moves to, and the meter
+      * whose get_meter_accounting() explains it; only meters the planet
       * has), buildings ({id, type, name, icon, scrapping}) and specials
       * ({name, icon, capacity}). {} if unknown. */
     static godot::Dictionary get_planet_detail(int planet_id);
+
+    /** Why meter \a meter_name of object \a object_id has its value: the
+      * effects that changed it this turn, as the GG meter tooltips list them.
+      * {meter, total, lines: [{label, change}]}; label has FreeOrion markup
+      * (<i>), identical building effects are combined ("3 x"). {} if no
+      * accounting is known (e.g. other empires' objects). */
+    static godot::Dictionary get_meter_accounting(int object_id, const godot::String& meter_name);
 
     /** Species a player can start with, by name: [{name, icon}]. Needs
       * parsed content; [] before. */

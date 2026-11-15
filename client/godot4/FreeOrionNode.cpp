@@ -292,8 +292,16 @@ void FreeOrionNode::InitTurnState() {
     GetUniverse().InitializeSystemGraph(Empires(), GetUniverse().Objects());
     GetUniverse().UpdateCommonFilteredSystemGraphsWithMainObjectMap(Empires());
 
-    // Resource pools: available PP/RP/IP and the projected queues
+    // Meter estimates for next turn, with the effect accounting that explains
+    // them, as MapWnd::InitTurn does. Orders loaded with a saved game are
+    // re-applied first so the estimates include them.
     auto& context = m_app->GetContext();
+    GetUniverse().InitMeterEstimatesAndDiscrepancies(context);
+    m_app->Orders().ApplyOrders(context);
+    GetUniverse().UpdateMeterEstimates(context);
+    GetUniverse().ApplyAppearanceEffects(context);
+
+    // Resource pools: available PP/RP/IP and the projected queues
     for (auto& empire : Empires() | range_values) {
         empire->UpdateResourcePools(context,
                                     empire->TechCostsTimes(context),

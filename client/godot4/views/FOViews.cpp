@@ -13,6 +13,7 @@
 #include "../../../Empire/EmpireManager.h"
 #include "../../../Empire/Supply.h"
 #include "../../../universe/Building.h"
+#include "../../../universe/Effect.h"
 #include "../../../universe/BuildingType.h"
 #include "../../../universe/Field.h"
 #include "../../../universe/FieldType.h"
@@ -25,6 +26,8 @@
 #include "../../../universe/Species.h"
 #include "../../../universe/System.h"
 #include "../../../universe/Universe.h"
+#include "../../../util/i18n.h"
+#include "../../../util/Logger.h"
 #include "../../../util/Order.h"
 #include "../../../util/OrderSet.h"
 #include "../../../util/SitRepEntry.h"
@@ -440,6 +443,8 @@ void FOUniverse::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_name", "empire_id"), &FOUniverse::get_empire_name);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_resources"), &FOUniverse::get_empire_resources);
     ClassDB::bind_static_method(cls, D_METHOD("get_planet_detail", "planet_id"), &FOUniverse::get_planet_detail);
+    ClassDB::bind_static_method(cls, D_METHOD("get_meter_accounting", "object_id", "meter_name"),
+                                &FOUniverse::get_meter_accounting);
     ClassDB::bind_static_method(cls, D_METHOD("get_playable_species"), &FOUniverse::get_playable_species);
     ClassDB::bind_static_method(cls, D_METHOD("get_empire_colors"), &FOUniverse::get_empire_colors);
     ClassDB::bind_static_method(cls, D_METHOD("get_sitreps", "turn"), &FOUniverse::get_sitreps, DEFVAL(-1));
@@ -727,6 +732,8 @@ godot::Dictionary FOUniverse::get_planet_detail(int planet_id) {
         entry["now"] = meter->Initial();
         entry["next"] = meter->Current();
         entry["target"] = target ? target->Current() : meter->Current();
+        // The breakdown explains the target or maximum where there is one.
+        entry["accounting_meter"] = ToGodot(::to_string(target ? target_type : type));
         meters.push_back(entry);
     }
     result["meters"] = meters;
@@ -784,5 +791,102 @@ godot::PackedColorArray FOUniverse::get_empire_colors() {
     godot::PackedColorArray result;
     for (const auto& c : EmpireColors())
         result.push_back(godot::Color::from_rgba8(c[0], c[1], c[2], c[3]));
+    return result;
+}
+
+namespace {
+    // Label of one accounting entry, as UI/MeterBrowseWnd.cpp writes it.
+    std::string AccountingLabel(const Effect::AccountingInfo& info, std::string name, const ScriptingContext& context) {
+        const auto templ = [&info](std::string_view fallback) -> const std::string&
+        { return UserString(info.custom_label.empty() ? std::string{fallback} : info.custom_label); };
+        const auto format = [&](std::string_view fallback) {
+            return boost::io::str(FlexibleFormat(templ(fallback)) % name % UserString(info.specific_cause));
+        };
+        const auto* source = context.ContextObjects().getRaw(info.source_id);
+        switch (info.cause_type) {
+        case EffectsCauseType::ECT_TECH:
+        case EffectsCauseType::ECT_POLICY: {
+            const auto empire = source ? context.GetEmpire(source->Owner()) : nullptr;
+            name = empire ? empire->Name() : std::string{};
+            return format(info.cause_type == EffectsCauseType::ECT_TECH ? "TT_TECH" : "TT_POLICY");
+        }
+        case EffectsCauseType::ECT_BUILDING:   return format("TT_BUILDING");
+        case EffectsCauseType::ECT_FIELD:      return format("TT_FIELD");
+        case EffectsCauseType::ECT_SPECIAL:    return format("TT_SPECIAL");
+        case EffectsCauseType::ECT_SPECIES:    return format("TT_SPECIES");
+        case EffectsCauseType::ECT_SHIP_HULL:  return format("TT_SHIP_HULL");
+        case EffectsCauseType::ECT_SHIP_PART:  return format("TT_SHIP_PART");
+        case EffectsCauseType::ECT_INHERENT:   return UserString("TT_INHERENT");
+        default:                               return templ("TT_UNKNOWN");
+        }
+    }
+
+    MeterType MeterTypeByName(const std::string& name) {
+        for (int i = 0; i < static_cast<int>(MeterType::NUM_METER_TYPES); ++i)
+            if (::to_string(static_cast<MeterType>(i)) == name)
+                return static_cast<MeterType>(i);
+        return MeterType::INVALID_METER_TYPE;
+    }
+}
+
+godot::Dictionary FOUniverse::get_meter_accounting(int object_id, const godot::String& meter_name) {
+    godot::Dictionary result;
+    const auto* app = ClientApp::GetApp();
+    if (!app)
+        return result;
+    try {
+        const auto& context = app->GetContext();
+        const auto type = MeterTypeByName(meter_name.utf8().get_data());
+        const auto* object = context.ContextObjects().getRaw(object_id);
+        const auto* meter = object ? object->GetMeter(type) : nullptr;
+        if (!meter)
+            return result;
+        const auto& accounting = context.ContextUniverse().GetEffectAccountingMap();
+        const auto object_it = accounting.find(object_id);
+        if (object_it == accounting.end())
+            return result;
+        const auto meter_it = object_it->second.find(type);
+        if (meter_it == object_it->second.end())
+            return result;
+        const auto& infos = meter_it->second;
+
+        godot::Array lines;
+        int combined = 0;
+        for (std::size_t i = 0; i < infos.size(); ++i) {
+            const auto& info = infos[i];
+            const auto* source = context.ContextObjects().getRaw(info.source_id);
+            std::string name = source ? source->Name() : std::string{};
+            float change = info.meter_change;
+            if (info.cause_type == EffectsCauseType::ECT_BUILDING) {
+                const auto* building = dynamic_cast<const Building*>(source);
+                const auto* planet = building ? context.ContextObjects().getRaw<Planet>(building->PlanetID()) : nullptr;
+                name = planet ? planet->Name() : std::string{};
+                // Identical effects of many buildings make one line: "3 x".
+                if (i + 1 < infos.size() && infos[i + 1].cause_type == info.cause_type &&
+                    std::fabs(infos[i + 1].meter_change - info.meter_change) < 0.001f &&
+                    infos[i + 1].specific_cause == info.specific_cause)
+                {
+                    ++combined;
+                    continue;
+                }
+                if (combined > 0) {
+                    ++combined;
+                    name = std::to_string(combined) + " x";
+                    change *= static_cast<float>(combined);
+                    combined = 0;
+                }
+            }
+            godot::Dictionary line;
+            const auto label = AccountingLabel(info, std::move(name), context);
+            line["label"] = ToGodot(label);
+            line["change"] = change;
+            lines.push_back(line);
+        }
+        result["meter"] = meter_name;
+        result["total"] = meter->Current();
+        result["lines"] = lines;
+    } catch (const std::exception& e) {
+        ErrorLogger() << "FOUniverse::get_meter_accounting: " << e.what();
+    }
     return result;
 }
