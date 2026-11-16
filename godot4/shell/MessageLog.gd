@@ -22,6 +22,7 @@ var _shell: GameShell
 ## Diplomatic status with each other empire, as last seen: id -> status.
 var _statuses := {}
 var _banner: TurnBanner
+var _alerts: AlertCards
 
 
 func _init(shell: GameShell) -> void:
@@ -88,6 +89,13 @@ func turn_begun(turn: int) -> void:
 	if _banner == null:
 		_banner = TurnBanner.new()
 		_shell.add_child(_banner)
+		_alerts = AlertCards.new()
+		_alerts.link_activated.connect(_shell._on_link_activated)
+		_alerts.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_alerts.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_alerts.position.y = _shell.top_bar.get_global_rect().end.y + FOUi.tokens.space_3
+		_shell.add_child(_alerts)
+	_alerts.show_turn(FOUniverse.get_sitreps())
 	var empire := FOUniverse.get_empire_id()
 	_banner.announce(
 		turn,

@@ -312,3 +312,19 @@ func test_screens_open_with_motion_but_keep_their_size():
 	assert_eq(screen.scale, Vector2.ONE, "settled")
 	assert_eq(screen.modulate.a, 1.0)
 	FOUi.reduce_motion = was
+
+
+func test_important_events_become_cards():
+	var sitreps := [
+		{"label": "SITREP_TECH_RESEARCHED_LABEL", "text": "Researched X"},
+		{"label": "SITREP_COMBAT_SYSTEM_LABEL", "text": "Combat at <system 1>Sol</system>"},
+		{"label": "SITREP_OWN_SHIP_DESTROYED_AT_SYSTEM_LABEL", "text": "Lost a ship"},
+	]
+	assert_eq(AlertCards.important(sitreps).size(), 2, "only what matters")
+	var cards := AlertCards.new()
+	add_child_autofree(cards)
+	cards.show_turn(sitreps)
+	assert_eq(cards.get_child_count(), 2)
+	cards.show_turn([])
+	await get_tree().process_frame
+	assert_eq(cards.get_child_count(), 0, "a new turn clears them")

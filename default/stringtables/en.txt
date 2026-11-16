@@ -2624,6 +2624,18 @@ Empire
 GSETUP_NEXT
 Next
 
+COMBAT_OUTCOME_VICTORY
+Victory
+
+COMBAT_OUTCOME_DEFEAT
+Defeat
+
+COMBAT_OUTCOME_BOTH
+Losses on both sides
+
+COMBAT_OUTCOME_NONE
+No losses
+
 EMPIRES_LOCATE
 Show on map
 

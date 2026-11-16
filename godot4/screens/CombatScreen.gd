@@ -188,18 +188,7 @@ func _side_strip(sides: Array) -> Control:
 
 
 func _build_detail(combat: Dictionary) -> void:
-	var title := _rich(
-		tr("COMBAT_REPORT_AT").replace(
-			"%1%", "<system %d>%s</system>" % [combat["system_id"], combat["system_name"]]
-		),
-		"HeadingLabel"
-	)
-	_detail.add_child(title)
-	_detail.add_child(
-		ScreenKit.label(
-			tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(combat.get("turn", 0))), "SecondaryLabel"
-		)
-	)
+	_detail.add_child(_hero(combat))
 	var sides := HFlowContainer.new()
 	sides.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
 	sides.add_theme_constant_override("v_separation", FOUi.tokens.space_3)
@@ -238,6 +227,82 @@ func _build_detail(combat: Dictionary) -> void:
 		_log_rows.push_back([row, event_bout])
 		log_box.add_child(row)
 	bout = _bouts
+
+
+## What \a combat came to for the player: [text key, colour token name] —
+## a victory, a defeat, losses on both sides, or none.
+static func outcome(combat: Dictionary) -> Array:
+	var lost := losses(combat)
+	if lost.x == 0 and lost.y > 0:
+		return ["COMBAT_OUTCOME_VICTORY", "positive"]
+	if lost.x > 0 and lost.y == 0:
+		return ["COMBAT_OUTCOME_DEFEAT", "negative"]
+	if lost.x > 0:
+		return ["COMBAT_OUTCOME_BOTH", "warning"]
+	return ["COMBAT_OUTCOME_NONE", "text_secondary"]
+
+
+# The report's header: the sides' flags facing each other, where and when,
+# and what it came to, on a band tinted by the outcome.
+func _hero(combat: Dictionary) -> Control:
+	var tokens: FOTokens = FOUi.tokens
+	var result := outcome(combat)
+	var tint: Color = tokens.get(result[1])
+	var band := PanelContainer.new()
+	var style := FOThemeBuilder.cut(
+		FOThemeBuilder.box(
+			tokens, Color(tint, 0.12), Color(tint, 0.6), tokens.space_4, tokens.space_3
+		),
+		tokens,
+		tokens.chamfer
+	)
+	band.add_theme_stylebox_override("panel", style)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", tokens.space_4)
+	band.add_child(row)
+	var own := []
+	var others := []
+	for side: Dictionary in combat.get("sides", []):
+		(own if side.get("own", false) else others).push_back(side)
+	row.add_child(_flags(own))
+	var middle := VBoxContainer.new()
+	middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	middle.add_theme_constant_override("separation", 0)
+	row.add_child(middle)
+	middle.add_child(
+		_rich(
+			tr("COMBAT_REPORT_AT").replace(
+				"%1%", "<system %d>%s</system>" % [combat["system_id"], combat["system_name"]]
+			),
+			"HeadingLabel"
+		)
+	)
+	middle.add_child(
+		ScreenKit.label(
+			tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(combat.get("turn", 0))), "SecondaryLabel"
+		)
+	)
+	var verdict := ScreenKit.label(tr(result[0]), "DisplayTitle")
+	verdict.uppercase = true
+	verdict.add_theme_color_override("font_color", tint)
+	middle.add_child(verdict)
+	row.add_child(_flags(others))
+	return band
+
+
+# The flags of \a sides, side by side (neutral sides without one).
+func _flags(sides: Array) -> Control:
+	var box := HBoxContainer.new()
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for side: Dictionary in sides:
+		var flag := ScreenKit.icon("", FOUi.tokens.icon_large)
+		flag.texture = EmpireArt.flag(
+			side.get("name", ""), side.get("color", Color.GRAY), FOUi.tokens.icon_large
+		)
+		flag.tooltip_text = side.get("name", "")
+		flag.mouse_filter = Control.MOUSE_FILTER_PASS
+		box.add_child(flag)
+	return box
 
 
 ## Show the combat as it stood at \a at_bout (0 before it, 1.. after each

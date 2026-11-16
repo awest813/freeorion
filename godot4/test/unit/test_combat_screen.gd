@@ -170,3 +170,13 @@ func test_replay_steps_through_the_bouts():
 	screen.show_whole_combat()
 	assert_true(screen._log_rows.all(func(e): return e[0].visible))
 	assert_true(screen._whole_log.disabled)
+
+
+func test_reports_say_what_the_battle_came_to():
+	var won := {"sides": [{"own": true, "destroyed": 0}, {"own": false, "destroyed": 2}]}
+	assert_eq(CombatScreen.outcome(won)[0], "COMBAT_OUTCOME_VICTORY")
+	var lost := {"sides": [{"own": true, "destroyed": 1}, {"own": false, "destroyed": 0}]}
+	assert_eq(CombatScreen.outcome(lost)[0], "COMBAT_OUTCOME_DEFEAT")
+	var both := {"sides": [{"own": true, "destroyed": 1}, {"own": false, "destroyed": 3}]}
+	assert_eq(CombatScreen.outcome(both)[0], "COMBAT_OUTCOME_BOTH")
+	assert_eq(CombatScreen.outcome({"sides": []})[0], "COMBAT_OUTCOME_NONE")
