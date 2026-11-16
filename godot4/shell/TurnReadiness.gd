@@ -1,7 +1,9 @@
 class_name TurnReadiness
 extends RefCounted
 ## What may be forgotten before ending a turn: unspent production or research
-## points, colony ships without orders and newly built fleets without orders.
+## points, colony ships without orders, newly built fleets without orders,
+## unarmed fleets (scouts) idle and not exploring, and a free policy slot
+## while a policy could be adopted into it.
 ## check() works on plain data (gather() reads it from the game), so tests
 ## can feed it directly.
 
@@ -35,6 +37,8 @@ static func check(data: Dictionary) -> Array:
 			key = "READINESS_COLONY_SHIPS"
 		elif fleet.get("age", 1) == 0:
 			key = "READINESS_NEW_FLEET"
+		elif not fleet.get("armed", true) and not fleet.get("exploring", false):
+			key = "READINESS_IDLE_SCOUT"
 		if key != "":
 			(
 				issues
@@ -53,6 +57,9 @@ static func check(data: Dictionary) -> Array:
 					}
 				)
 			)
+	for category: String in data.get("free_policy_slots", []):
+		var text := tr_s("READINESS_POLICY_SLOT").replace("%1%", tr_s(category))
+		issues.push_back({"text": text, "screen": "government"})
 	return issues
 
 
@@ -63,13 +70,37 @@ static func gather() -> Dictionary:
 		var view: FOFleet = FOUniverse.get_fleet(fleet["id"])
 		if view:
 			fleet["position"] = view.get_position()
+		fleet["exploring"] = FOExplore.is_exploring(fleet["id"])
 		fleets.push_back(fleet)
 	return {
 		"resources": FOUniverse.get_empire_resources(),
 		"production_queue": FOProduction.get_queue().size(),
 		"research_queue": FOResearch.get_queue().size(),
 		"fleets": fleets,
+		"free_policy_slots":
+		free_policy_slots(FOGovernment.get_slots(), FOGovernment.get_policies()),
 	}
+
+
+## Categories of \a slots (FOGovernment.get_slots()) with an empty slot that
+## one of \a policies (get_policies()) could be adopted into now.
+static func free_policy_slots(slots: Array, policies: Array) -> Array:
+	var categories := []
+	for slot: Dictionary in slots:
+		var category: String = slot.get("category", "")
+		if not slot.get("policies", []).has(""):
+			continue
+		for policy: Dictionary in policies:
+			if (
+				policy.get("category") == category
+				and not policy.get("adopted", false)
+				and policy.get("available", false)
+				and policy.get("affordable", false)
+				and policy.get("prerequisites_ok", true)
+			):
+				categories.push_back(category)
+				break
+	return categories
 
 
 ## Whether the player wants the check (on unless turned off in Options).

@@ -47,6 +47,46 @@ func test_warnings():
 	assert_eq(issues[2]["target"]["system_id"], 5)
 
 
+func test_idle_scouts_and_free_policy_slots():
+	var data := {
+		"fleets":
+		[
+			{"id": 7, "name": "Scout", "system_name": "Sol", "system_id": 5, "armed": false},
+			{
+				"id": 8,
+				"name": "Explorer",
+				"system_name": "Sol",
+				"system_id": 5,
+				"armed": false,
+				"exploring": true,
+			},
+			{"id": 9, "name": "Guard", "system_name": "Sol", "system_id": 5, "armed": true},
+		],
+		"free_policy_slots": ["ECONOMIC_CATEGORY"],
+	}
+	var issues := TurnReadiness.check(data)
+	assert_eq(
+		issues.map(func(i): return i["text"]),
+		[
+			tr("READINESS_IDLE_SCOUT").replace("%1%", "Scout").replace("%2%", "Sol"),
+			tr("READINESS_POLICY_SLOT").replace("%1%", tr("ECONOMIC_CATEGORY")),
+		]
+	)
+	assert_eq(issues[0]["target"]["fleet_id"], 7)
+	assert_eq(issues[1]["screen"], "government")
+	var slots := [
+		{"category": "ECONOMIC_CATEGORY", "policies": [""]},
+		{"category": "SOCIAL_CATEGORY", "policies": ["PLC_A"]},
+		{"category": "MILITARY_CATEGORY", "policies": [""]},
+	]
+	var policies := [
+		{"name": "PLC_B", "category": "ECONOMIC_CATEGORY", "available": true, "affordable": true},
+		{"name": "PLC_C", "category": "SOCIAL_CATEGORY", "available": true, "affordable": true},
+		{"name": "PLC_D", "category": "MILITARY_CATEGORY", "available": true, "affordable": false},
+	]
+	assert_eq(TurnReadiness.free_policy_slots(slots, policies), ["ECONOMIC_CATEGORY"])
+
+
 func test_nothing_to_say():
 	assert_eq(TurnReadiness.check({"resources": {"industry": 5.0, "industry_spent": 5.0}}), [])
 

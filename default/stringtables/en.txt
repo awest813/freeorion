@@ -2131,7 +2131,7 @@ HINT_RESEARCH
 Research points go to the queue from the top. Adding a tech queues what it needs first. The Tree view shows how techs lead to each other.
 
 HINT_GOVERNMENT
-Policies cost influence each turn while adopted. Adopt one from the list on the right into a free slot of its category; if it can't be adopted, the reason is shown.
+A policy costs influence once, on the turn it is adopted. Adopt one from the list on the right into a free slot of its category; if it can't be adopted, the reason is shown.
 
 HINT_DESIGN
 Pick a hull on the left, then fill its slots with parts on the right. Name the design to create it; it can then be built.
@@ -2184,6 +2184,14 @@ READINESS_COLONY_SHIPS
 # %1% fleet name, %2% system name
 READINESS_NEW_FLEET
 %1% at %2% is new and has no orders.
+
+# %1% fleet name, %2% system name
+READINESS_IDLE_SCOUT
+%1% at %2% is unarmed and idle: send it somewhere or set it to explore (fleet menu).
+
+# %1% policy category
+READINESS_POLICY_SLOT
+A free %1% policy slot: there is enough influence to adopt a policy into it.
 
 PANEL_CLOSE
 Close
@@ -3560,7 +3568,7 @@ GOVERNMENT_TAB
 Government
 
 GOVERNMENT_INFLUENCE
-%1% IP · policies cost %2% IP/turn
+%1% IP · adopting this turn costs %2% IP
 
 GOVERNMENT_NO_SLOTS
 No policy slots yet.
@@ -3568,8 +3576,11 @@ No policy slots yet.
 GOVERNMENT_EMPTY_SLOT
 Empty slot
 
+PRODUCTION_CONFIRM_DESTRUCTIVE
+%1% at %2% can empty planets of their people or destroy ships and planets. Read its Pedia entry first. Add it to the queue?
+
 GOVERNMENT_UPKEEP
-%1% IP per turn
+%1% IP to adopt
 
 GOVERNMENT_REVOKE
 Revoke this policy

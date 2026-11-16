@@ -35,6 +35,15 @@ const FILTERS := ["all", "building", "ship", "stockpile", "unavailable"]
 ## Drag data types: a queue item moved, a catalogue item added.
 const QUEUE_DRAG := "fo_queue_item"
 const CATALOG_DRAG := "fo_catalog_item"
+## Buildings that empty or destroy the planet they are built on (or ships
+## nearby): adding one asks first.
+const DESTRUCTIVE := [
+	"BLD_EVACUATION",
+	"BLD_ABANDON_OUTPOST",
+	"BLD_CONC_CAMP",
+	"BLD_GATEWAY_VOID",
+	"BLD_NOVA_BOMB_ACTIVATOR",
+]
 
 var source: Variant = ProductionSource.new()
 ## The system ships rally to from the item menu (the map's selected
@@ -307,7 +316,10 @@ func _refresh_catalog() -> void:
 	)
 	var needle := _search.text.strip_edges().to_lower()
 	var shown := 0
-	for item: Dictionary in _buildable:
+	# The stockpile project is for experienced players: last, not first.
+	var ordered := _buildable.filter(func(i): return i.get("build_type") != "stockpile")
+	ordered.append_array(_buildable.filter(func(i): return i.get("build_type") == "stockpile"))
+	for item: Dictionary in ordered:
 		var available: bool = item.get("available", true)
 		if filter == "unavailable":
 			if available:
@@ -597,10 +609,23 @@ func settle(value: float, spinner: SpinBox, apply: Callable) -> void:
 
 ## Add catalogue \a item at the location shown: at the end, or with Shift at
 ## the top.
-func add_item(item: Dictionary) -> void:
+## Buildings that remove a planet's people or the planet itself ask first.
+func add_item(item: Dictionary) -> FODialog:
 	var top := Input.is_key_pressed(KEY_SHIFT)
 	var forced: bool = not item.get("available", true)
-	_order(source.enqueue(item, selected_location_id(), 0 if top else -1, forced))
+	var location_id := selected_location_id()
+	var queue := func(): _order(source.enqueue(item, location_id, 0 if top else -1, forced))
+	if not item.get("name", "") in DESTRUCTIVE:
+		queue.call()
+		return null
+	return FODialog.open_on(
+		self,
+		_display_name(item),
+		tr("PRODUCTION_CONFIRM_DESTRUCTIVE").replace("%1%", _display_name(item)).replace(
+			"%2%", _location.get_item_text(_location.selected)
+		),
+		[[tr("PRODUCTION_ADD"), "DangerButton", queue], [tr("CANCEL"), "GhostButton"]]
+	)
 
 
 ## Tooltip of queue \a entry: total cost, a turn's share, minimum time and

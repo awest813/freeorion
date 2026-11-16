@@ -4,6 +4,7 @@ extends GutTest
 ## own, and saving from the save screen returns to the game.
 
 const FakeSaves := preload("res://test/unit/fake_saves_source.gd")
+const FakeProduction := preload("res://test/unit/fake_production_source.gd")
 
 
 func test_readiness_items_look_clickable():
@@ -126,3 +127,22 @@ func test_screen_buttons_become_icons_when_their_names_dont_fit():
 	assert_eq(production.text, "")
 	bar.set_badge("production", 2)
 	assert_eq(production.text, "2", "Badges still show")
+
+
+func test_buildings_that_empty_a_planet_ask_first():
+	var screen := ProductionScreen.new()
+	var fake: RefCounted = FakeProduction.new()
+	screen.source = fake
+	add_child_autofree(screen)
+	screen.refresh()
+	assert_null(screen.add_item({"label": "Shipyard", "name": "BLD_SHIPYARD_BASE"}))
+	assert_eq(fake.calls.size(), 1, "an ordinary building is queued at once")
+	var dialog := screen.add_item({"label": "Evacuation", "name": "BLD_EVACUATION"})
+	assert_not_null(dialog)
+	assert_eq(fake.calls.size(), 1, "nothing is queued before the answer")
+	dialog.choose(1)
+	assert_eq(fake.calls.size(), 1, "Cancel queues nothing")
+	dialog = screen.add_item({"label": "Evacuation", "name": "BLD_EVACUATION"})
+	dialog.choose(0)
+	assert_eq(fake.calls.size(), 2)
+	assert_eq(fake.calls[1], ["enqueue", "Evacuation", 101])
