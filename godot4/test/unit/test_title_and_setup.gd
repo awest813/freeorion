@@ -33,7 +33,7 @@ func test_setup_reads_and_writes_options():
 	setup.refresh()
 	var shape: OptionButton = setup._editors["setup.galaxy.shape"]
 	assert_eq(shape.get_item_metadata(shape.selected), "RING")
-	assert_not_null(setup._preview.texture, "Shape preview shown")
+	assert_ne(setup._preview.shape, "", "Shape preview shown")
 	var stars: SpinBox = setup._editors["setup.star.count"]
 	assert_eq(stars.value, 150.0)
 

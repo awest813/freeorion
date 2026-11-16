@@ -40,7 +40,7 @@ var _ready_sent := false
 var _galaxy_grid: GridContainer
 var _save_label: Label
 var _conditions: Label
-var _preview: TextureRect
+var _preview: GalaxyPreview
 var _info: Label
 # What the server is doing while it starts the game ("" before it begins).
 var _progress := ""
@@ -200,7 +200,7 @@ func _fill_galaxy(galaxy: Dictionary, editable: bool) -> void:
 			picker.select(index)
 		picker.disabled = not editable
 	var shape: String = galaxy.get("shape", "")
-	_preview.texture = FOArt.icon(GalaxySetupScreen.SHAPE_PREVIEWS.get(shape, ""))
+	_preview.shape = shape
 
 
 func _fill_save(editable: bool) -> void:
@@ -331,10 +331,8 @@ func _build_game_kind(parent: VBoxContainer) -> void:
 
 
 func _build_galaxy(parent: VBoxContainer) -> void:
-	_preview = TextureRect.new()
+	_preview = GalaxyPreview.new()
 	_preview.custom_minimum_size = Vector2(380, 140)
-	_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	parent.add_child(_preview)
 	_galaxy_grid = GridContainer.new()
 	_galaxy_grid.columns = 2

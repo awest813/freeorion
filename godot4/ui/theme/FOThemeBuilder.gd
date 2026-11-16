@@ -240,6 +240,28 @@ static func _buttons(theme: Theme, t: FOTokens) -> void:
 	theme.set_stylebox("normal", "GhostButton", ghost)
 	theme.set_stylebox("disabled", "GhostButton", ghost)
 
+	# Title-screen menu items: no box, the display face, a bar in the accent
+	# at the left and a tint when pointed at; "MenuItemPrimary" in the accent.
+	var display := display_font(t, t.display_spacing)
+	for variation in ["MenuItem", "MenuItemPrimary"]:
+		theme.set_type_variation(variation, "Button")
+		var item := box(t, Color(0, 0, 0, 0), Color(0, 0, 0, 0), t.space_4, t.space_2)
+		item.set_border_width_all(0)
+		theme.set_stylebox("normal", variation, item)
+		theme.set_stylebox("disabled", variation, item)
+		var lit := box(t, Color(t.accent, 0.14), t.accent, t.space_4, t.space_2)
+		lit.set_border_width_all(0)
+		lit.border_width_left = t.focus_width + 1
+		lit.set_corner_radius_all(0)
+		theme.set_stylebox("hover", variation, lit)
+		theme.set_stylebox("pressed", variation, lit)
+		theme.set_stylebox("hover_pressed", variation, lit)
+		theme.set_stylebox("focus", variation, lit)
+		theme.set_font("font", variation, display)
+		theme.set_font_size("font_size", variation, t.font_size_title)
+	for color in ["font_color", "font_focus_color"]:
+		theme.set_color(color, "MenuItemPrimary", t.accent_hover)
+
 	# The top bar's screen buttons: ghost buttons a little tighter, so eight
 	# names and the empire's fit across a 1280 px bar.
 	theme.set_type_variation("NavButton", "GhostButton")

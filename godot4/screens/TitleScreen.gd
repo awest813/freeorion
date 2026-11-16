@@ -17,12 +17,18 @@ signal pedia_requested
 const WEBSITE := "https://freeorion.org"
 
 const ART_DIR := "res://assets/art/"
+## The menu's glass column, and the splash's slow drift behind it.
+const MENU_WIDTH := 400
+const DRIFT_SCALE := 1.06
+const DRIFT_SECONDS := 40.0
 
 var _menu: VBoxContainer
 var _status: Label
 var _content_buttons: Array[Button] = []
 var _continue: Button
 var _continue_detail: Label
+var _spinner: FOSpinner
+var _tip: Label
 var _new_game: Button
 
 
@@ -49,23 +55,60 @@ func set_can_continue(can: bool, detail := "") -> void:
 	_continue_detail.text = detail
 	_continue_detail.visible = can and not detail.is_empty()
 	_continue.tooltip_text = detail
-	_continue.theme_type_variation = "PrimaryButton"
-	_new_game.theme_type_variation = "" if can else "PrimaryButton"
+	_continue.theme_type_variation = "MenuItemPrimary"
+	_new_game.theme_type_variation = "MenuItem" if can else "MenuItemPrimary"
 	(_continue if can else _new_game).call_deferred("grab_focus")
 
 
 ## Show a status line instead of the menu, e.g. while a game starts.
 func set_busy(message: String) -> void:
-	_menu.visible = message.is_empty()
+	var busy := not message.is_empty()
+	_menu.visible = not busy
 	_status.text = message
-	_status.visible = not message.is_empty()
+	_status.visible = busy
+	# Loading: a spinner, and a tip to read meanwhile (a new one each time).
+	if busy and not _spinner.visible:
+		_tip.text = loading_tip(randi())
+	_spinner.visible = busy
+	_tip.visible = busy and not _tip.text.is_empty()
 
 
 ## Show the menu with \a message under it, e.g. why a load failed.
 func show_notice(message: String) -> void:
 	_menu.visible = true
+	_spinner.visible = false
+	_tip.visible = false
 	_status.text = message
 	_status.visible = not message.is_empty()
+
+
+# The splash drifts slowly closer and back (not with reduced motion).
+func _drift(splash: Control) -> void:
+	if FOUi.reduce_motion:
+		return
+	splash.pivot_offset = get_viewport_rect().size / 2.0
+	var tween := splash.create_tween().set_loops()
+	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(splash, "scale", Vector2.ONE * DRIFT_SCALE, DRIFT_SECONDS)
+	tween.tween_property(splash, "scale", Vector2.ONE, DRIFT_SECONDS)
+
+
+## Beginner hint \a pick (of BEGINNER_HINT_01...) as plain text for the
+## loading screen: links become the names they show, the number goes.
+static func loading_tip(pick: int) -> String:
+	var keys := []
+	for i in range(1, 100):
+		var key := "BEGINNER_HINT_%02d" % i
+		if TranslationServer.translate(key) == key:
+			break
+		keys.push_back(key)
+	if keys.is_empty():
+		return ""
+	var text := TranslationServer.translate(keys[posmod(pick, keys.size())])
+	var link := RegEx.create_from_string("\\[\\[[a-z_]+ ([A-Za-z0-9_]+)\\]\\]")
+	for found in link.search_all(text):
+		text = text.replace(found.get_string(), TranslationServer.translate(found.get_string(1)))
+	return RegEx.create_from_string("^\\d+:\\s*").sub(text, "")
 
 
 ## Splash and logo file names for \a date (a Time date dictionary): April
@@ -89,43 +132,51 @@ func _build() -> void:
 	splash.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	splash.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	add_child(splash)
+	_drift(splash)
 
+	# A glass column down the left: the logo, then the menu.
+	var column := PanelContainer.new()
+	column.theme_type_variation = "OverlayPanel"
+	column.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+	column.custom_minimum_size.x = MENU_WIDTH
+	add_child(column)
 	var layout := VBoxContainer.new()
-	layout.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	layout.alignment = BoxContainer.ALIGNMENT_CENTER
-	layout.add_theme_constant_override("separation", FOUi.tokens.space_8)
-	add_child(layout)
+	layout.add_theme_constant_override("separation", FOUi.tokens.space_6)
+	column.add_child(layout)
 	var logo := TextureRect.new()
 	logo.texture = _load_art(art[1])
-	logo.custom_minimum_size = Vector2(640, 160)
+	logo.custom_minimum_size = Vector2(MENU_WIDTH - FOUi.tokens.space_8, 110)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	layout.add_child(logo)
 
-	var panel := PanelContainer.new()
-	panel.theme_type_variation = "OverlayPanel"
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	panel.custom_minimum_size.x = 320
-	layout.add_child(panel)
 	var panel_box := VBoxContainer.new()
-	panel.add_child(panel_box)
+	layout.add_child(panel_box)
 	_menu = VBoxContainer.new()
+	_menu.add_theme_constant_override("separation", FOUi.tokens.space_1)
 	panel_box.add_child(_menu)
+	_spinner = FOSpinner.new(FOUi.tokens.icon_large)
+	_spinner.visible = false
+	panel_box.add_child(_spinner)
 	_status = ScreenKit.label("", "SecondaryLabel")
-	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel_box.add_child(_status)
+	_tip = ScreenKit.label("", "SmallLabel")
+	_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip.visible = false
+	panel_box.add_child(_tip)
 
-	_continue = _menu_button("INTRO_BTN_CONTINUE", continue_requested, "PrimaryButton")
+	_continue = _menu_button("INTRO_BTN_CONTINUE", continue_requested, "MenuItemPrimary")
 	_continue.visible = false
 	# Which game Continue goes back to.
 	_continue_detail = ScreenKit.label("", "SmallLabel")
-	_continue_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_continue_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_continue_detail.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_continue_detail.visible = false
 	_menu.add_child(_continue_detail)
 	_content_buttons.push_back(_continue)
-	var new_game := _menu_button("TITLE_NEW_GAME", new_game_requested, "PrimaryButton")
+	var new_game := _menu_button("TITLE_NEW_GAME", new_game_requested, "MenuItemPrimary")
 	_new_game = new_game
 	_content_buttons.push_back(new_game)
 	_content_buttons.push_back(_menu_button("TITLE_QUICK_START", quick_start_requested))
@@ -133,7 +184,7 @@ func _build() -> void:
 	_content_buttons.push_back(_menu_button("GAME_MENU_LOAD", load_requested))
 	_content_buttons.push_back(_menu_button("MAP_BTN_PEDIA", pedia_requested))
 	_menu_button("OPTIONS_TITLE", options_requested)
-	_menu_button("TITLE_ABOUT", credits_requested, "GhostButton")
+	_menu_button("TITLE_ABOUT", credits_requested)
 	_menu_button("TITLE_EXIT", exit_requested)
 	new_game.call_deferred("grab_focus")
 
@@ -159,10 +210,11 @@ func _build() -> void:
 	set_content_ready(false)
 
 
-func _menu_button(key: String, pressed: Signal, variation := "") -> Button:
+func _menu_button(key: String, pressed: Signal, variation := "MenuItem") -> Button:
 	var button := Button.new()
 	button.text = tr(key)
 	button.theme_type_variation = variation
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.pressed.connect(func(): pressed.emit())
 	_menu.add_child(button)
 	return button

@@ -17,8 +17,8 @@ func test_continue_leads_when_there_are_saves():
 	title.set_can_continue(true)
 	var first: Button = _buttons(title)[0]
 	assert_eq(first.text, tr("INTRO_BTN_CONTINUE"))
-	assert_eq(first.theme_type_variation, "PrimaryButton")
-	assert_eq(title._new_game.theme_type_variation, "", "one primary button")
+	assert_eq(first.theme_type_variation, "MenuItemPrimary")
+	assert_eq(title._new_game.theme_type_variation, "MenuItem", "one primary item")
 	watch_signals(title)
 	first.pressed.emit()
 	assert_signal_emitted(title, "continue_requested")
@@ -80,3 +80,16 @@ func test_random_seed():
 	var roll: Button = edit.get_parent().get_child(1)
 	roll.pressed.emit()
 	assert_eq(edit.text.length(), 8)
+
+
+func test_loading_shows_a_spinner_and_a_tip():
+	var title := TitleScreen.new()
+	add_child_autofree(title)
+	title.set_busy("Creating the galaxy…")
+	assert_true(title._spinner.visible)
+	assert_true(title._tip.visible)
+	assert_false(title._tip.text.contains("[["), "links become names")
+	assert_false(title._tip.text.begins_with("1:"), "no hint number")
+	title.set_busy("")
+	assert_false(title._spinner.visible)
+	assert_true(title._menu.visible)

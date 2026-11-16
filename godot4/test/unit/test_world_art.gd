@@ -33,3 +33,14 @@ func test_species_portraits_prefer_the_painting():
 	assert_not_null(painted)
 	assert_gt(painted.get_width(), 64, "the large painting")
 	assert_not_null(EmpireArt.species_portrait("SP_HUMAN"), "else the species icon")
+
+
+func test_galaxy_previews_follow_the_shape():
+	var ring := GalaxyPreview.place("RING", 300)
+	for p in ring:
+		assert_between(p.length(), 0.4, 1.0, "on the ring")
+	assert_eq(GalaxyPreview.place("RING", 300), ring, "the same picture each time")
+	var preview := GalaxyPreview.new()
+	preview.systems = 1000
+	assert_eq(preview._points.size(), GalaxyPreview.STARS_MAX)
+	preview.free()

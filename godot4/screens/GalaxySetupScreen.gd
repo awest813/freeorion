@@ -86,18 +86,6 @@ const TEXTS := [
 	["setup.empire.name", "GSETUP_EMPIRE_NAME"],
 	["setup.seed", "GSETUP_SEED"],
 ]
-const SHAPE_PREVIEWS := {
-	"SPIRAL_2": "gp_spiral2.png",
-	"SPIRAL_3": "gp_spiral3.png",
-	"SPIRAL_4": "gp_spiral4.png",
-	"CLUSTER": "gp_cluster.png",
-	"ELLIPTICAL": "gp_elliptical.png",
-	"DISC": "gp_disc.png",
-	"BOX": "gp_box.png",
-	"IRREGULAR": "gp_irregular.png",
-	"RING": "gp_ring.png",
-	"RANDOM": "gp_random.png",
-}
 
 var source: Variant = OptionsSource.new()
 
@@ -111,7 +99,11 @@ var _rule_list: VBoxContainer
 var _rules: Array = []
 ## Rule values as edited: {name: value}.
 var _rule_values := {}
-var _preview: TextureRect
+var _preview: GalaxyPreview
+## Who the player will be: flag, empire name, species portrait.
+var _flag: TextureRect
+var _identity: Label
+var _portrait: TextureRect
 var _status: Label
 
 
@@ -234,7 +226,9 @@ func _build() -> void:
 			continue
 		_add_row(grid, field[1], edit, field[0])
 		if field[0] == "setup.empire.name":
+			edit.text_changed.connect(func(_t): _update_identity())
 			_species = OptionButton.new()
+			_species.item_selected.connect(func(_i): _update_identity())
 			_species.tooltip_text = tr("GSETUP_SPECIES_RANDOM_DESC")
 			_add_row(grid, "GSETUP_SPECIES", _species, "setup.initial.species")
 			_colors = HFlowContainer.new()
@@ -246,6 +240,8 @@ func _build() -> void:
 		spin.min_value = field[2]
 		spin.max_value = field[3]
 		_add_row(grid, field[1], spin, field[0])
+		if field[0] == "setup.star.count":
+			spin.value_changed.connect(func(v: float): _preview.systems = int(v))
 	for field in CHOICES:
 		var choice := OptionButton.new()
 		var values: Array = field[2] if field[2] is Array else _levels(field[2])
@@ -259,11 +255,23 @@ func _build() -> void:
 	var side := VBoxContainer.new()
 	side.custom_minimum_size.x = 420
 	columns.add_child(side)
-	_preview = TextureRect.new()
+	_preview = GalaxyPreview.new()
 	_preview.custom_minimum_size = Vector2(420, 310)
-	_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	side.add_child(_preview)
+	var who := HBoxContainer.new()
+	who.add_theme_constant_override("separation", FOUi.tokens.space_3)
+	side.add_child(who)
+	_portrait = ScreenKit.icon("", FOUi.tokens.icon_large * 2)
+	who.add_child(_portrait)
+	var names := VBoxContainer.new()
+	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	names.alignment = BoxContainer.ALIGNMENT_CENTER
+	who.add_child(names)
+	_flag = ScreenKit.icon("", FOUi.tokens.icon_large)
+	names.add_child(_flag)
+	_identity = ScreenKit.label("", "TitleLabel")
+	_identity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	names.add_child(_identity)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side.add_child(spacer)
@@ -458,12 +466,35 @@ func _select_color(index: int) -> void:
 	_color_index = clampi(index, 0, maxi(0, swatches.size() - 1))
 	for i in swatches.size():
 		swatches[i].set_pressed_no_signal(i == _color_index)
+	_update_identity()
 
 
 func _update_preview() -> void:
 	var shape: OptionButton = _editors["setup.galaxy.shape"]
 	var key: String = shape.get_item_metadata(shape.selected) if shape.selected >= 0 else ""
-	_preview.texture = FOArt.icon(SHAPE_PREVIEWS.get(key, ""))
+	_preview.shape = key
+	var stars: SpinBox = _editors.get("setup.star.count")
+	if stars:
+		_preview.systems = int(stars.value)
+	_update_identity()
+
+
+# The flag, name and people of the empire as set up so far.
+func _update_identity() -> void:
+	if _identity == null:
+		return
+	var name_edit: LineEdit = _editors.get("setup.empire.name")
+	var empire_name := name_edit.text if name_edit else ""
+	var colors: PackedColorArray = source.empire_colors() if source else PackedColorArray()
+	var color := colors[_color_index] if _color_index < colors.size() else Color.WHITE
+	_identity.text = empire_name
+	_flag.texture = EmpireArt.flag(empire_name, color, FOUi.tokens.icon_large)
+	var species: String = (
+		_species.get_item_metadata(_species.selected) if _species and _species.selected >= 0 else ""
+	)
+	_portrait.texture = (
+		EmpireArt.species_portrait(species) if species not in ["", "RANDOM"] else null
+	)
 
 
 func _on_start_pressed() -> void:
