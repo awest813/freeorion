@@ -29,6 +29,14 @@ static func label(text: String, variation := "") -> Label:
 
 
 ## Fixed-size art icon; empty placeholder when the file is missing.
+## A section caption: \a text in the display face's spaced capitals
+## ("SectionCaps").
+static func section(text: String) -> Label:
+	var caption := label(text, "SectionCaps")
+	caption.uppercase = true
+	return caption
+
+
 static func icon(path: String, size: int = -1, fallback: Texture2D = null) -> TextureRect:
 	var rect := TextureRect.new()
 	rect.texture = FOArt.icon(path)

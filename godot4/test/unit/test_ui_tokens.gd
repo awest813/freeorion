@@ -52,3 +52,36 @@ func _luminance(c: Color) -> float:
 
 func _channel(v: float) -> float:
 	return v / 12.92 if v <= 0.03928 else pow((v + 0.055) / 1.055, 2.4)
+
+
+func test_empire_colours_make_readable_accents():
+	var base: FOTokens = load(TOKEN_SETS[0])
+	for color in [Color("#3a0a5a"), Color("#00ff00"), Color("#6b1a1a"), Color("#0a0a40")]:
+		var t: FOTokens = base.duplicate()
+		FOThemeBuilder.accent_from(t, color)
+		for name in ["accent", "accent_pressed"]:
+			var ratio := _contrast(t.text_on_accent, t.get(name))
+			assert_gte(ratio, 4.5, "%s from %s: %.2f:1" % [name, color.to_html(), ratio])
+		assert_gt(t.accent_hover.get_luminance(), t.accent.get_luminance(), "hover is lighter")
+	assert_eq(base.accent, load(TOKEN_SETS[0]).accent, "the token file is left alone")
+
+
+func test_text_stays_readable_on_glass_over_anything():
+	var t: FOTokens = load(TOKEN_SETS[0])
+	for alpha in [t.glass_alpha, t.glass_alpha_screen]:
+		# Worst case behind the glass: a white star.
+		var worst := Color.WHITE.lerp(t.glass_fill, alpha)
+		for fg_name in ["text_primary", "text_secondary"]:
+			var ratio := _contrast(t.get(fg_name), worst)
+			assert_gte(ratio, 4.5, "%s on glass %.2f: %.2f:1" % [fg_name, alpha, ratio])
+
+
+func test_floating_panels_get_the_glass():
+	var panel := PanelContainer.new()
+	panel.theme_type_variation = "OverlayPanel"
+	var plain := PanelContainer.new()
+	add_child_autofree(panel)
+	add_child_autofree(plain)
+	await wait_process_frames(1)
+	assert_eq(panel.material, FOUi.glass_material)
+	assert_null(plain.material, "nested cards stay as they are")

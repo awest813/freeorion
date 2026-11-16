@@ -17,11 +17,13 @@ func _ready() -> void:
 
 func _type_and_buttons() -> Control:
 	var box := _column()
+	box.add_child(_label("Terran Imperium", "DisplayTitle"))
 	box.add_child(_label("Galaxy overview", "HeadingLabel"))
 	box.add_child(_label("Production queue", "TitleLabel"))
 	box.add_child(_label("Body text: 12 systems explored, 3 colonised."))
 	box.add_child(_label("Secondary text explains details.", "SecondaryLabel"))
 	box.add_child(_label("Small caption, turn 42", "SmallLabel"))
+	box.add_child(ScreenKit.section("Section caption"))
 	box.add_child(HSeparator.new())
 
 	var row := HBoxContainer.new()

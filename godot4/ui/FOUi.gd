@@ -11,6 +11,11 @@ signal scale_changed(scale: float)
 const OPTION_SCALE := "ui.scale"
 const OPTION_THEME := "ui.theme"
 const OPTION_REDUCE_MOTION := "ui.reduce-motion"
+## The accent follows the player's empire colour in a game.
+const OPTION_EMPIRE_ACCENT := "ui.accent.empire"
+## Panels that get the glass shader (see glass_panel.gdshader).
+const GLASS_PANELS := ["OverlayPanel", "TopBarPanel", "BackgroundPanel"]
+const GLASS_SHADER := preload("res://ui/theme/glass_panel.gdshader")
 const THEMES := {
 	"default": "res://ui/tokens/default.tres",
 	"high_contrast": "res://ui/tokens/high_contrast.tres",
@@ -21,12 +26,18 @@ var theme: Theme
 var scale := 1.0
 ## Skip UI animations (option ui.reduce-motion); tests set it for stable shots.
 var reduce_motion := false
+## Shared by every glass panel; its "enabled" follows the tokens.
+var glass_material := ShaderMaterial.new()
+## Accent from the empire colour while in a game (transparent: none).
+var empire_accent := Color(0, 0, 0, 0)
+var _empire_accent_enabled := true
 
 var _scale_setting := "auto"
 var _theme_name := "default"
 
 
 func _ready() -> void:
+	glass_material.shader = GLASS_SHADER
 	_read_options()
 	apply_theme(_theme_name)
 	get_tree().node_added.connect(_on_node_added)
@@ -43,14 +54,28 @@ func fade_in(item: CanvasItem) -> void:
 	item.create_tween().tween_property(item, "modulate:a", 1.0, tokens.motion_fast)
 
 
+## Accent the UI in \a color (the player's empire colour, made readable), or
+## the token set's own accent again for a transparent colour.
+func set_empire_accent(color: Color) -> void:
+	if color == empire_accent:
+		return
+	empire_accent = color
+	apply_theme(_theme_name)
+
+
 ## Switch token set ("default", "high_contrast") and rebuild the theme.
 func apply_theme(theme_name: String) -> void:
 	if not THEMES.has(theme_name):
 		push_warning("Unknown UI theme '%s', using default" % theme_name)
 		theme_name = "default"
 	_theme_name = theme_name
-	tokens = load(THEMES[theme_name])
+	# A copy: the empire accent changes it, the file stays as it is.
+	tokens = (load(THEMES[theme_name]) as FOTokens).duplicate()
+	if empire_accent.a > 0.0 and _empire_accent_enabled and tokens.glass_enabled:
+		FOThemeBuilder.accent_from(tokens, empire_accent)
 	theme = FOThemeBuilder.build(tokens)
+	glass_material.set_shader_parameter("enabled", tokens.glass_enabled)
+	glass_material.set_shader_parameter("blur_px", tokens.glass_blur_px)
 	get_window().theme = theme
 	theme_changed.emit()
 
@@ -83,11 +108,24 @@ func _apply_scale() -> void:
 
 
 func _on_node_added(node: Node) -> void:
+	if node is PanelContainer:
+		_glaze.call_deferred(node)
 	# A new current scene: let its _ready() run, then restore our scale and
 	# add fork features to upstream scenes.
 	if node.get_parent() == get_tree().root:
 		_apply_scale.call_deferred()
 		_adapt_scene.call_deferred(node)
+
+
+# Glass for \a panel if it is one of GLASS_PANELS (its variation may be set
+# in its _ready, hence deferred).
+func _glaze(panel: PanelContainer) -> void:
+	if (
+		is_instance_valid(panel)
+		and panel.material == null
+		and GLASS_PANELS.has(panel.theme_type_variation)
+	):
+		panel.material = glass_material
 
 
 func _adapt_scene(scene: Node) -> void:
@@ -102,6 +140,8 @@ func _read_options() -> void:
 	options.add_option(OPTION_SCALE, "OPTIONS_DB_UI_SCALE", "auto")
 	options.add_option(OPTION_THEME, "OPTIONS_DB_UI_THEME", "default")
 	options.add_option(OPTION_REDUCE_MOTION, "OPTIONS_DB_UI_REDUCE_MOTION", false)
+	options.add_option(OPTION_EMPIRE_ACCENT, "OPTIONS_DB_UI_ACCENT_EMPIRE", true)
+	_empire_accent_enabled = options.get_value(OPTION_EMPIRE_ACCENT)
 	reduce_motion = options.get_value(OPTION_REDUCE_MOTION)
 	_scale_setting = options.get_value(OPTION_SCALE)
 	_theme_name = options.get_value(OPTION_THEME)
@@ -109,6 +149,7 @@ func _read_options() -> void:
 	options.watch(OPTION_SCALE)
 	options.watch(OPTION_THEME)
 	options.watch(OPTION_REDUCE_MOTION)
+	options.watch(OPTION_EMPIRE_ACCENT)
 	options.option_changed.connect(_on_option_changed)
 
 
@@ -120,6 +161,9 @@ func _on_option_changed(option_name: String) -> void:
 			_apply_scale()
 		OPTION_REDUCE_MOTION:
 			reduce_motion = options.get_value(OPTION_REDUCE_MOTION)
+		OPTION_EMPIRE_ACCENT:
+			_empire_accent_enabled = options.get_value(OPTION_EMPIRE_ACCENT)
+			apply_theme(_theme_name)
 		OPTION_THEME:
 			var theme_name: String = options.get_value(OPTION_THEME)
 			if theme_name != _theme_name:

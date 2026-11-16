@@ -54,6 +54,30 @@ extends Resource
 @export var icon := 24
 @export var icon_large := 48
 
+@export_group("Glass (observatory glass panels)")
+## Floating panels, the top bar and full screens show what is behind them,
+## blurred, under a fill of `glass_fill` at these opacities; off: opaque.
+@export var glass_enabled := true
+@export var glass_fill := Color("#0b1017")
+@export var glass_alpha := 0.8
+@export var glass_alpha_screen := 0.9
+@export var glass_blur_px := 3.5
+## Hairline round glass panels, and the drop shadow under floating ones.
+@export var edge := Color("#4a5a70")
+@export var shadow := Color(0, 0, 0, 0.45)
+@export var shadow_size := 18
+## Cut corners (top left and bottom right) of panels and buttons, in px.
+@export var chamfer := 10
+@export var chamfer_small := 6
+
+@export_group("Display type")
+## Titles, headings and section captions: the display face, its weight and
+## letter spacing; section captions are in capitals.
+@export var font_size_display := 34
+@export var display_weight := 600
+@export var display_spacing := 1
+@export var caps_spacing := 2
+
 @export_group("Motion (seconds)")
 @export var motion_fast := 0.12
 @export var motion := 0.2

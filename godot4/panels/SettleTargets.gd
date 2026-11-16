@@ -27,7 +27,7 @@ var _rows: VBoxContainer
 
 func _init() -> void:
 	visible = false
-	add_child(ScreenKit.label(tr("SETTLE_TARGETS_TITLE"), "SmallLabel"))
+	add_child(ScreenKit.section(tr("SETTLE_TARGETS_TITLE")))
 	_rows = VBoxContainer.new()
 	add_child(_rows)
 

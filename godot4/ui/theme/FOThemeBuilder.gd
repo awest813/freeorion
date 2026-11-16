@@ -6,6 +6,9 @@ extends RefCounted
 ## the tokens stay the only place where visual values live and every token
 ## set (default, high contrast, ...) gets a consistent theme for free.
 
+const DISPLAY_FONT := "res://assets/fonts/Exo2-Variable.ttf"
+const BODY_FONT := "res://assets/fonts/Roboto-Regular.ttf"
+
 
 static func build(tokens: FOTokens) -> Theme:
 	var theme := Theme.new()
@@ -38,15 +41,85 @@ static func box(
 	return style
 
 
+## \a style with cut corners (top left and bottom right, \a size px; the
+## others barely), the observatory-glass outline of panels and buttons.
+static func cut(style: StyleBoxFlat, t: FOTokens, size: int) -> StyleBoxFlat:
+	style.corner_radius_top_left = size
+	style.corner_radius_bottom_right = size
+	style.corner_radius_top_right = t.radius_small
+	style.corner_radius_bottom_left = t.radius_small
+	style.corner_detail = 1
+	return style
+
+
+## A floating glass panel: see-through fill (FOUi gives such panels the glass
+## shader, which blurs what is behind), hairline edge, cut corners and a drop
+## shadow; opaque with glass off (high contrast).
+static func glass(t: FOTokens, padding: int, alpha: float, edged := true) -> StyleBoxFlat:
+	var fill := Color(t.glass_fill, alpha) if t.glass_enabled else t.surface_overlay
+	var style := cut(box(t, fill, t.edge if edged else fill, padding, padding), t, t.chamfer)
+	if not edged:
+		style.set_border_width_all(0)
+	style.shadow_color = t.shadow
+	style.shadow_size = t.shadow_size
+	return style
+
+
+## The display face (titles, headings, captions): \a t's weight and \a spacing
+## (extra px between letters), falling back to the body face for missing
+## glyphs (Greek letters in star names).
+static func display_font(t: FOTokens, spacing: int) -> Font:
+	var base: FontFile = load(DISPLAY_FONT)
+	base.fallbacks = [load(BODY_FONT)]
+	var font := FontVariation.new()
+	font.base_font = base
+	font.variation_opentype = {
+		TextServerManager.get_primary_interface().name_to_tag("wght"): t.display_weight
+	}
+	font.spacing_glyph = spacing
+	return font
+
+
+## Make \a color (an empire's) \a t's accent: lightened until text on it
+## (text_on_accent) reads at 4.5:1 or better, with hover, pressed and focus
+## shades from it.
+static func accent_from(t: FOTokens, color: Color) -> void:
+	var accent := Color(color, 1.0)
+	for i in 16:
+		if contrast(accent, t.text_on_accent) >= 4.5:
+			break
+		accent = accent.lightened(0.08)
+	t.accent = accent
+	t.accent_hover = accent.lightened(0.18)
+	t.accent_pressed = accent.darkened(0.1)
+	if contrast(t.accent_pressed, t.text_on_accent) < 4.5:
+		t.accent_pressed = accent
+	t.focus_ring = accent.lightened(0.45)
+
+
+## WCAG contrast ratio between \a a and \a b (1 to 21).
+static func contrast(a: Color, b: Color) -> float:
+	var la := luminance(a)
+	var lb := luminance(b)
+	return (maxf(la, lb) + 0.05) / (minf(la, lb) + 0.05)
+
+
+## WCAG relative luminance of \a c.
+static func luminance(c: Color) -> float:
+	var l := c.srgb_to_linear()
+	return 0.2126 * l.r + 0.7152 * l.g + 0.0722 * l.b
+
+
 ## Focus indicator drawn on top of a control: outline only, outside its rect.
-static func focus_box(tokens: FOTokens) -> StyleBoxFlat:
+static func focus_box(tokens: FOTokens, cut_corners := false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.draw_center = false
 	style.border_color = tokens.focus_ring
 	style.set_border_width_all(tokens.focus_width)
 	style.set_corner_radius_all(tokens.radius + tokens.focus_width)
 	style.set_expand_margin_all(tokens.focus_width)
-	return style
+	# Around buttons, following their cut corners.
+	return cut(style, tokens, tokens.chamfer_small + tokens.focus_width) if cut_corners else style
 
 
 static func _labels(theme: Theme, t: FOTokens) -> void:
@@ -64,17 +137,34 @@ static func _labels(theme: Theme, t: FOTokens) -> void:
 	theme.set_color("font_color", "SmallLabel", t.text_secondary)
 	theme.set_font_size("font_size", "TitleLabel", t.font_size_title)
 	theme.set_font_size("font_size", "HeadingLabel", t.font_size_heading)
+	# Titles and headings in the display face; "DisplayTitle" for the largest
+	# (screen and title-screen names), "SectionCaps" for section captions
+	# (set uppercase on the label, as ScreenKit.section() does).
+	var display := display_font(t, t.display_spacing)
+	theme.set_font("font", "TitleLabel", display)
+	theme.set_font("font", "HeadingLabel", display)
+	theme.set_type_variation("DisplayTitle", "Label")
+	theme.set_font("font", "DisplayTitle", display)
+	theme.set_font_size("font_size", "DisplayTitle", t.font_size_display)
+	theme.set_type_variation("SectionCaps", "Label")
+	theme.set_font("font", "SectionCaps", display_font(t, t.caps_spacing))
+	theme.set_font_size("font_size", "SectionCaps", t.font_size_small)
+	theme.set_color("font_color", "SectionCaps", t.text_secondary)
 
 
 static func _buttons(theme: Theme, t: FOTokens) -> void:
 	var pad_x := t.space_4
 	var pad_y := t.space_2
+	var cs := t.chamfer_small
 	for type in ["Button", "OptionButton", "MenuButton"]:
-		theme.set_stylebox("normal", type, box(t, t.surface_raised, t.border, pad_x, pad_y))
-		theme.set_stylebox("hover", type, box(t, t.surface_overlay, t.border_strong, pad_x, pad_y))
-		theme.set_stylebox("pressed", type, box(t, t.surface_overlay, t.accent, pad_x, pad_y))
-		theme.set_stylebox("disabled", type, box(t, t.surface, t.border, pad_x, pad_y))
-		theme.set_stylebox("focus", type, focus_box(t))
+		var normal := cut(box(t, t.surface_raised, t.border, pad_x, pad_y), t, cs)
+		theme.set_stylebox("normal", type, normal)
+		var hover := cut(box(t, t.surface_overlay, t.border_strong, pad_x, pad_y), t, cs)
+		theme.set_stylebox("hover", type, hover)
+		var pressed := cut(box(t, t.surface_overlay, t.accent, pad_x, pad_y), t, cs)
+		theme.set_stylebox("pressed", type, pressed)
+		theme.set_stylebox("disabled", type, cut(box(t, t.surface, t.border, pad_x, pad_y), t, cs))
+		theme.set_stylebox("focus", type, focus_box(t, true))
 		theme.set_color("font_color", type, t.text_primary)
 		theme.set_color("font_hover_color", type, t.text_primary)
 		theme.set_color("font_pressed_color", type, t.text_primary)
@@ -103,12 +193,19 @@ static func _buttons(theme: Theme, t: FOTokens) -> void:
 
 	# Primary call to action, e.g. End Turn: theme_type_variation = "PrimaryButton".
 	theme.set_type_variation("PrimaryButton", "Button")
-	theme.set_stylebox("normal", "PrimaryButton", box(t, t.accent, t.accent, pad_x, pad_y))
 	theme.set_stylebox(
-		"hover", "PrimaryButton", box(t, t.accent_hover, t.accent_hover, pad_x, pad_y)
+		"normal", "PrimaryButton", cut(box(t, t.accent, t.accent, pad_x, pad_y), t, cs)
 	)
+	# Lit from within when pointed at.
+	var primary_hover := cut(box(t, t.accent_hover, t.accent_hover, pad_x, pad_y), t, cs)
+	if t.glass_enabled:
+		primary_hover.shadow_color = Color(t.accent, 0.45)
+		primary_hover.shadow_size = t.space_2
+	theme.set_stylebox("hover", "PrimaryButton", primary_hover)
 	theme.set_stylebox(
-		"pressed", "PrimaryButton", box(t, t.accent_pressed, t.accent_pressed, pad_x, pad_y)
+		"pressed",
+		"PrimaryButton",
+		cut(box(t, t.accent_pressed, t.accent_pressed, pad_x, pad_y), t, cs)
 	)
 	for color in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		theme.set_color(color, "PrimaryButton", t.text_on_accent)
@@ -127,9 +224,11 @@ static func _buttons(theme: Theme, t: FOTokens) -> void:
 
 	# Destructive action, e.g. leaving the game: "DangerButton".
 	theme.set_type_variation("DangerButton", "Button")
-	theme.set_stylebox("normal", "DangerButton", box(t, t.surface_raised, t.negative, pad_x, pad_y))
-	theme.set_stylebox("hover", "DangerButton", box(t, t.negative, t.negative, pad_x, pad_y))
-	theme.set_stylebox("pressed", "DangerButton", box(t, t.negative, t.negative, pad_x, pad_y))
+	var danger := cut(box(t, t.surface_raised, t.negative, pad_x, pad_y), t, cs)
+	theme.set_stylebox("normal", "DangerButton", danger)
+	var danger_on := cut(box(t, t.negative, t.negative, pad_x, pad_y), t, cs)
+	theme.set_stylebox("hover", "DangerButton", danger_on)
+	theme.set_stylebox("pressed", "DangerButton", danger_on)
 	theme.set_color("font_color", "DangerButton", t.negative)
 	theme.set_color("font_focus_color", "DangerButton", t.negative)
 	for color in ["font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
@@ -150,6 +249,8 @@ static func _panels(theme: Theme, t: FOTokens) -> void:
 	# Full-bleed background behind screens: "BackgroundPanel".
 	theme.set_type_variation("BackgroundPanel", "PanelContainer")
 	var background := box(t, t.surface, t.surface, 0, 0)
+	if t.glass_enabled:
+		background.bg_color = Color(t.glass_fill, t.glass_alpha_screen)
 	background.set_border_width_all(0)
 	background.set_corner_radius_all(0)
 	theme.set_stylebox("panel", "BackgroundPanel", background)
@@ -157,6 +258,9 @@ static func _panels(theme: Theme, t: FOTokens) -> void:
 	# Full-width bar along the top of a screen: "TopBarPanel".
 	theme.set_type_variation("TopBarPanel", "PanelContainer")
 	var top_bar := box(t, Color(t.surface_raised, 0.94), t.border, t.space_4, t.space_2)
+	if t.glass_enabled:
+		top_bar.bg_color = Color(t.glass_fill, t.glass_alpha)
+		top_bar.border_color = t.edge
 	top_bar.set_border_width_all(0)
 	top_bar.border_width_bottom = t.border_width
 	top_bar.set_corner_radius_all(0)
@@ -164,9 +268,7 @@ static func _panels(theme: Theme, t: FOTokens) -> void:
 
 	# Floating or emphasised surface: "OverlayPanel".
 	theme.set_type_variation("OverlayPanel", "PanelContainer")
-	theme.set_stylebox(
-		"panel", "OverlayPanel", box(t, t.surface_overlay, t.border_strong, t.space_4, t.space_4)
-	)
+	theme.set_stylebox("panel", "OverlayPanel", glass(t, t.space_4, t.glass_alpha))
 
 	theme.set_constant("separation", "BoxContainer", t.space_2)
 	theme.set_constant("separation", "HBoxContainer", t.space_2)

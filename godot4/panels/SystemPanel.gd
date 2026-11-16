@@ -447,7 +447,7 @@ func _build() -> void:
 	header.add_child(close)
 
 	box.add_child(HSeparator.new())
-	box.add_child(_label(tr("SYSTEM_PANEL_PLANETS"), "SmallLabel"))
+	box.add_child(ScreenKit.section(tr("SYSTEM_PANEL_PLANETS")))
 	# What the player's planets here make together (GG's system resource
 	# summary); each value's tooltip lists the planets.
 	_summary = HFlowContainer.new()

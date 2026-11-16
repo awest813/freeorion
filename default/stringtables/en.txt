@@ -1914,6 +1914,9 @@ Colour theme of the Godot client: "default" or "high_contrast".
 OPTIONS_DB_UI_REDUCE_MOTION
 Turn off UI animations in the Godot client.
 
+OPTIONS_DB_UI_ACCENT_EMPIRE
+In a game, colour buttons and highlights in your empire's colour.
+
 OPTIONS_INTERFACE
 Interface
 

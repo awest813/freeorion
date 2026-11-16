@@ -378,6 +378,8 @@ func _ready() -> void:
 		# A loaded game that was already won or lost isn't announced again.
 		check_game_over(FOUniverse.get_empire_resources(), true)
 		MoveOrders.explore_new_scouts()
+		FOUi.set_empire_accent(FOUniverse.get_empire_color(FOUniverse.get_empire_id()))
+		tree_exiting.connect(FOUi.set_empire_accent.bind(Color(0, 0, 0, 0)))
 		chat_window.refresh()
 		chat_window.mark_read()
 		hints.offer("map")
