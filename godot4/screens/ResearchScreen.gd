@@ -53,7 +53,7 @@ var _more: MenuButton
 var _status_menu: MenuButton
 var _sort: OptionButton
 var _search: LineEdit
-var _catalog: VBoxContainer
+var _catalog: GridContainer
 var _techs: Array = []
 var _view: TabBar
 var _queue_column: Control
@@ -118,7 +118,7 @@ func _on_view_changed(tab: int) -> void:
 	_status_menu.visible = tree
 	_tree_view.visible = tree
 	# The tree needs the room more than the queue does.
-	_queue_column.size_flags_stretch_ratio = 0.6 if tree else 1.2
+	_queue_column.size_flags_stretch_ratio = 0.6 if tree else 0.85
 	_refresh_catalog()
 	if tree and _tree.selected.is_empty():
 		_center_tree_on_frontier.call_deferred()
@@ -133,7 +133,7 @@ func _build() -> void:
 
 	var queue_column := VBoxContainer.new()
 	queue_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	queue_column.size_flags_stretch_ratio = 1.2
+	queue_column.size_flags_stretch_ratio = 0.85
 	columns.add_child(queue_column)
 	_queue_column = queue_column
 	_points = ScreenKit.header(queue_column, "RESEARCH_WND_TITLE", close_requested.emit)
@@ -205,8 +205,15 @@ func _build() -> void:
 	_search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_search.text_changed.connect(func(_t): _refresh_catalog())
 	filter_row.add_child(_search)
-	_catalog = ScreenKit.list()
+	# Tech cards, as many across as fit.
+	_catalog = GridContainer.new()
+	_catalog.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_catalog.add_theme_constant_override("h_separation", FOUi.tokens.space_2)
+	_catalog.add_theme_constant_override("v_separation", FOUi.tokens.space_2)
 	_list_view = ScreenKit.scrolling(_catalog)
+	# The cards are sized to the view, so the view mustn't grow with them.
+	_list_view.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	_list_view.resized.connect(_fit_cards)
 	catalog_column.add_child(_list_view)
 
 	# The tree, and the chosen tech's details under it.
@@ -322,6 +329,7 @@ func _refresh_catalog() -> void:
 	sort_techs(shown, SORTS[maxi(_sort.selected, 0)][0])
 	for tech in shown:
 		_catalog.add_child(_catalog_row(tech))
+	_fit_cards()
 	if shown.is_empty():
 		_catalog.add_child(ScreenKit.label(tr("RESEARCH_NOTHING_MATCHES"), "SecondaryLabel"))
 
@@ -410,6 +418,16 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	)
 	var row := HBoxContainer.new()
 	card.add_child(row)
+	var turns_left: int = entry.get("turns_left", -1)
+	row.add_child(
+		TechCard.rail(
+			card,
+			position,
+			count,
+			_current_turn() + turns_left if turns_left >= 0 else -1,
+			entry.get("allocated_rp", 0.0) > 0.0 or entry.get("progress", 0.0) > 0.0
+		)
+	)
 	row.add_child(_tech_icon(entry))
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -465,9 +483,10 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 func _catalog_row(tech: Dictionary) -> Control:
 	var tech_name: String = tech.get("name", "")
 	var status: String = tech.get("status", "")
-	var row := HBoxContainer.new()
+	var row := TechCard.build(
+		tech, _enqueue.bind(tech_name), pedia_requested.emit.bind("tech", tech_name)
+	)
 	row.tooltip_text = TechTreeView.describe(tech, _tree.queue_entries.get(tech_name, {}))
-	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	if status != "complete":
 		row.set_drag_forwarding(
 			func(_at):
@@ -498,42 +517,6 @@ func _catalog_row(tech: Dictionary) -> Control:
 					_enqueue(tech_name)
 				row.accept_event()
 	)
-	row.add_child(_tech_icon(tech))
-	var text := VBoxContainer.new()
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.add_theme_constant_override("separation", 0)
-	row.add_child(text)
-	var title := ScreenKit.label(tr(tech_name))
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	text.add_child(title)
-	var detail := (
-		tr("RESEARCH_ITEM_COST")
-		. replace("%1%", "%.0f" % tech.get("cost", 0.0))
-		. replace("%2%", ScreenKit.turns_text(tech.get("turns", 0)))
-		. replace("%3%", tr(tech.get("category", "")))
-	)
-	if status == "partial" or status == "unresearchable":
-		detail += " · " + tr("RESEARCH_NEEDS_PREREQS")
-	text.add_child(ScreenKit.label(detail, "SmallLabel"))
-	var info := ScreenKit.small_button("?", "PEDIA_OPEN")
-	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	info.pressed.connect(pedia_requested.emit.bind("tech", tech_name))
-	row.add_child(info)
-	if status != "complete":
-		var add := Button.new()
-		var queued: bool = tech.get("in_queue", false)
-		add.text = tr("RESEARCH_QUEUED") if queued else tr("PRODUCTION_ADD")
-		# Missing prerequisites are queued first, in order.
-		if not queued and status in ["partial", "unresearchable"]:
-			add.text = tr("RESEARCH_ADD_WITH_PREREQS")
-			add.tooltip_text = tr("RESEARCH_ADD_WITH_PREREQS_TIP")
-		add.disabled = queued
-		add.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		if add.tooltip_text.is_empty():
-			add.tooltip_text = tr("QUEUE_ADD_TOP_TIP")
-		add.pressed.connect(_enqueue.bind(tech_name))
-		row.add_child(add)
-	ScreenKit.card(row, tech.get("category_color", FOUi.tokens.border_strong))
 	return row
 
 
@@ -670,3 +653,22 @@ func _selected_category() -> String:
 	if _category == null or _category.selected < 0:
 		return ""
 	return str(_category.get_item_metadata(_category.selected))
+
+
+# The turn now; turn 1 outside a game (no valid turn there).
+func _current_turn() -> int:
+	var game := get_node_or_null("/root/GlobalFreeOrionNode")
+	return maxi(game.get_current_turn() if game else 1, 1)
+
+
+# As many cards across as fit, all as wide (the grid would widen columns by
+# what their cards need).
+func _fit_cards() -> void:
+	var gap := _catalog.get_theme_constant("h_separation")
+	var width := _list_view.size.x - FOUi.tokens.space_4
+	if width <= 0:
+		return
+	_catalog.columns = maxi(1, int((width + gap) / (TechCard.min_width() + gap)))
+	var card_width := floorf((width - gap * (_catalog.columns - 1)) / _catalog.columns)
+	for card: Control in _catalog.get_children():
+		card.custom_minimum_size.x = card_width if _catalog.columns > 1 else 0.0

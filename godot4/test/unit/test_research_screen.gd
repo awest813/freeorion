@@ -145,3 +145,39 @@ func test_tree_view():
 	assert_eq(screen._tree.selected, "SHP_ZORTRIUM_PLATE", "Search selects the match")
 	screen.show_tree(false)
 	assert_true(screen._list_view.visible)
+
+
+func test_catalogue_is_a_grid_of_cards():
+	screen.size = Vector2(1280, 800)
+	await wait_process_frames(2)
+	assert_gt(screen._catalog.columns, 1, "cards side by side when there is room")
+	var card: Control = screen._catalog.get_child(0)
+	assert_true(card.size.x >= TechCard.min_width() * 0.9, "cards keep their width")
+	var unlocks := [{"name": "BLD_A", "icon": ""}]
+	for i in TechCard.MAX_CHIPS + 2:
+		unlocks.push_back(
+			{"name": "SH_X", "icon": "icons/ship_hulls/agregate_asteroid_hull_small.png"}
+		)
+	var chips := TechCard.unlock_chips(unlocks)
+	assert_eq(chips.get_child_count(), TechCard.MAX_CHIPS, "chips without art are left out")
+	assert_eq((chips.get_child(chips.get_child_count() - 1) as Label).text, "+3")
+	chips.free()
+
+
+func test_queue_timeline_marks_the_turn_each_tech_is_done():
+	var turn := screen._current_turn()
+	var marks := []
+	for card in screen._queue_list.get_children():
+		var rail: Control = card.get_child(0).get_child(0)
+		marks.push_back(rail.get_meta("done_turn"))
+	assert_eq(marks, [turn + 2, turn + 5])
+
+
+func test_cards_do_not_widen_the_screen():
+	screen.size = Vector2(1280, 800)
+	await wait_process_frames(3)
+	var width := screen._list_view.size.x
+	screen._fit_cards()
+	await wait_process_frames(3)
+	assert_almost_eq(screen._list_view.size.x, width, 1.0, "no growth from the cards' widths")
+	assert_lte(screen.get_combined_minimum_size().x, 1280.0)

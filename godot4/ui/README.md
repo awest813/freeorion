@@ -55,7 +55,7 @@ The shader blurs what is behind the panel under the fill, with a faint grain.
 
 | List | Band colour |
 |------|-------------|
-| Research | The tech category's own colour from the game data |
+| Research (cards in a grid, `TechCard`) | The tech category's own colour from the game data |
 | Production | `warning` for buildings, `info` for ships |
 | Policies | `warning` for economic, `info` for social, `negative` for military |
 
@@ -93,7 +93,8 @@ The shader blurs what is behind the panel under the fill, with a faint grain.
 | New turn | `TurnBanner`: in and out over about two seconds |
 | Top bar numbers change | Count up or down to the new value |
 | Turn being processed | `FOSpinner` |
-| Map | Stars twinkle; the selected fleet's ring turns |
+| Map | Stars twinkle; the selected fleet's ring turns; routes flow; zoomed in, planets orbit their stars |
+| Research queue | A timeline rail marks the turn each tech is done |
 
 - **Reduced motion:** every animation checks `FOUi.reduce_motion` (option `ui.reduce-motion`) and shows the end state at once.
 - **Sounds:** they go through `FOAudio` and its options. New turn, new battles and auto-turn stops have their own sounds.

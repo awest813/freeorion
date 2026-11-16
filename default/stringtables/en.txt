@@ -3678,6 +3678,12 @@ Drag to move, scroll to zoom. Click a tech for its details and the chain it belo
 RESEARCH_ITEM_COST
 %1% RP · %2% · %3%
 
+RESEARCH_CARD_COST
+%1% RP · %2%
+
+RESEARCH_DONE_ON_TURN
+Done on turn %1%
+
 RESEARCH_NEEDS_PREREQS
 adds prerequisites
 
