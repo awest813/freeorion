@@ -44,7 +44,7 @@ const LANE_COLOR := Color(0.55, 0.65, 0.8, 0.45)
 const SUPPLY_LANE_PX := 6.0
 const SUPPLY_LANE_ALPHA := 0.35
 const SUPPLY_SYSTEM_ALPHA := 0.13
-const SUPPLY_SYSTEM_RADIUS := 0.45
+const SUPPLY_SYSTEM_RADIUS := 0.7
 ## Detection ranges, when shown: one faint tint, in a colour no empire's
 ## supply uses.
 const DETECTION_ALPHA := 0.12

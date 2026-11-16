@@ -125,6 +125,13 @@ func _ready() -> void:
 ## Show \a empire_name / \a color at \a turn; \a waiting disables End Turn.
 func set_state(empire_name: String, color: Color, turn: int, waiting: bool) -> void:
 	_empire.text = empire_name if role == "player" else tr(role.to_upper())
+	_empire.tooltip_text = _empire.text
+	# As wide as the name, up to a limit past which it gives way.
+	var font := _empire.get_theme_font("font")
+	var full := (
+		font.get_string_size(_empire.text, 0, -1, _empire.get_theme_font_size("font_size")).x
+	)
+	_empire.custom_minimum_size.x = minf(ceilf(full), FOUi.tokens.space_8 * 6)
 	_swatch.color = color
 	var shown := not empire_name.is_empty() and role == "player"
 	# The empire's flag; the plain colour square where there is no flag art.
@@ -498,6 +505,11 @@ func _build() -> void:
 	row.add_child(_flag)
 	_empire = Label.new()
 	_empire.theme_type_variation = "TitleLabel"
+	# A long name gives way (ellipsis, full name in the tooltip) before the
+	# screen buttons have to lose their words.
+	_empire.clip_text = true
+	_empire.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_empire.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_child(_empire)
 	var nav_gap := Control.new()
 	nav_gap.custom_minimum_size.x = FOUi.tokens.space_6
@@ -509,7 +521,7 @@ func _build() -> void:
 		button.set_meta("icon_texture", FOArt.icon(SCREEN_ICONS.get(screen[0], "")))
 		button.add_theme_constant_override("icon_max_width", FOUi.tokens.icon)
 		button.toggle_mode = true
-		button.theme_type_variation = "GhostButton"
+		button.theme_type_variation = "NavButton"
 		button.shortcut = FOHotkeys.shortcut("screen_" + screen[0])
 		button.shortcut_in_tooltip = false
 		button.toggled.connect(_on_screen_toggled.bind(screen[0]))

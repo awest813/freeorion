@@ -339,6 +339,21 @@ static func size_mark(ships: int) -> int:
 	return mark
 
 
+# The selected fleet's ring: four arcs turning slowly (still with reduced
+# motion).
+func _draw_selection_ring(origin: Vector2, radius: float, color: Color, px: float) -> void:
+	var turn := 0.0 if FOUi.reduce_motion else Time.get_ticks_msec() / 1000.0 * 0.9
+	for k in 4:
+		var from := turn + k * TAU / 4.0
+		draw_arc(origin, radius, from, from + TAU / 6.0, 8, color, 2.0 * px, true)
+
+
+func _process(_delta: float) -> void:
+	# The selection ring turns.
+	if selected_fleet >= 0 and not FOUi.reduce_motion and is_visible_in_tree():
+		queue_redraw()
+
+
 func _draw_markers(px: float, view: Rect2) -> void:
 	var size := MapStyle.FLEET_PX * px
 	var tip := Vector2(size, 0)
@@ -364,7 +379,12 @@ func _draw_markers(px: float, view: Rect2) -> void:
 				2.0 * px,
 				true
 			)
-		if _marked.has(fleet_id) or fleet_id == selected_fleet:
+		# A soft glow in the owner's colour under each fleet seen now.
+		if color.a > 0.5:
+			draw_circle(origin, ICON_PX * 0.55 * px, Color(color, 0.18))
+		if fleet_id == selected_fleet:
+			_draw_selection_ring(origin, ICON_PX * 0.66 * px, accent, px)
+		elif _marked.has(fleet_id):
 			draw_arc(origin, ICON_PX * 0.62 * px, 0, TAU, 24, accent, 1.5 * px, true)
 		var head: Texture2D = (
 			FOArt.icon(ICON_DIR + "head-" + _heads[i] + ".png") if i < _heads.size() else null

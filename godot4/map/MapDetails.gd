@@ -110,3 +110,42 @@ func draw_scanlines(
 			var at := centers[i] + Vector2(0, y)
 			layer.draw_line(at - Vector2(half, 0), at + Vector2(half, 0), SCANLINE_COLOR, px)
 			y += step
+
+
+## \a map's own detection ranges, opaque (the group around the layer
+## fades them).
+func draw_own_detection(layer: CanvasItem, map: GalaxyMap) -> void:
+	var view := map.visible_world_rect()
+	var color := MapStyle.DETECTION_COLOR
+	for i in map._detection_positions.size():
+		if not _own_detection(map, i):
+			continue
+		var center := map._detection_positions[i]
+		var radius := map._detection_radii[i]
+		if view.grow(radius).has_point(center):
+			layer.draw_circle(center, radius, color)
+
+
+# Whether \a map's detection circle \a i is the player's (all are, without
+# owners).
+func _own_detection(map: GalaxyMap, i: int) -> bool:
+	return i >= map._detection_owners.size() or map._detection_owners[i] == map.own_empire_id
+
+
+## Other empires' detection ranges in \a map, ringed in their colours (where
+## they can see the player's ships), as GG's map shows them.
+func draw_other_detection(layer: CanvasItem, map: GalaxyMap, px: float, view: Rect2) -> void:
+	if not (map.show_detection or map.map_mode == "detection"):
+		return
+	for i in map._detection_positions.size():
+		if _own_detection(map, i):
+			continue
+		var center := map._detection_positions[i]
+		var radius := map._detection_radii[i]
+		if not view.grow(radius).has_point(center):
+			continue
+		var color: Color = (
+			map._detection_colors[i] if i < map._detection_colors.size() else Color.WHITE
+		)
+		layer.draw_circle(center, radius, Color(color, 0.06))
+		layer.draw_arc(center, radius, 0, TAU, 64, Color(color, 0.55), 1.5 * px, true)

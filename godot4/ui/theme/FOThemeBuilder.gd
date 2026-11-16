@@ -240,6 +240,18 @@ static func _buttons(theme: Theme, t: FOTokens) -> void:
 	theme.set_stylebox("normal", "GhostButton", ghost)
 	theme.set_stylebox("disabled", "GhostButton", ghost)
 
+	# The top bar's screen buttons: ghost buttons a little tighter, so eight
+	# names and the empire's fit across a 1280 px bar.
+	theme.set_type_variation("NavButton", "GhostButton")
+	var nav := box(t, Color(0, 0, 0, 0), Color(0, 0, 0, 0), t.space_3, pad_y)
+	theme.set_stylebox("normal", "NavButton", nav)
+	theme.set_stylebox("disabled", "NavButton", nav)
+	for state in ["hover", "pressed"]:
+		var lit := (theme.get_stylebox(state, "Button") as StyleBoxFlat).duplicate()
+		lit.content_margin_left = t.space_3
+		lit.content_margin_right = t.space_3
+		theme.set_stylebox(state, "NavButton", lit)
+
 
 static func _panels(theme: Theme, t: FOTokens) -> void:
 	var panel := box(t, t.surface_raised, t.border, t.space_3, t.space_3)

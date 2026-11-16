@@ -99,8 +99,8 @@ func test_other_empires_detection_and_turn_marks():
 			PackedColorArray([Color.BLUE])
 		)
 	)
-	assert_true(map._own_detection(0))
-	assert_false(map._own_detection(1), "Another empire's range")
+	assert_true(map.details._own_detection(map, 0))
+	assert_false(map.details._own_detection(map, 1), "Another empire's range")
 	assert_eq(map.fleets._turn_etas[0], PackedInt32Array([1, 2]))
 	map.show_detection = true
 	await wait_process_frames(2)

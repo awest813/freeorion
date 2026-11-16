@@ -68,6 +68,8 @@ var own_empire_id := -2
 var fleets: FleetLayer
 ## Supply half lanes, split owner rings, scanlines (as GG draws them).
 var details := MapDetails.new()
+## Twinkling stars, territory borders, nebulae, empire names.
+var ambience := MapAmbience.new()
 ## Pointers to targets off screen (the shell sets their free_area).
 var edge_pointers := EdgePointers.new()
 ## The map options (GG's map menu): owner-coloured system circles, fields,
@@ -181,6 +183,7 @@ func _ready() -> void:
 	supply_group.add_child(_supply_area)
 	add_child(supply_group)
 	move_child(supply_group, _lane_layer.get_index())
+	ambience.setup(self, _stars, supply_group)
 	# Detection ranges: one even tint as supply, above it; hidden by default.
 	var detection_group := CanvasGroup.new()
 	detection_group.name = "Detection"
@@ -188,7 +191,7 @@ func _ready() -> void:
 	detection_group.visible = show_detection
 	_detection_group = detection_group
 	_detection_layer = MapLayer.new()
-	_detection_layer.draw_callback = _draw_detection
+	_detection_layer.draw_callback = func(layer): details.draw_own_detection(layer, self)
 	detection_group.add_child(_detection_layer)
 	add_child(detection_group)
 	move_child(detection_group, _lane_layer.get_index())
@@ -260,6 +263,7 @@ func set_snapshot(
 	_supply_lane_colors = snapshot.get("supply_lane_colors", PackedColorArray())
 	_supply_systems = snapshot.get("supply_systems", PackedInt32Array())
 	_supply_system_colors = snapshot.get("supply_system_colors", PackedColorArray())
+	ambience.supply_owners = snapshot.get("supply_system_owners", PackedInt32Array())
 	_names = names
 	_owner_colors = snapshot.get("system_owner_colors", PackedColorArray())
 	details.set_snapshot(snapshot)
@@ -271,6 +275,7 @@ func set_snapshot(
 	_hovered = NO_SYSTEM
 
 	_rebuild_bounds()
+	ambience.layout(bounds)
 	_rebuild_grid()
 	_rebuild_stars()
 	_rebuild_labels()
@@ -556,6 +561,8 @@ func _draw_lanes(layer: CanvasItem) -> void:
 	if points.is_empty():
 		return
 	var width := MapStyle.LANE_PX / camera.zoom_level()
+	# A soft glow under each lane.
+	layer.draw_multiline(points, Color(MapStyle.LANE_COLOR, 0.08), width * 4.0, true)
 	layer.draw_multiline(points, MapStyle.LANE_COLOR, width, true)
 
 
@@ -633,7 +640,7 @@ func _draw_overlay(layer: CanvasItem) -> void:
 	var px := 1.0 / camera.zoom_level()
 	var view := visible_world_rect()
 	_draw_unexplored_rings(layer, px, view)
-	_draw_other_detection(layer, px, view)
+	details.draw_other_detection(layer, self, px, view)
 	if show_system_circles:
 		_draw_owner_circles(layer, px, view)
 	_draw_highlights(layer, px, view)
@@ -715,6 +722,7 @@ func _draw_labels(layer: CanvasItem) -> void:
 	var px := 1.0 / camera.zoom_level()
 	# Far out, systems crowd together and no label would fit.
 	if _typical_spacing() / px < MapStyle.LABEL_MIN_SPACING_PX:
+		ambience.draw_empire_names(layer, self)
 		return
 	var text_color: Color = FOUi.tokens.text_secondary if FOUi.tokens else Color(0.8, 0.8, 0.8)
 	var size := MapStyle.LABEL_FONT_SIZE
@@ -852,40 +860,6 @@ func _draw_chip(
 
 # The player's detection ranges, opaque (the group around this layer fades
 # them), with their rims drawn a little stronger.
-func _draw_detection(layer: CanvasItem) -> void:
-	var view := visible_world_rect()
-	var color := MapStyle.DETECTION_COLOR
-	for i in _detection_positions.size():
-		if not _own_detection(i):
-			continue
-		var center := _detection_positions[i]
-		var radius := _detection_radii[i]
-		if view.grow(radius).has_point(center):
-			layer.draw_circle(center, radius, color)
-
-
-# Whether detection circle \a i is the player's (all are, without owners).
-func _own_detection(i: int) -> bool:
-	return i >= _detection_owners.size() or _detection_owners[i] == own_empire_id
-
-
-# Other empires' detection ranges, ringed in their colours (where they can
-# see the player's ships), as GG's map shows them.
-func _draw_other_detection(layer: CanvasItem, px: float, view: Rect2) -> void:
-	if not (show_detection or map_mode == "detection"):
-		return
-	for i in _detection_positions.size():
-		if _own_detection(i):
-			continue
-		var center := _detection_positions[i]
-		var radius := _detection_radii[i]
-		if not view.grow(radius).has_point(center):
-			continue
-		var color: Color = _detection_colors[i] if i < _detection_colors.size() else Color.WHITE
-		layer.draw_circle(center, radius, Color(color, 0.06))
-		layer.draw_arc(center, radius, 0, TAU, 64, Color(color, 0.55), 1.5 * px, true)
-
-
 # Label priority: selected system, then explored systems, then the rest.
 func _rebuild_labels() -> void:
 	_label_widths.resize(_positions.size())
