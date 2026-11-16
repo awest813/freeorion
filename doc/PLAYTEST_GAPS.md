@@ -39,7 +39,7 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
 - **S2**: blocks a goal, or a player can't tell what to do next.
 - **S3**: friction or a misleading label.
 
-**Fixed** means fixed in this branch, with a unit test, in commit `c44827f`.
+**Fixed** means fixed in this branch, with a unit test: items 1, 3, 4, 9 and 10 in commit `c44827f`, items 2 and 5–8 in commit `7123a3a`. Items 2 and 5–8 were also checked in real games by a scripted player using the new controls (see "Checked after the fixes").
 
 ## Gaps
 
@@ -48,13 +48,14 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
 1. **Evacuate Planet could be queued on the capital without a warning.** **Fixed.**
    - Evidence: economist, all 4 games. "Evacuate Planet" sorts first in the Buildings list. A double-click queued it on the capital, and by turn 20 PP and RP were 0 for the rest of the game. "Abandon Outpost" was queued the same way.
    - Fix: adding a building that empties or destroys planets now asks first, naming the building and the planet. This covers Evacuation, Abandon Outpost, Concentration Camp, Gateway to the Void and Nova Bomb Activator.
-2. **Auto end turn keeps going through a war.**
+2. **Auto end turn keeps going through a war.** **Fixed.**
    - Evidence: power user, runs 1 and 4.
      - Run 1: eliminated on turn 102 against Maniacal AIs.
      - Run 4: with no AIs at all, eliminated on turn 333, presumably by monsters.
      - Both times auto end turn kept ending turns while planets were attacked and lost.
    - GG behaves the same way.
-   - Suggested: stop auto end turn when there is combat at an own system, an own planet is lost or depopulated, or an enemy armed fleet is seen in supply range. Show a toast saying why it stopped.
+   - Fix: auto end turn switches itself off, with a toast and a message-log line saying why, after any of: a battle or ground battle involving the empire, an own ship destroyed, a planet lost, a planet depopulated.
+   - Still open: an enemy armed fleet seen inside supply range, before any shot is fired.
 
 ### S2
 
@@ -66,20 +67,29 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
    - Evidence: newcomer, warlord and explorer ended with 95–140 IP unspent. The power user's run 2 ended with 1,501 IP.
    - Nothing pointed a player who doesn't open Government at their free policy slots.
    - Fix: the readiness check names each policy category with a free slot while an available, affordable policy could be adopted into it. The link goes to Government.
-5. **An idle colony ship gets a link but no guidance.**
+5. **An idle colony ship gets a link but no guidance.** **Fixed.**
    - Evidence: newcomer, all 4 games. The readiness link went to the ship's system, which had no planet it could settle, so no Colonize button was in view. The newcomer had no way to find a target.
-   - Suggested: from the readiness item or the fleet panel, offer "nearest planet this ship can settle" with its target population. Show settle targets on the map while a colony ship is selected, as GG does.
-6. **No way to find the enemy.**
+   - Fix: the fleet panel of an idle fleet with colony or outpost ships lists "Places to settle": up to three nearest known free planets its ships can settle, each with projected population (or "outpost") and turns to get there.
+     - A place in another system is a button that sends the fleet there. A place in the fleet's own system is a button that settles it at once.
+     - Planets that another of your settler fleets is already heading for are left out.
+     - With no place in reach, the list says to explore further or research growth techs.
+     - The readiness item now points at the list.
+   - Still open: showing settle targets on the map while a colony ship is selected, as GG does.
+6. **No way to find the enemy.** **Fixed.**
    - Evidence: warlord, all 4 games. Empires lists every AI as "At war", but in 25–30 turns the warlord never located an enemy planet. Neither the Empires screen nor the map shows where an empire is.
-   - Suggested: on the Empires screen, "show on map" for each empire's known capital or nearest known planet. List known enemy systems in Objects with an "owner" filter.
-7. **Move orders refused without a reason.**
+   - Fix: each other empire on the Empires screen has "Show on map". It goes to the empire's capital if known, else its known planet nearest your capital, else where one of its fleets was seen. The tooltip says which. While nothing of the empire has been seen, the button is disabled and its tooltip says so.
+7. **Move orders refused without a reason.** **Fixed.**
    - Evidence: explorer, 15 of 22 moves by right-click were refused across the 4 games. The notice says only "The selected fleet can't move to that system." A player can't tell whether the cause is no known route, too little fuel, or that the system isn't explored yet.
-   - Suggested: give the reason in the notice. Before the click, draw the would-be route in a warning colour when it's out of range.
+   - Cause: with no known starlane path, the engine accepted the order but left the route empty, so the fleet silently stayed put.
+   - Fix: such moves, and moves for fleets with speed 0, are now refused. The notice says why: "No known starlanes lead there" or "its speed is 0".
+   - A move too far outside supply for the fleet's fuel is still given, with a warning that the fleet will stop where its fuel runs out.
+   - The same reasons appear in the banner for box-selected fleets.
+   - Still open: colouring the route preview before the click.
    - Caveat: some of these clicks needed a map pan first (see 14), so not all 15 are game refusals.
-8. **The Ships list was empty at the default location once.**
+8. **The Ships list was empty at the default location.** **Fixed.**
    - Evidence: explorer runs 3 and 4, turns 15 and 22. The Ships tab showed "nothing buildable" for the selected location. The next turn it listed ships again.
-   - Suggested: when the location can't build ships, say why ("no shipyard here") and offer the nearest location that can.
-   - Not yet reproduced by hand.
+   - Cause: production opens at the planet of the system selected on the map, which after a new outpost was the outpost.
+   - Fix: production now prefers a populated planet of that system. An empty Ships list says ships need a shipyard on a populated planet, with a "Build at <capital>" button.
 
 ### S3
 
@@ -102,6 +112,15 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
 14. **Map targets can be off screen.**
     - Evidence: explorer runs 1, 2 and 4. The nearest free system was off screen and the map had to be panned.
     - Suggested: let a readiness or "nearest target" link centre the map on the target. The minimap already allows a quick jump.
+
+## Checked after the fixes
+
+The scripted player was rerun on galaxies 1 (150 systems, 6 Maniacal AIs) and 2 (40 systems, 2 Beginner AIs). It used only the new controls, through the UI, for 20 turns each:
+
+- **Places to settle.** It sent outpost ships from the fleet panel's list, then settled them from the same list on arrival. In both galaxies the empire grew from 1 planet to 4 by turn 20. Every newcomer and explorer game before the fixes ended with 1 planet, except two explorer games with 3.
+- **Show on map.** In galaxy 1 by turn 10, two of the six AIs were located: one by a planet, one by a fleet. The button returned to the map at that system. In galaxy 2 nothing of either AI had been seen by turn 20, so the buttons were disabled.
+- **Move reasons.** Of 5 to 37 known systems, a scout got "no known starlanes" for 2–4 and the fuel warning for 3. The rest were fine.
+- **Auto end turn.** Switched on at turn 1 against 6 Maniacal AIs, it stopped itself at turns 17 and 67, saying "your forces were in a battle". Before the fixes the same setup ran unattended to defeat at turn 102.
 
 ## Not confirmed as game gaps
 
