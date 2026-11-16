@@ -49,6 +49,7 @@ func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 	_build()
+	add_to_group(FOUi.MODAL_GROUP)
 
 
 func _gui_input(event: InputEvent) -> void:

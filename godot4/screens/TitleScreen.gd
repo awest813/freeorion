@@ -21,6 +21,10 @@ const ART_DIR := "res://assets/art/"
 const MENU_WIDTH := 400
 const DRIFT_SCALE := 1.06
 const DRIFT_SECONDS := 40.0
+## The logo's height, and the window height below which it and the gaps
+## shrink so the whole menu fits.
+const LOGO_HEIGHT := 110.0
+const SHORT_HEIGHT := 760.0
 
 var _menu: VBoxContainer
 var _status: Label
@@ -154,16 +158,26 @@ func _build() -> void:
 	column.custom_minimum_size.x = MENU_WIDTH
 	add_child(column)
 	_chrome.push_back(column)
+	# Room at the bottom for the website link, which sits over the column.
+	column.offset_bottom = -FOUi.tokens.space_8
 	var layout := VBoxContainer.new()
 	layout.alignment = BoxContainer.ALIGNMENT_CENTER
 	layout.add_theme_constant_override("separation", FOUi.tokens.space_6)
 	column.add_child(layout)
 	var logo := TextureRect.new()
 	logo.texture = _load_art(art[1])
-	logo.custom_minimum_size = Vector2(MENU_WIDTH - FOUi.tokens.space_8, 110)
+	logo.custom_minimum_size = Vector2(MENU_WIDTH - FOUi.tokens.space_8, LOGO_HEIGHT)
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	layout.add_child(logo)
+	# A short window: a smaller logo and less space, so the menu fits.
+	resized.connect(
+		func():
+			var short := size.y < SHORT_HEIGHT
+			logo.custom_minimum_size.y = LOGO_HEIGHT * (0.6 if short else 1.0)
+			var gap := FOUi.tokens.space_3 if short else FOUi.tokens.space_6
+			layout.add_theme_constant_override("separation", gap)
+	)
 
 	var panel_box := VBoxContainer.new()
 	layout.add_child(panel_box)

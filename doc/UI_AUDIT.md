@@ -145,3 +145,19 @@ Loading the turn-40 save, the bot opened each of them properly. Two of the three
 | Production: adding where it can't be built | Add did nothing and said nothing (Scout at a planet without a shipyard). | A note under the stockpile line says the item can't be built there now, and to pick another place or look under Unavailable; any refused change says so. It clears once an order goes through (test added). |
 | Production queue item menu | Fine: move, duplicate, rally, show where, Pedia. | — |
 | Off-screen pointers | Labels of two targets near the same edge overlapped. | A label that would cover another moves inward from the edge (test added). |
+
+# Themes, small windows and the keyboard
+
+The bot played the same screen tour in the high-contrast theme and in a 1024×640 window. It then walked every menu, dialog and screen with Tab, logging where focus went.
+
+| Where | Found | Fix |
+|-------|-------|-----|
+| High contrast | Nothing broken. | — |
+| Galaxy setup, Game rules step, at 1024 px | The rule-category tabs would not shrink, so the screen grew to 1263 px and Start game went off screen. | The categories scroll with arrows when they don't fit. |
+| Title, at 640 px high | The menu column ran 55 px past the bottom and over the website link. | Below 760 px the logo and the gaps shrink; the column stops above the link. |
+| Screens | Opening a screen left the focus behind (or nowhere), so Tab did nothing or walked the hidden map. | A screen takes the focus as it opens. Tab goes through its controls in order, then the top bar, never the map behind it. |
+| Game menu and dialogs | Tab left them for the top-bar buttons hidden under the dimmed layer. | They keep the focus: Tab and Shift+Tab wrap inside. |
+| Nothing focused | Tab did nothing. | Tab starts at the dialog on top, else the first control. |
+| Sliders and links | Godot's faint default focus ring. | The theme's focus ring, as on every other control. |
+
+Tests cover the screen focus, the menu and dialog wrapping both ways, and Tab staying off the map.

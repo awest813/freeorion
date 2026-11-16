@@ -18,6 +18,7 @@ func _init() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
+	add_to_group(FOUi.MODAL_GROUP)
 
 
 ## Show a dialog over \a parent (added as its last child, so on top).

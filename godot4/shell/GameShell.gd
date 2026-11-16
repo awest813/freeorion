@@ -88,6 +88,7 @@ func _ready() -> void:
 	add_child(layout)
 
 	top_bar = TopBar.new()
+	top_bar.add_to_group(FOUi.CHROME_GROUP)
 	top_bar.follow_game = follow_game
 	layout.add_child(top_bar)
 
@@ -123,6 +124,7 @@ func _ready() -> void:
 	save_screen = SaveLoadScreen.new()
 	save_screen.mode = "save"
 	load_screen = SaveLoadScreen.new()
+
 	load_screen.defer_load = true
 	load_screen.load_started.connect(func(path: String): leave_requested.emit("load", path))
 	government_screen.pedia_requested.connect(open_pedia)
@@ -539,6 +541,7 @@ func show_screen(screen_name: String) -> void:
 	var screens := _screens()
 	for key in screens:
 		screens[key].visible = key == screen_name
+		screens[key].add_to_group(FOUi.SCREEN_GROUP)
 	if not screens.has(screen_name):
 		# Back on the map: queues and focus may have changed what's spent.
 		top_bar.refresh_resources()
@@ -549,6 +552,9 @@ func show_screen(screen_name: String) -> void:
 		_seen_combat_id = maxi(_seen_combat_id, CombatScreen.newest_id(combat_screen.combats()))
 		top_bar.set_badge("combat", 0)
 	FOUi.slide_in(screens[screen_name])
+	# Keyboard users start in the screen, not on the map behind it.
+	var screen: Control = screens[screen_name]
+	(func(): ScreenKit.focus_first(screen)).call_deferred()
 
 
 func _screens() -> Dictionary:

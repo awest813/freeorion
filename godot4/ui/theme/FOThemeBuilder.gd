@@ -397,6 +397,9 @@ static func _ranges(theme: Theme, t: FOTokens) -> void:
 		theme.set_stylebox(
 			"grabber_area_highlight", type, box(t, t.accent_hover, t.accent_hover, x, y)
 		)
+		theme.set_stylebox("focus", type, focus_box(t))
+	# Links show the same focus ring as everything else.
+	theme.set_stylebox("focus", "LinkButton", focus_box(t))
 
 
 static func _separators(theme: Theme, t: FOTokens) -> void:

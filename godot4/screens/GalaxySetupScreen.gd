@@ -211,7 +211,9 @@ func _build() -> void:
 	form.add_child(rules_page)
 	_pages.push_back(rules_page)
 	_rule_tabs = TabBar.new()
-	_rule_tabs.clip_tabs = false
+	# In a narrow window the categories scroll (arrows) rather than widen
+	# the screen past it.
+	_rule_tabs.clip_tabs = true
 	_rule_tabs.tab_changed.connect(func(_t): _fill_rule_list())
 	rules_page.add_child(_rule_tabs)
 	_rule_list = ScreenKit.list()

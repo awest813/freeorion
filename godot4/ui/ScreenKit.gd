@@ -250,3 +250,39 @@ static func pedia_link(kind: String, arg: String, text: String, on_link: Callabl
 			on_link.call(link["kind"], link["arg"])
 	)
 	return label
+
+
+## The controls in \a root (tree order) that take keyboard focus: visible,
+## enabled, and (unless \a text_ok) not text fields, which would take the
+## keys meant for shortcuts.
+static func focusables(root: Node, text_ok := true) -> Array[Control]:
+	var found: Array[Control] = []
+	for child in root.get_children():
+		var control := child as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var takes := control.focus_mode == Control.FOCUS_ALL
+		if control is BaseButton and control.disabled:
+			takes = false
+		if not text_ok and (control is LineEdit or control is TextEdit):
+			takes = false
+		if takes:
+			found.push_back(control)
+		found.append_array(focusables(control, text_ok))
+	return found
+
+
+static func first_focusable(root: Node, text_ok := false) -> Control:
+	var found := focusables(root, text_ok)
+	return found[0] if not found.is_empty() else null
+
+
+## Give keyboard focus to \a root's first focusable control (if any).
+static func focus_first(root: Node) -> void:
+	if not is_instance_valid(root):
+		return
+	var target := first_focusable(root)
+	if target == null:
+		target = first_focusable(root, true)
+	if target:
+		target.grab_focus()

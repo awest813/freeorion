@@ -15,6 +15,12 @@ const OPTION_REDUCE_MOTION := "ui.reduce-motion"
 const OPTION_EMPIRE_ACCENT := "ui.accent.empire"
 ## See-through glass panels (off: opaque, as in high contrast).
 const OPTION_GLASS := "ui.glass"
+## Dialogs and menus that keep the keyboard focus while they show.
+const MODAL_GROUP := "fo_modal"
+## Full screens; while one shows, Tab cycles through it and CHROME_GROUP
+## (the top bar), not the map's controls behind it.
+const SCREEN_GROUP := "fo_screen"
+const CHROME_GROUP := "fo_chrome"
 ## Panels that get the glass shader (see glass_panel.gdshader).
 const GLASS_PANELS := ["OverlayPanel", "TopBarPanel", "BackgroundPanel"]
 const GLASS_SHADER := preload("res://ui/theme/glass_panel.gdshader")
@@ -51,6 +57,7 @@ func _ready() -> void:
 	get_tree().node_added.connect(_on_node_added)
 	get_window().size_changed.connect(_apply_scale)
 	_apply_scale()
+	get_viewport().gui_focus_changed.connect(_keep_focus_in_modal)
 
 
 ## Fade \a item in over the short motion duration, unless motion is reduced.
@@ -195,7 +202,68 @@ func _pass_escape_on(tooltip: Window) -> void:
 	_tooltip = weakref(tooltip) if tooltip else null
 
 
+## The modal on top (a dialog, the game menu): the last visible member of
+## MODAL_GROUP; null when there is none.
+func top_modal() -> Control:
+	var modals := get_tree().get_nodes_in_group(MODAL_GROUP).filter(
+		func(node): return node is Control and node.is_visible_in_tree()
+	)
+	return modals.back() if not modals.is_empty() else null
+
+
+# Tab doesn't leave a modal for the controls hidden behind it.
+func _keep_focus_in_modal(focused: Control) -> void:
+	var modal := top_modal()
+	if modal and focused and not modal.is_ancestor_of(focused):
+		(func(): ScreenKit.focus_first(modal)).call_deferred()
+
+
+## Where Tab moves now: the modal on top; else an open screen with the top
+## bar; else [] (anywhere).
+func focus_scope() -> Array[Node]:
+	var modal := top_modal()
+	if modal:
+		return [modal]
+	var visible_in := func(group: String) -> Array[Node]:
+		var nodes: Array[Node] = []
+		for node in get_tree().get_nodes_in_group(group):
+			if node is Control and node.is_visible_in_tree():
+				nodes.push_back(node)
+		return nodes
+	var screens: Array[Node] = visible_in.call(SCREEN_GROUP)
+	if screens.is_empty():
+		return []
+	# The screen's own controls first, then the top bar's.
+	return screens + visible_in.call(CHROME_GROUP)
+
+
+# Tab (Shift+Tab back) to the next control in the focus scope, round from
+# the last to the first; with nothing focused, to the first.
+func _cycle_focus(scope: Array[Node], step: int) -> void:
+	var order: Array[Control] = []
+	for root in scope:
+		order.append_array(ScreenKit.focusables(root))
+	if order.is_empty():
+		return
+	var at := order.find(get_viewport().gui_get_focus_owner())
+	var next := (at + step) if at >= 0 else (0 if step > 0 else -1)
+	order[posmod(next, order.size())].grab_focus()
+
+
 func _input(event: InputEvent) -> void:
+	var step := 0
+	if event.is_action_pressed("ui_focus_next"):
+		step = 1
+	elif event.is_action_pressed("ui_focus_prev"):
+		step = -1
+	if step != 0:
+		var scope := focus_scope()
+		if scope.is_empty() and get_viewport().gui_get_focus_owner() == null:
+			scope = [get_tree().current_scene]
+		if not scope.is_empty():
+			_cycle_focus(scope, step)
+			get_viewport().set_input_as_handled()
+			return
 	if not (event is InputEventKey and event.is_action_pressed("ui_cancel")):
 		return
 	var tooltip: Window = _tooltip.get_ref() if _tooltip else null
