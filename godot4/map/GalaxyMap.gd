@@ -682,10 +682,9 @@ func _draw_route(layer: CanvasItem, px: float) -> void:
 	if _route.size() < 2:
 		return
 	var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
-	for i in _route.size() - 1:
-		layer.draw_dashed_line(
-			_route[i], _route[i + 1], accent, 2.0 * px, MapStyle.ROUTE_DASH_PX * px, true, true
-		)
+	# The dashes flow towards the destination (still with reduced motion).
+	var phase := 0.0 if FOUi.reduce_motion else Time.get_ticks_msec() / 1000.0 * 0.6
+	details.draw_flow(layer, _route, accent, 2.0 * px, MapStyle.ROUTE_DASH_PX * px, phase)
 	layer.draw_circle(_route[_route.size() - 1], 4.0 * px, accent)
 
 

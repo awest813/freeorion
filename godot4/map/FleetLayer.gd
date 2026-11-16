@@ -349,9 +349,12 @@ func _draw_selection_ring(origin: Vector2, radius: float, color: Color, px: floa
 
 
 func _process(_delta: float) -> void:
-	# The selection ring turns.
+	# The selection ring turns, and the selected fleet's route flows.
 	if selected_fleet >= 0 and not FOUi.reduce_motion and is_visible_in_tree():
 		queue_redraw()
+		# The route's dashes flow (drawn on the map's overlay).
+		if map and map.route_points().size() > 1:
+			map._overlay.queue_redraw()
 
 
 func _draw_markers(px: float, view: Rect2) -> void:

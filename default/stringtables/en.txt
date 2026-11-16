@@ -2618,6 +2618,12 @@ DESIGNER_EMPTY_SLOTS
 EMPIRES_STRENGTH
 Known strength %1%× yours (industry, ships and planets seen)
 
+GSETUP_TAB_EMPIRE
+Empire
+
+GSETUP_NEXT
+Next
+
 EMPIRES_LOCATE
 Show on map
 

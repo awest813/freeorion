@@ -155,3 +155,18 @@ func _button(node: Node, text: String) -> Button:
 		if button.get_meta("glyph", button.text) == text:
 			return button
 	return null
+
+
+func test_setup_walks_three_steps():
+	var setup := GalaxySetupScreen.new()
+	setup.source = _setup_options()
+	add_child_autofree(setup)
+	setup.refresh()
+	assert_true(setup._pages[0].visible, "the empire first")
+	assert_true(setup._species.is_visible_in_tree())
+	assert_false(setup._editors["setup.galaxy.shape"].is_visible_in_tree())
+	setup._next.pressed.emit()
+	assert_true(setup._editors["setup.galaxy.shape"].is_visible_in_tree(), "then the galaxy")
+	setup._next.pressed.emit()
+	assert_true(setup._pages[2].visible, "then the rules")
+	assert_false(setup._next.visible, "the last step")

@@ -136,3 +136,24 @@ func test_targets_off_screen_get_a_pointer_at_the_edge():
 	assert_eq(map.edge_pointers.hit(tip), Vector2(100000, 0), "the pointer leads there")
 	assert_true(map.edge_pointers.follow(map, tip))
 	map.fleets.set_settle_marks([])
+
+
+func test_route_dashes_flow_along_the_route():
+	var drawn := []
+	var layer := Node2D.new()
+	add_child_autofree(layer)
+	layer.draw.connect(
+		func():
+			shell.map_view.map.details.draw_flow(
+				layer,
+				PackedVector2Array([Vector2.ZERO, Vector2(40, 0)]),
+				Color.WHITE,
+				1.0,
+				5.0,
+				0.5
+			)
+			drawn.push_back(true)
+	)
+	layer.queue_redraw()
+	await wait_process_frames(2)
+	assert_eq(drawn.size(), 1, "drawn without errors")

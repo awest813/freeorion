@@ -94,6 +94,8 @@ var _species: OptionButton
 var _colors: HFlowContainer
 var _color_index := 0
 var _pages: Array[Control] = []
+var _steps: TabBar
+var _next: Button
 var _rule_tabs: TabBar
 var _rule_list: VBoxContainer
 var _rules: Array = []
@@ -187,16 +189,16 @@ func _build() -> void:
 	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(form)
 	_status = ScreenKit.header(form, "GSETUP_WINDOW_TITLE", back_requested.emit)
-	var page_tabs := TabBar.new()
-	page_tabs.add_tab(tr("GSETUP_TAB_GALAXY"))
-	page_tabs.add_tab(tr("GSETUP_TAB_RULES"))
-	page_tabs.tab_changed.connect(_show_page)
-	form.add_child(page_tabs)
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", FOUi.tokens.space_6)
-	form.add_child(grid)
-	_pages.push_back(grid)
+	# Three steps: who you are, the galaxy, the rules; Next walks them, and
+	# the game can start from any.
+	_steps = TabBar.new()
+	for key in ["GSETUP_TAB_EMPIRE", "GSETUP_TAB_GALAXY", "GSETUP_TAB_RULES"]:
+		_steps.add_tab(tr(key))
+	_steps.tab_changed.connect(_show_page)
+	form.add_child(_steps)
+	var empire_grid := _page_grid(form)
+	var grid := _page_grid(form)
+	grid.visible = false
 	var rules_page := VBoxContainer.new()
 	rules_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	rules_page.visible = false
@@ -224,17 +226,17 @@ func _build() -> void:
 			_add_row(grid, field[1], seed_row, "")
 			_editors[field[0]] = edit
 			continue
-		_add_row(grid, field[1], edit, field[0])
+		_add_row(empire_grid, field[1], edit, field[0])
 		if field[0] == "setup.empire.name":
 			edit.text_changed.connect(func(_t): _update_identity())
 			_species = OptionButton.new()
 			_species.item_selected.connect(func(_i): _update_identity())
 			_species.tooltip_text = tr("GSETUP_SPECIES_RANDOM_DESC")
-			_add_row(grid, "GSETUP_SPECIES", _species, "setup.initial.species")
+			_add_row(empire_grid, "GSETUP_SPECIES", _species, "setup.initial.species")
 			_colors = HFlowContainer.new()
 			_colors.add_theme_constant_override("h_separation", FOUi.tokens.space_1)
 			_colors.add_theme_constant_override("v_separation", FOUi.tokens.space_1)
-			_add_row(grid, "GSETUP_EMPIRE_COLOR", _colors, "")
+			_add_row(empire_grid, "GSETUP_EMPIRE_COLOR", _colors, "")
 	for field in NUMBERS:
 		var spin := SpinBox.new()
 		spin.min_value = field[2]
@@ -283,6 +285,10 @@ func _build() -> void:
 	back.theme_type_variation = "GhostButton"
 	back.pressed.connect(back_requested.emit)
 	buttons.add_child(back)
+	_next = Button.new()
+	_next.text = tr("GSETUP_NEXT")
+	_next.pressed.connect(func(): _steps.current_tab = mini(_steps.current_tab + 1, 2))
+	buttons.add_child(_next)
 	var start := Button.new()
 	start.text = tr("TITLE_START_GAME")
 	start.theme_type_variation = "PrimaryButton"
@@ -301,6 +307,17 @@ func _add_row(grid: GridContainer, label_key: String, editor: Control, option: S
 func _show_page(index: int) -> void:
 	for i in _pages.size():
 		_pages[i].visible = i == index
+	if _next:
+		_next.visible = index < _pages.size() - 1
+
+
+func _page_grid(form: Control) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", FOUi.tokens.space_6)
+	form.add_child(grid)
+	_pages.push_back(grid)
+	return grid
 
 
 # Rules and their categories ("" is General), keeping edits already made.

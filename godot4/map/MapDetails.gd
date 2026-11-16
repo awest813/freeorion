@@ -149,3 +149,33 @@ func draw_other_detection(layer: CanvasItem, map: GalaxyMap, px: float, view: Re
 		)
 		layer.draw_circle(center, radius, Color(color, 0.06))
 		layer.draw_arc(center, radius, 0, TAU, 64, Color(color, 0.55), 1.5 * px, true)
+
+
+## Dashes along \a points (a route) moving towards its end: \a dash long,
+## as long gaps, shifted by \a phase (0 to 1 of a dash and gap), in \a color.
+func draw_flow(
+	layer: CanvasItem,
+	points: PackedVector2Array,
+	color: Color,
+	width: float,
+	dash: float,
+	phase: float
+) -> void:
+	var period := dash * 2.0
+	var shift := fposmod(phase, 1.0) * period
+	var walked := 0.0
+	for i in points.size() - 1:
+		var a := points[i]
+		var length := a.distance_to(points[i + 1])
+		if length <= 0.0:
+			continue
+		var direction := (points[i + 1] - a) / length
+		# Dashes start at shift + k * period along the whole route.
+		var d := floorf((walked - shift) / period) * period + shift
+		while d < walked + length:
+			var from := maxf(d, walked) - walked
+			var to := minf(d + dash, walked + length) - walked
+			if to > from:
+				layer.draw_line(a + direction * from, a + direction * to, color, width, true)
+			d += period
+		walked += length
