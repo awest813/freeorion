@@ -51,6 +51,8 @@ var source: Variant = DiplomacySource.new()
 
 var _info: Label
 var _list: VBoxContainer
+## The player's own strength (strength()), for the balance bars.
+var _own_strength := 0.0
 var _tabs: TabBar
 var _diplomacy: Control
 var _statistics: Control
@@ -77,7 +79,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func refresh() -> void:
 	ScreenKit.clear(_list)
-	for empire: Dictionary in source.get_empires():
+	var empires: Array = source.get_empires()
+	_own_strength = 0.0
+	for empire: Dictionary in empires:
+		if empire.get("own", false):
+			_own_strength = strength(empire)
+	for empire: Dictionary in empires:
 		_list.add_child(_empire_card(empire))
 	if _statistics.visible:
 		_refresh_statistics()
@@ -287,6 +294,9 @@ func _empire_card(empire: Dictionary) -> Control:
 	text.add_child(status)
 	if empire.has("ships"):
 		text.add_child(_summary_row(empire))
+		var balance := _balance(empire)
+		if balance:
+			text.add_child(balance)
 	if not empire.get("own", false) and not empire.get("eliminated", false):
 		row.add_child(_locate_button(empire))
 	if empire.get("eliminated", false):
@@ -354,6 +364,42 @@ func _summary_row(empire: Dictionary) -> HFlowContainer:
 		cell.add_child(icon)
 		cell.add_child(ScreenKit.label(values[i][1], "SmallLabel"))
 		row.add_child(cell)
+	return row
+
+
+## A rough measure of \a empire's known strength: its known industry,
+## ships and planets (0 when nothing of it is known).
+static func strength(empire: Dictionary) -> float:
+	return (
+		empire.get("industry", 0.0) + 2.0 * empire.get("ships", 0) + 3.0 * empire.get("planets", 0)
+	)
+
+
+# For another empire whose strength is known: a bar weighing it against
+# the player's (theirs in their colour, yours in the accent) and how many
+# times yours it is.
+func _balance(empire: Dictionary) -> Control:
+	var theirs := strength(empire)
+	if empire.get("own", false) or theirs <= 0.0 or _own_strength <= 0.0:
+		return null
+	var tokens: FOTokens = FOUi.tokens
+	var color: Color = empire.get("color", tokens.text_secondary)
+	var share := theirs / (theirs + _own_strength)
+	var bar := Control.new()
+	bar.custom_minimum_size = Vector2(tokens.space_8 * 6, tokens.space_1 + 2)
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	bar.tooltip_text = tr("EMPIRES_STRENGTH").replace("%1%", "%.1f" % (theirs / _own_strength))
+	bar.mouse_filter = Control.MOUSE_FILTER_PASS
+	bar.draw.connect(
+		func():
+			var split := bar.size.x * share
+			bar.draw_rect(Rect2(0, 0, split, bar.size.y), color)
+			bar.draw_rect(Rect2(split, 0, bar.size.x - split, bar.size.y), tokens.accent)
+	)
+	var row := HBoxContainer.new()
+	row.add_child(bar)
+	var ratio := ScreenKit.label(bar.tooltip_text, "SmallLabel")
+	row.add_child(ratio)
 	return row
 
 

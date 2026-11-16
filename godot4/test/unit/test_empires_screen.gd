@@ -135,3 +135,16 @@ func test_empires_can_be_found_on_the_map():
 	var unknown := _locate(screen._list.get_child(2))
 	assert_true(unknown.disabled, "nothing of it seen yet")
 	assert_eq(unknown.tooltip_text, tr("EMPIRES_NOT_LOCATED"))
+
+
+func test_known_strength_is_weighed_against_yours():
+	assert_eq(EmpiresScreen.strength({"industry": 10.0, "ships": 2, "planets": 1}), 17.0)
+	var known := {
+		"name": "Big", "own": false, "ships": 10, "planets": 4, "industry": 30.0, "color": Color.RED
+	}
+	screen._own_strength = 20.0
+	var balance := screen._balance(known)
+	assert_not_null(balance)
+	assert_string_contains(balance.get_child(1).text, "3.1")
+	assert_null(screen._balance({"own": false, "ships": 0, "planets": 0}), "nothing known")
+	balance.free()

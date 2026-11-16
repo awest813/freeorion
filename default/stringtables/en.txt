@@ -2614,6 +2614,10 @@ DESIGNER_EMPTY_SLOT
 DESIGNER_EMPTY_SLOTS
 %1% slots are empty: the design can still be added.
 
+# %1% ratio
+EMPIRES_STRENGTH
+Known strength %1%× yours (industry, ships and planets seen)
+
 EMPIRES_LOCATE
 Show on map
 
