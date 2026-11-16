@@ -38,7 +38,8 @@ var suitability_provider := func(id: int) -> Array: return FOUniverse.get_planet
 var give_targets_provider := func(id: int) -> Dictionary: return FOOrders.get_give_targets(id)
 
 var _data := {}
-var _type_icon: TextureRect
+var _type_icon: PlanetView
+var _portrait: TextureRect
 var _title: LineEdit
 var _give: MenuButton
 var _swatch: ColorRect
@@ -85,7 +86,18 @@ func show_data(data: Dictionary) -> void:
 	planet_id = data.get("id", planet_id)
 	if was_hidden:
 		FOUi.fade_in(self)
-	_type_icon.texture = FOArt.planet_type_icon(data.get("type", ""))
+	var where: FOPlanet = FOUniverse.get_planet(planet_id)
+	var star: FOSystem = FOUniverse.get_system(where.get_system_id()) if where else null
+	_type_icon.show_planet(
+		data.get("type", ""),
+		planet_id,
+		star.get_star_type() if star else "STAR_YELLOW",
+		data.get("size", "")
+	)
+	var people: String = data.get("species", "")
+	_portrait.texture = EmpireArt.species_portrait(people) if not people.is_empty() else null
+	_portrait.visible = _portrait.texture != null
+	_portrait.tooltip_text = tr(people)
 	if not _title.has_focus():
 		_title.text = data.get("name", "")
 	var own: bool = data.get("own", false)
@@ -184,8 +196,12 @@ func _build() -> void:
 	add_child(box)
 	var header := HBoxContainer.new()
 	box.add_child(header)
-	_type_icon = ScreenKit.icon("", FOUi.tokens.icon_large)
+	_type_icon = PlanetView.new("", 0, FOUi.tokens.icon_large + FOUi.tokens.space_4)
 	header.add_child(_type_icon)
+	# Who lives there: the species' portrait.
+	_portrait = ScreenKit.icon("", FOUi.tokens.icon_large)
+	_portrait.mouse_filter = Control.MOUSE_FILTER_PASS
+	header.add_child(_portrait)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	titles.add_theme_constant_override("separation", 0)

@@ -192,6 +192,9 @@ godot::Array FODiplomacy::get_empires() {
         const auto [where, how] = KnownLocation(context, id, self, destroyed, stale);
         entry["known_system_id"] = where;
         entry["known_by"] = how;
+        // Its people, as far as known: the species of its capital.
+        const auto* capital = context.ContextObjects().getRaw<Planet>(empire->CapitalID());
+        entry["species"] = capital ? ToGodot(capital->SpeciesName()) : godot::String();
         entry["industry"] = industry;
         entry["research"] = research;
         entry["influence"] = influence;

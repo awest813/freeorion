@@ -243,6 +243,19 @@ func _empire_card(empire: Dictionary) -> Control:
 	swatch.color = empire.get("color", Color.GRAY)
 	swatch.custom_minimum_size = Vector2(FOUi.tokens.space_2, FOUi.tokens.icon_large)
 	row.add_child(swatch)
+	# Its flag, and its people where known (the species of its capital).
+	var art := ScreenKit.icon("", FOUi.tokens.icon_large)
+	art.texture = EmpireArt.flag(
+		empire.get("name", ""), empire.get("color", Color.GRAY), FOUi.tokens.icon_large
+	)
+	row.add_child(art)
+	var species: String = empire.get("species", "")
+	if not species.is_empty():
+		var portrait := ScreenKit.icon("", FOUi.tokens.icon_large)
+		portrait.texture = EmpireArt.species_portrait(species)
+		portrait.tooltip_text = tr(species)
+		portrait.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(portrait)
 	var marks := VBoxContainer.new()
 	marks.add_theme_constant_override("separation", 0)
 	marks.custom_minimum_size.x = FOUi.tokens.icon_small

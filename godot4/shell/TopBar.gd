@@ -73,6 +73,7 @@ var order_count_provider: Callable = func() -> int: return FOOrders.get_order_co
 var readiness_provider: Callable = _game_readiness
 
 var _swatch: ColorRect
+var _flag: TextureRect
 var _empire: Label
 var _turn: Label
 var _end_turn: Button
@@ -125,7 +126,11 @@ func _ready() -> void:
 func set_state(empire_name: String, color: Color, turn: int, waiting: bool) -> void:
 	_empire.text = empire_name if role == "player" else tr(role.to_upper())
 	_swatch.color = color
-	_swatch.visible = not empire_name.is_empty() and role == "player"
+	var shown := not empire_name.is_empty() and role == "player"
+	# The empire's flag; the plain colour square where there is no flag art.
+	_flag.texture = EmpireArt.flag(empire_name, color, FOUi.tokens.icon) if shown else null
+	_flag.visible = _flag.texture != null
+	_swatch.visible = shown and not _flag.visible
 	_turn_number = turn
 	if not waiting:
 		_phase = ""
@@ -149,6 +154,7 @@ func set_role(new_role: String) -> void:
 	if spectating:
 		_empire.text = tr(role.to_upper())
 		_swatch.visible = false
+		_flag.visible = false
 	_update_turn_controls()
 
 
@@ -483,6 +489,13 @@ func _build() -> void:
 	_swatch.custom_minimum_size = Vector2(FOUi.tokens.space_3, FOUi.tokens.space_3)
 	_swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_swatch)
+	_flag = TextureRect.new()
+	_flag.custom_minimum_size = Vector2.ONE * FOUi.tokens.icon
+	_flag.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_flag.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_flag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_flag.visible = false
+	row.add_child(_flag)
 	_empire = Label.new()
 	_empire.theme_type_variation = "TitleLabel"
 	row.add_child(_empire)

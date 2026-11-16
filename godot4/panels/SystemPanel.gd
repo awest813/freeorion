@@ -483,7 +483,14 @@ func _planet_row(planet: Dictionary) -> Control:
 				):
 					production_requested.emit(planet.get("id", -1))
 		)
-	var type_icon := _icon(FOArt.planet_type_icon(planet.get("type", "")), FOUi.tokens.icon)
+	var star: FOSystem = FOUniverse.get_system(_system_id) if _system_id >= 0 else null
+	var type_icon := PlanetView.new(
+		planet.get("type", ""),
+		planet.get("id", 0),
+		FOUi.tokens.icon + FOUi.tokens.space_2,
+		star.get_star_type() if star else "STAR_YELLOW",
+		planet.get("size", "")
+	)
 	type_icon.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	type_icon.tooltip_text = tr(planet.get("type", ""))
 	row.add_child(type_icon)
