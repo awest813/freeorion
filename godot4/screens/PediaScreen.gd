@@ -345,6 +345,9 @@ func _follow(link: Dictionary) -> void:
 func _on_visibility_changed() -> void:
 	if visible and _results.get_child_count() == 0:
 		_refresh_results()
+	# The start page was built before the game's content was read.
+	if visible and _tiles.visible:
+		fill_start_tiles()
 
 
 ## List every article of \a kind in the sidebar ("" lists the kinds).

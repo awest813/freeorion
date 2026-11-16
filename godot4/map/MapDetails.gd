@@ -7,7 +7,7 @@ extends RefCounted
 
 ## Screen pixels between scanlines over fields out of sight.
 const SCANLINE_PX := 4.0
-const SCANLINE_COLOR := Color(0, 0, 0, 0.3)
+const SCANLINE_COLOR := Color(0, 0, 0, 0.16)
 ## The most scanlines over one field (big fields when zoomed out).
 const SCANLINES_MAX := 80
 ## Snapshot owner id lists and the colour lists made from them.

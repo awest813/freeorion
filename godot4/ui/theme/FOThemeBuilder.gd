@@ -508,3 +508,16 @@ static func _trees(theme: Theme, t: FOTokens) -> void:
 	theme.set_constant("inner_item_margin_right", "Tree", t.space_2)
 	theme.set_constant("v_separation", "Tree", t.space_1)
 	theme.set_constant("h_separation", "Tree", t.space_1)
+	# Plain lists (ItemList) look like the tables.
+	theme.set_stylebox("panel", "ItemList", box(t, t.surface, t.border, t.space_1, t.space_1))
+	theme.set_stylebox("focus", "ItemList", focus_box(t))
+	for state in ["selected", "selected_focus"]:
+		theme.set_stylebox(state, "ItemList", selected)
+	theme.set_stylebox("hovered", "ItemList", hovered)
+	theme.set_stylebox("cursor", "ItemList", StyleBoxEmpty.new())
+	theme.set_stylebox("cursor_unfocused", "ItemList", StyleBoxEmpty.new())
+	theme.set_color("font_color", "ItemList", t.text_primary)
+	theme.set_color("font_selected_color", "ItemList", t.text_primary)
+	theme.set_color("guide_color", "ItemList", Color(0, 0, 0, 0))
+	theme.set_constant("v_separation", "ItemList", t.space_2)
+	theme.set_constant("h_separation", "ItemList", t.space_2)

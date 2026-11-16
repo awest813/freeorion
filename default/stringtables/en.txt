@@ -2538,6 +2538,9 @@ Build here
 OPTIONS_DB_UI_OBJECTS_COLUMNS
 Columns shown in the objects list, against their defaults
 
+OBJECTS_COUNT_ONE
+1 object
+
 OBJECTS_COUNT
 %1% objects
 
@@ -2927,6 +2930,36 @@ FLEETS_ORDERED
 
 TOPBAR_WASTED_SHOW
 Click to show where.
+
+MAP_MENU_CIRCLES
+Circles around systems
+
+MAP_MENU_LANE_COLOURS
+Starlanes in supply colours
+
+MAP_MENU_SUPPLY
+Fleet supply ranges
+
+MAP_MENU_GAS
+Nebulae
+
+MAP_MENU_STARFIELDS
+Background stars
+
+MAP_MENU_DETECTION
+Detection ranges
+
+MAP_MENU_SCALE_LINE
+Scale bar
+
+MAP_MENU_SCALE_CIRCLE
+Scale circle
+
+MAP_MENU_ZOOM
+Zoom slider
+
+MAP_MENU_MINIMAP
+Minimap
 
 MAP_MENU_FLEET_PATHS
 Fleet movement lines
@@ -3707,6 +3740,9 @@ No policy slots yet.
 
 GOVERNMENT_EMPTY_SLOT
 Empty slot
+
+GOVERNMENT_EMPTY_SLOT_TIP
+Drag a policy of this category here, or use its Adopt button.
 
 PRODUCTION_CONFIRM_DESTRUCTIVE
 %1% at %2% can empty planets of their people or destroy ships and planets. Read its Pedia entry first. Add it to the queue?

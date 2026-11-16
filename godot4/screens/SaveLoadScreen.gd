@@ -209,6 +209,17 @@ func _save_card(save: Dictionary) -> Control:
 	swatch.custom_minimum_size = Vector2(FOUi.tokens.space_2, 0)
 	swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(swatch)
+	# The saving empire's flag.
+	var side := FOUi.tokens.icon_large - FOUi.tokens.space_2
+	var flag := TextureRect.new()
+	flag.texture = EmpireArt.flag(save.get("empire", ""), save.get("color", Color.WHITE), side)
+	flag.custom_minimum_size = Vector2(side, side)
+	flag.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	flag.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	flag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	flag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flag.visible = flag.texture != null
+	row.add_child(flag)
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_constant_override("separation", 0)

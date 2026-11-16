@@ -439,7 +439,9 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 	stockpile.toggle_mode = true
 	stockpile.button_pressed = entry.get("stockpile_allowed", false)
 	stockpile.icon = FOArt.meter_icon("stockpile")
-	stockpile.expand_icon = true
+	stockpile.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stockpile.add_theme_constant_override("icon_max_width", FOUi.tokens.icon_small)
+	stockpile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	stockpile.custom_minimum_size = Vector2.ONE * (FOUi.tokens.icon_small + FOUi.tokens.space_2)
 	stockpile.theme_type_variation = "SegmentButton"
 	stockpile.tooltip_text = tr("PRODUCTION_STOCKPILE_USE")

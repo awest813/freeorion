@@ -175,7 +175,7 @@ func _show_title() -> void:
 	connect_screen.visible = false
 	lobby.visible = false
 	pedia.visible = false
-	title.visible = true
+	title.set_menu_shown(true)
 
 
 # Continue, when there is a save to go back to, naming it.
@@ -209,7 +209,7 @@ func continue_game() -> void:
 
 
 func _show_pedia() -> void:
-	title.visible = false
+	title.set_menu_shown(false)
 	pedia.visible = true
 	FOUi.fade_in(pedia)
 
@@ -223,14 +223,14 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func _show_credits() -> void:
 	credits.refresh()
-	title.visible = false
+	title.set_menu_shown(false)
 	credits.visible = true
 	FOUi.fade_in(credits)
 
 
 func _show_saves() -> void:
 	saves.refresh()
-	title.visible = false
+	title.set_menu_shown(false)
 	saves.visible = true
 	FOUi.fade_in(saves)
 
@@ -242,14 +242,14 @@ func _on_load_started(_path: String) -> void:
 
 func _show_setup() -> void:
 	setup.refresh()
-	title.visible = false
+	title.set_menu_shown(false)
 	setup.visible = true
 	FOUi.fade_in(setup)
 
 
 func _show_options() -> void:
 	options.refresh()
-	title.visible = false
+	title.set_menu_shown(false)
 	options.visible = true
 	FOUi.fade_in(options)
 
@@ -393,7 +393,7 @@ func _show_connect() -> void:
 	if not _content_ready:
 		return
 	connect_screen.refresh()
-	title.visible = false
+	title.set_menu_shown(false)
 	lobby.visible = false
 	connect_screen.visible = true
 	FOUi.fade_in(connect_screen)
@@ -424,7 +424,7 @@ func _on_mp_joined(_player_id: int) -> void:
 	if game:
 		return
 	connect_screen.visible = false
-	title.visible = false
+	title.set_menu_shown(false)
 	lobby.visible = true
 	lobby_source.request_saves()
 	lobby.refresh()

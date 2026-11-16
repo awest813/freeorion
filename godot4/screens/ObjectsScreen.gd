@@ -581,7 +581,11 @@ func _rebuild() -> void:
 			sub.set_custom_color(0, FOUi.tokens.text_secondary)
 	for group: TreeItem in groups.values():
 		_finish_group(group)
-	_info.text = tr("OBJECTS_COUNT").replace("%1%", str(rows.size()))
+	_info.text = (
+		tr("OBJECTS_COUNT_ONE")
+		if rows.size() == 1
+		else tr("OBJECTS_COUNT").replace("%1%", str(rows.size()))
+	)
 	_empty.visible = rows.is_empty()
 	_fit_text_columns(columns, rows)
 

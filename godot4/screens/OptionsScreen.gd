@@ -154,7 +154,7 @@ func _build() -> void:
 	interface.custom_minimum_size.x = 360
 	columns.add_child(interface)
 	_status = ScreenKit.header(interface, "OPTIONS_TITLE", close_requested.emit)
-	interface.add_child(ScreenKit.label(tr("OPTIONS_INTERFACE"), "TitleLabel"))
+	interface.add_child(ScreenKit.section(tr("OPTIONS_INTERFACE")))
 	var grid := GridContainer.new()
 	grid.columns = 2
 	interface.add_child(grid)
@@ -187,7 +187,7 @@ func _build() -> void:
 
 	grid.add_child(ScreenKit.label(tr("OPTIONS_FULLSCREEN"), "SecondaryLabel"))
 	_fullscreen = CheckButton.new()
-	_fullscreen.tooltip_text = FOHotkeys.binding("fullscreen")
+	_fullscreen.tooltip_text = FOHotkeys.shown("fullscreen")
 	_fullscreen.toggled.connect(func(on): FOWindow.set_fullscreen(on, source))
 	grid.add_child(_fullscreen)
 
@@ -198,7 +198,7 @@ func _build() -> void:
 	grid.add_child(hints)
 
 	# Music and sounds: a switch and a volume slider each.
-	interface.add_child(ScreenKit.label(tr("OPTIONS_AUDIO"), "TitleLabel"))
+	interface.add_child(ScreenKit.section(tr("OPTIONS_AUDIO")))
 	var audio_grid := GridContainer.new()
 	audio_grid.columns = 3
 	interface.add_child(audio_grid)
@@ -281,7 +281,9 @@ func _refresh_hotkeys() -> void:
 			key.text = tr("OPTIONS_HOTKEY_PRESS")
 			key.theme_type_variation = "PrimaryButton"
 		else:
-			key.text = binding if not binding.is_empty() else tr("OPTIONS_HOTKEY_NONE")
+			key.text = (
+				FOHotkeys.display(binding) if not binding.is_empty() else tr("OPTIONS_HOTKEY_NONE")
+			)
 		key.tooltip_text = tr("OPTIONS_HOTKEY_CHANGE")
 		key.pressed.connect(
 			func():
@@ -336,7 +338,7 @@ func _refresh_list() -> void:
 		# Options under a heading for the first part of their names.
 		if option_section(option) != section:
 			section = option_section(option)
-			_list.add_child(ScreenKit.label(section, "TitleLabel"))
+			_list.add_child(ScreenKit.section(section))
 		_list.add_child(_option_row(option, description))
 		shown += 1
 	if shown == 0:

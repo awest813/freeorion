@@ -46,6 +46,26 @@ const HOTKEYS := [
 	["idle_next", "HOTKEY_MAP_ZOOM_NEXT_IDLE_FLEET", "Alt+G"],
 ]
 
+## Key names shown as the symbols on the key.
+const KEY_SYMBOLS := {
+	"Equal": "=",
+	"Minus": "−",
+	"Plus": "+",
+	"Comma": ",",
+	"Period": ".",
+	"Slash": "/",
+	"Backslash": "\\",
+	"Semicolon": ";",
+	"Apostrophe": "'",
+	"BracketLeft": "[",
+	"BracketRight": "]",
+	"QuoteLeft": "`",
+	"Up": "↑",
+	"Down": "↓",
+	"Left": "←",
+	"Right": "→",
+}
+
 var _options: Object
 
 
@@ -77,6 +97,19 @@ func binding(hotkey: String) -> String:
 	if _options and _options.exists(OPTION_PREFIX + hotkey):
 		return str(_options.get_value(OPTION_PREFIX + hotkey))
 	return default_binding(hotkey)
+
+
+## \a hotkey's binding as players read it ("Ctrl+=" for "Ctrl+Equal").
+func shown(hotkey: String) -> String:
+	return display(binding(hotkey))
+
+
+## Binding \a text with its symbol keys as symbols ("Equal" -> "=").
+static func display(text: String) -> String:
+	var parts := text.split("+")
+	for i in parts.size():
+		parts[i] = KEY_SYMBOLS.get(parts[i], parts[i])
+	return "+".join(parts)
 
 
 static func default_binding(hotkey: String) -> String:

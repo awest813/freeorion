@@ -208,7 +208,7 @@ func _build() -> void:
 func _refresh_slots() -> void:
 	ScreenKit.clear(_slots)
 	for slots: Dictionary in _slot_data:
-		_slots.add_child(ScreenKit.label(tr(slots["category"]), "TitleLabel"))
+		_slots.add_child(ScreenKit.section(tr(slots["category"])))
 		var policies: Array = slots["policies"]
 		for i in policies.size():
 			_slots.add_child(_slot_card(policies[i], slots["category"], i))
@@ -223,6 +223,7 @@ func _slot_card(policy_name: String, category: String, slot: int) -> Control:
 	var card := PanelContainer.new()
 	card.set_meta("category", category)
 	card.set_meta("policy", policy_name)
+	card.add_theme_stylebox_override("panel", slot_style(category, policy_name.is_empty()))
 	var row := HBoxContainer.new()
 	card.add_child(row)
 	# Policies of this category drop in; the adopted one drags out.
@@ -235,6 +236,9 @@ func _slot_card(policy_name: String, category: String, slot: int) -> Control:
 	if policy_name.is_empty():
 		var empty := ScreenKit.label(tr("GOVERNMENT_EMPTY_SLOT"), "SecondaryLabel")
 		empty.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		card.tooltip_text = tr("GOVERNMENT_EMPTY_SLOT_TIP")
+		card.mouse_filter = Control.MOUSE_FILTER_STOP
 		row.add_child(empty)
 		return card
 	var policy := _policy(policy_name)
@@ -289,6 +293,27 @@ func _refresh_catalog() -> void:
 
 ## The colour band of a policy card of \a category: economic, social and
 ## military each their own.
+## The frame of a slot of \a category: tinted in the category's colour,
+## faint and open while \a empty, with a band down the left once filled.
+static func slot_style(category: String, empty: bool) -> StyleBoxFlat:
+	var tokens: FOTokens = FOUi.tokens
+	var band := category_band(category)
+	var style := FOThemeBuilder.box(
+		tokens,
+		Color(band, 0.05) if empty else Color(tokens.surface_raised, 0.8),
+		Color(band, 0.45 if empty else 0.3),
+		tokens.space_3,
+		tokens.space_3 if empty else tokens.space_2
+	)
+	if not empty:
+		style.border_width_left = tokens.space_1
+		style.border_color = band
+		style.border_width_top = 0
+		style.border_width_right = 0
+		style.border_width_bottom = 0
+	return FOThemeBuilder.cut(style, tokens, tokens.chamfer_small)
+
+
 static func category_band(category: String) -> Color:
 	var tokens: FOTokens = FOUi.tokens
 	match category:

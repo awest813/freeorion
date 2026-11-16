@@ -5,19 +5,34 @@ extends PopupMenu
 ## detection ranges) and the map aids (scale legend and circle, zoom slider,
 ## minimap). Each is a checkable item kept in an option of GG's name.
 
-## Toggles: option, label key, default.
+## Toggles: option, option description key, default, menu label key.
 const TOGGLES := [
-	["ui.map.system.circle.shown", "OPTIONS_UI_SYSTEM_CIRCLES", true],
-	["ui.map.starlane.empire.color.shown", "OPTIONS_RESOURCE_STARLANE_COLOURING", true],
-	["ui.map.fleet.supply.shown", "OPTIONS_FLEET_SUPPLY_LINES", true],
-	["ui.map.background.gas.shown", "OPTIONS_GALAXY_MAP_GAS", true],
-	["ui.map.background.starfields.shown", "OPTIONS_GALAXY_MAP_STARFIELDS", true],
-	["ui.map.fleet.eta.shown", "MAP_MENU_FLEET_PATHS", true],
-	["ui.map.detection.shown", "OPTIONS_GALAXY_MAP_DETECTION_RANGE", false],
-	["ui.map.scale.legend.shown", "OPTIONS_GALAXY_MAP_SCALE_LINE", true],
-	["ui.map.scale.circle.shown", "OPTIONS_GALAXY_MAP_SCALE_CIRCLE", false],
-	["ui.map.zoom.slider.shown", "OPTIONS_GALAXY_MAP_ZOOM_SLIDER", false],
-	["ui.map.minimap.shown", "HOTKEY_GODOT_MINIMAP", true],
+	["ui.map.system.circle.shown", "OPTIONS_UI_SYSTEM_CIRCLES", true, "MAP_MENU_CIRCLES"],
+	[
+		"ui.map.starlane.empire.color.shown",
+		"OPTIONS_RESOURCE_STARLANE_COLOURING",
+		true,
+		"MAP_MENU_LANE_COLOURS"
+	],
+	["ui.map.fleet.supply.shown", "OPTIONS_FLEET_SUPPLY_LINES", true, "MAP_MENU_SUPPLY"],
+	["ui.map.background.gas.shown", "OPTIONS_GALAXY_MAP_GAS", true, "MAP_MENU_GAS"],
+	[
+		"ui.map.background.starfields.shown",
+		"OPTIONS_GALAXY_MAP_STARFIELDS",
+		true,
+		"MAP_MENU_STARFIELDS"
+	],
+	["ui.map.fleet.eta.shown", "MAP_MENU_FLEET_PATHS", true, "MAP_MENU_FLEET_PATHS"],
+	["ui.map.detection.shown", "OPTIONS_GALAXY_MAP_DETECTION_RANGE", false, "MAP_MENU_DETECTION"],
+	["ui.map.scale.legend.shown", "OPTIONS_GALAXY_MAP_SCALE_LINE", true, "MAP_MENU_SCALE_LINE"],
+	[
+		"ui.map.scale.circle.shown",
+		"OPTIONS_GALAXY_MAP_SCALE_CIRCLE",
+		false,
+		"MAP_MENU_SCALE_CIRCLE"
+	],
+	["ui.map.zoom.slider.shown", "OPTIONS_GALAXY_MAP_ZOOM_SLIDER", false, "MAP_MENU_ZOOM"],
+	["ui.map.minimap.shown", "HOTKEY_GODOT_MINIMAP", true, "MAP_MENU_MINIMAP"],
 ]
 
 var _shell: GameShell
@@ -35,7 +50,7 @@ func _init(shell: GameShell) -> void:
 func open_at(screen_pos: Vector2) -> void:
 	clear()
 	for i in TOGGLES.size():
-		add_check_item(tr(TOGGLES[i][1]), i)
+		add_check_item(tr(TOGGLES[i][3]), i)
 		set_item_checked(i, is_shown(TOGGLES[i][0]))
 	popup(Rect2i(Vector2i(screen_pos), Vector2i.ZERO))
 

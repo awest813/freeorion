@@ -60,6 +60,28 @@ static func card(row: Control, band: Color) -> void:
 	row.queue_redraw()
 
 
+## An empty view: \a art_path's picture, faded, over \a text, centred
+## in the space it is given.
+static func empty_state(art_path: String, text: String) -> Control:
+	var tokens: FOTokens = FOUi.tokens
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", tokens.space_4)
+	var art := icon(art_path, tokens.icon_large)
+	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	art.modulate = Color(1, 1, 1, 0.35)
+	box.add_child(art)
+	var message := label(text, "SecondaryLabel")
+	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	message.custom_minimum_size.x = tokens.space_8 * 12
+	message.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(message)
+	return box
+
+
 ## A section caption: \a text in the display face's spaced capitals
 ## ("SectionCaps").
 static func section(text: String) -> Label:

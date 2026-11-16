@@ -59,6 +59,12 @@ The shader blurs what is behind the panel under the fill, with a faint grain.
 | Production | `warning` for buildings, `info` for ships |
 | Policies | `warning` for economic, `info` for social, `negative` for military |
 
+**Empty views.** When a screen has nothing to show, use `ScreenKit.empty_state(art, text)`: the screen's picture, faded, over one centred line. Don't leave a bare label in a corner.
+
+**Policy slots.** Slots take their category's colour (`GovernmentScreen.slot_style()`): a faint tinted frame while empty, a band down the left once filled.
+
+**Front-end screens.** Options, setup, saves, About, Connect and the Pedia open over the title's splash (`TitleScreen.set_menu_shown(false)`), as in-game screens open over the galaxy.
+
 **Buttons.** Use one of these variations:
 - `PrimaryButton`: one per view, glowing when pointed at;
 - `GhostButton`;
@@ -68,6 +74,8 @@ The shader blurs what is behind the panel under the fill, with a faint grain.
 - `MenuItem`.
 
 ## Icons
+
+**Key names.** Show hotkeys with `FOHotkeys.shown()` or `FOHotkeys.display()`, so symbol keys read as their symbol ("Ctrl+=" for "Ctrl+Equal").
 
 - **Interface icons** are one monochrome line set (`FOIcons`): close, info, add, remove, play, back, more, up, down, pause, menu, locate, dropdown, last.
   - Write a button's text as the glyph (`"✕"`, `"⌖"`, ...). FOUi swaps in the icon and keeps the glyph in the `"glyph"` meta for code and tests.

@@ -106,6 +106,7 @@ var _preview: GalaxyPreview
 var _flag: TextureRect
 var _identity: Label
 var _portrait: TextureRect
+var _species_name: Label
 var _status: Label
 
 
@@ -269,11 +270,18 @@ func _build() -> void:
 	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	names.alignment = BoxContainer.ALIGNMENT_CENTER
 	who.add_child(names)
+	# Flag and name side by side, the species under them.
+	var banner := HBoxContainer.new()
+	banner.add_theme_constant_override("separation", FOUi.tokens.space_2)
+	names.add_child(banner)
 	_flag = ScreenKit.icon("", FOUi.tokens.icon_large)
-	names.add_child(_flag)
+	banner.add_child(_flag)
 	_identity = ScreenKit.label("", "TitleLabel")
 	_identity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	names.add_child(_identity)
+	_identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	banner.add_child(_identity)
+	_species_name = ScreenKit.label("", "SecondaryLabel")
+	names.add_child(_species_name)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side.add_child(spacer)
@@ -334,7 +342,9 @@ func _load_rules() -> void:
 	while _rule_tabs.tab_count > 0:
 		_rule_tabs.remove_tab(0)
 	for category: String in categories:
-		_rule_tabs.add_tab(tr(category if not category.is_empty() else "GENERAL"))
+		# "Balance:Misc" reads as "Balance: Misc".
+		var tab := tr(category if not category.is_empty() else "GENERAL")
+		_rule_tabs.add_tab(tab.replace(":", ": ").replace(":  ", ": "))
 		_rule_tabs.set_tab_metadata(_rule_tabs.tab_count - 1, category)
 	if _rule_tabs.tab_count > 0:
 		_rule_tabs.current_tab = clampi(current, 0, _rule_tabs.tab_count - 1)
@@ -511,6 +521,9 @@ func _update_identity() -> void:
 	)
 	_portrait.texture = (
 		EmpireArt.species_portrait(species) if species not in ["", "RANDOM"] else null
+	)
+	_species_name.text = (
+		_species.get_item_text(_species.selected) if _species and _species.selected >= 0 else ""
 	)
 
 

@@ -172,3 +172,14 @@ func test_meter_names_link_to_their_articles():
 	click.pressed = true
 	grid.get_child(1).gui_input.emit(click)
 	assert_signal_emitted_with_parameters(grid, "meter_clicked", ["METER_INDUSTRY"])
+
+
+func test_start_page_lists_content_read_after_it_was_built():
+	screen.hide()
+	screen.source.index.push_back({"kind": "monsterdesign", "name": "SM_LATE"})
+	screen.show()
+	await wait_process_frames(1)
+	var texts: Array = screen._tiles.get_children().map(func(tile): return tile.text)
+	assert_true(
+		texts.has(tr("PEDIA_KIND_MONSTERDESIGN") + "\n1"), "the tiles are refreshed on showing"
+	)

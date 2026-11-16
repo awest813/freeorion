@@ -105,3 +105,9 @@ func test_options_page_moves_a_taken_key_and_cancels():
 	screen._input(escape)
 	assert_eq(screen._capturing, "")
 	assert_eq(FOHotkeys.binding("detection"), "Ctrl+D", "Esc keeps the old key")
+
+
+func test_symbol_keys_show_as_symbols():
+	assert_eq(FOHotkeys.display("Ctrl+Equal"), "Ctrl+=")
+	assert_eq(FOHotkeys.display("Minus"), "−")
+	assert_eq(FOHotkeys.display("Shift+F2"), "Shift+F2", "other keys keep their names")

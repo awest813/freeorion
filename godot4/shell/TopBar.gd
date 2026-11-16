@@ -263,7 +263,7 @@ static func timeout_text(seconds: int) -> String:
 
 ## \a text with hotkey \a hotkey's key after it: "Production (F2)".
 static func with_key(text: String, hotkey: String) -> String:
-	var key: String = FOHotkeys.binding(hotkey)
+	var key: String = FOHotkeys.shown(hotkey)
 	return text if key.is_empty() else "%s (%s)" % [text, key]
 
 

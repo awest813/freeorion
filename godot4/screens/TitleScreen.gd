@@ -30,6 +30,8 @@ var _continue_detail: Label
 var _spinner: FOSpinner
 var _tip: Label
 var _new_game: Button
+## What hides while another menu screen shows over the splash.
+var _chrome: Array[Control] = []
 
 
 func _init() -> void:
@@ -54,10 +56,19 @@ func set_can_continue(can: bool, detail := "") -> void:
 	_continue.visible = can
 	_continue_detail.text = detail
 	_continue_detail.visible = can and not detail.is_empty()
+	_continue_detail.get_parent().visible = _continue_detail.visible
 	_continue.tooltip_text = detail
 	_continue.theme_type_variation = "MenuItemPrimary"
 	_new_game.theme_type_variation = "MenuItem" if can else "MenuItemPrimary"
 	(_continue if can else _new_game).call_deferred("grab_focus")
+
+
+## Show the menu column (\a shown) or only the splash, as the backdrop of
+## the other menu screens (options, setup, saves...).
+func set_menu_shown(shown: bool) -> void:
+	visible = true
+	for control in _chrome:
+		control.visible = shown
 
 
 ## Show a status line instead of the menu, e.g. while a game starts.
@@ -86,7 +97,8 @@ func show_notice(message: String) -> void:
 func _drift(splash: Control) -> void:
 	if FOUi.reduce_motion:
 		return
-	splash.pivot_offset = get_viewport_rect().size / 2.0
+	# Around its centre, whatever size it gets (not yet known when built).
+	splash.resized.connect(func(): splash.pivot_offset = splash.size / 2.0)
 	var tween := splash.create_tween().set_loops()
 	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tween.tween_property(splash, "scale", Vector2.ONE * DRIFT_SCALE, DRIFT_SECONDS)
@@ -140,6 +152,7 @@ func _build() -> void:
 	column.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
 	column.custom_minimum_size.x = MENU_WIDTH
 	add_child(column)
+	_chrome.push_back(column)
 	var layout := VBoxContainer.new()
 	layout.alignment = BoxContainer.ALIGNMENT_CENTER
 	layout.add_theme_constant_override("separation", FOUi.tokens.space_6)
@@ -174,7 +187,12 @@ func _build() -> void:
 	_continue_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_continue_detail.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_continue_detail.visible = false
-	_menu.add_child(_continue_detail)
+	# Lined up with the menu items' text.
+	var indent := MarginContainer.new()
+	indent.add_theme_constant_override("margin_left", FOUi.tokens.space_4)
+	indent.add_child(_continue_detail)
+	indent.visible = false
+	_menu.add_child(indent)
 	_content_buttons.push_back(_continue)
 	var new_game := _menu_button("TITLE_NEW_GAME", new_game_requested, "MenuItemPrimary")
 	_new_game = new_game
@@ -196,6 +214,7 @@ func _build() -> void:
 	if is_instance_valid(GlobalFreeOrionNode):
 		version.text = GlobalFreeOrionNode.get_version()
 	add_child(version)
+	_chrome.push_back(version)
 	# The project's website, bottom left.
 	var website := LinkButton.new()
 	website.text = tr("INTRO_BTN_WEBSITE")
@@ -207,6 +226,7 @@ func _build() -> void:
 	website.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	website.position += Vector2(FOUi.tokens.space_4, -FOUi.tokens.space_2)
 	add_child(website)
+	_chrome.push_back(website)
 	set_content_ready(false)
 
 

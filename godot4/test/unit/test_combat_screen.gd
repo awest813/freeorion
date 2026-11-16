@@ -86,10 +86,10 @@ func test_refresh_keeps_the_shown_combat():
 func test_empty_and_fetching_states():
 	fake.combats = []
 	screen.refresh()
-	assert_string_contains(_texts(screen._list), tr("COMBAT_REPORTS_EMPTY"))
+	assert_string_contains(_texts(screen._empty), tr("COMBAT_REPORTS_EMPTY"))
 	fake.pending = 3
 	screen.refresh()
-	assert_string_contains(_texts(screen._list), tr("COMBAT_REPORTS_FETCHING"))
+	assert_string_contains(_texts(screen._empty), tr("COMBAT_REPORTS_FETCHING"))
 	assert_eq(screen._info.text, tr("COMBAT_REPORTS_FETCHING"))
 
 

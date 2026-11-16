@@ -22,6 +22,8 @@ var source: Variant = CombatSource.new()
 var bout := 0
 
 var _info: Label
+var _columns: Control
+var _empty: VBoxContainer
 var _list: VBoxContainer
 var _detail: VBoxContainer
 var _detail_scroll: ScrollContainer
@@ -56,13 +58,17 @@ func refresh() -> void:
 	ScreenKit.clear(_list)
 	for combat: Dictionary in _combats:
 		_list.add_child(_combat_card(combat))
+	# No combats: the columns give way to a picture and a line saying so.
+	ScreenKit.clear(_empty)
+	_columns.visible = not _combats.is_empty()
+	_empty.visible = _combats.is_empty()
 	if _combats.is_empty():
-		var empty := ScreenKit.label(
-			tr("COMBAT_REPORTS_FETCHING" if pending > 0 else "COMBAT_REPORTS_EMPTY"),
-			"SecondaryLabel"
+		_empty.add_child(
+			ScreenKit.empty_state(
+				ScreenKit.HEADER_ICONS["COMBAT_REPORT_TITLE"],
+				tr("COMBAT_REPORTS_FETCHING" if pending > 0 else "COMBAT_REPORTS_EMPTY")
+			)
 		)
-		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_list.add_child(empty)
 	var ids: Array = _combats.map(func(c): return c["id"])
 	open(_selected_id if ids.has(_selected_id) else (ids[0] if not ids.is_empty() else -1))
 
@@ -119,6 +125,11 @@ func _build() -> void:
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	columns.add_theme_constant_override("separation", FOUi.tokens.space_6)
 	box.add_child(columns)
+	_columns = columns
+	_empty = VBoxContainer.new()
+	_empty.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_empty.visible = false
+	box.add_child(_empty)
 	_list = ScreenKit.list()
 	var list_scroll := ScreenKit.scrolling(_list)
 	list_scroll.custom_minimum_size.x = 300

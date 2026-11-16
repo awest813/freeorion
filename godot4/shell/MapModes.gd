@@ -356,7 +356,7 @@ func set_map_mode(mode: String) -> void:
 	map.mode_values = mode_data_provider.call(map.map_mode)
 	_shell.map_mode_picker.select(GalaxyMap.MODES.find(map.map_mode))
 	_shell.map_mode_picker.tooltip_text = (tr("MAP_MODE_TIP_" + map.map_mode.to_upper()).replace(
-		"%1%", FOHotkeys.binding("map_mode")
+		"%1%", FOHotkeys.shown("map_mode")
 	))
 	var options := Engine.get_singleton("FOOptions") if _shell.follow_game else null
 	if options:

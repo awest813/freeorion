@@ -174,7 +174,7 @@ func _show_next() -> void:
 		_anchor = next[1] if is_instance_valid(next[1]) else null
 		# %1% is the key of the hotkey a hint mentions (it can be rebound).
 		_text.text = tr(HINTS[current]).replace(
-			"%1%", FOHotkeys.binding(HINT_HOTKEYS.get(current, ""))
+			"%1%", FOHotkeys.shown(HINT_HOTKEYS.get(current, ""))
 		)
 		_card.size = Vector2(WIDTH, 0)
 		_card.visible = true
