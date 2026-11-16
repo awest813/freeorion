@@ -92,3 +92,13 @@ The same per-control checks ran on each.
 
 - The research timeline's turns need not rise down the queue: a later tech can finish first when it gets more points (45, 44, 48). The marks show the real turns.
 - Combat reports aren't kept in saves, so the combat screen wasn't seen with late-game data. Its golden covers a report with both sides.
+
+# Menus
+
+| Where | Before | Now |
+|-------|--------|-----|
+| Options | The right side was every engine option in one list: thread counts, log levels, ports and paths next to autosaves and scouts. | Three pages. **Gameplay** (first) has what players change, in plain words and groups: the end-of-turn check, scouts exploring, new fleets' stance (as a list, not a text field), designs in new games, autosaves. **Keyboard shortcuts** as before. **Advanced** has everything else, with a note that most players never need it. Glass panels and empire colours moved to the Interface switches on the left. |
+| Options | Changing the new fleets' stance in Options took effect only in the next game. | Splitting fleets reads the setting each time. |
+| Game menu | Quitting warned that progress since the last save is lost, without saying when that was. | The confirmation says when the game was last saved ("Last autosaved on turn 40, 2026-11-16 12:25") or that it never was. |
+| Title | Entries had no explanation ("Quick start" does what?). | The entry pointed at or focused is explained under the menu. |
+| Load | With no saves, a grey line at the top of an empty list. | The empty state, centred. |

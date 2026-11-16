@@ -71,7 +71,7 @@ func refresh() -> void:
 	for save: Dictionary in _saves:
 		_list.add_child(_save_card(save))
 	if _saves.is_empty():
-		_list.add_child(ScreenKit.label(tr("SAVES_EMPTY"), "SecondaryLabel"))
+		_list.add_child(ScreenKit.empty_state("", tr("SAVES_EMPTY")))
 	_update_action()
 
 

@@ -30,6 +30,7 @@ var _continue_detail: Label
 var _spinner: FOSpinner
 var _tip: Label
 var _new_game: Button
+var _hint: Label
 ## What hides while another menu screen shows over the splash.
 var _chrome: Array[Control] = []
 
@@ -169,6 +170,15 @@ func _build() -> void:
 	_menu = VBoxContainer.new()
 	_menu.add_theme_constant_override("separation", FOUi.tokens.space_1)
 	panel_box.add_child(_menu)
+	# The pointed-at entry's description (two lines' room, so the menu
+	# doesn't move).
+	_hint = ScreenKit.label("", "SmallLabel")
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint.custom_minimum_size.y = FOUi.tokens.font_size_small * 3
+	var hint_indent := MarginContainer.new()
+	hint_indent.add_theme_constant_override("margin_left", FOUi.tokens.space_4)
+	hint_indent.add_theme_constant_override("margin_right", FOUi.tokens.space_4)
+	hint_indent.add_child(_hint)
 	_spinner = FOSpinner.new(FOUi.tokens.icon_large)
 	_spinner.visible = false
 	panel_box.add_child(_spinner)
@@ -204,6 +214,7 @@ func _build() -> void:
 	_menu_button("OPTIONS_TITLE", options_requested)
 	_menu_button("TITLE_ABOUT", credits_requested)
 	_menu_button("TITLE_EXIT", exit_requested)
+	_menu.add_child(hint_indent)
 	new_game.call_deferred("grab_focus")
 
 	var version := ScreenKit.label("", "SmallLabel")
@@ -236,6 +247,10 @@ func _menu_button(key: String, pressed: Signal, variation := "MenuItem") -> Butt
 	button.theme_type_variation = variation
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.pressed.connect(func(): pressed.emit())
+	# What it does, under the menu, while pointed at or focused.
+	var explain := func(): _hint.text = tr(key + "_HINT")
+	button.focus_entered.connect(explain)
+	button.mouse_entered.connect(explain)
 	_menu.add_child(button)
 	return button
 

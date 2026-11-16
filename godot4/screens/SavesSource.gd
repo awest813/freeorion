@@ -42,3 +42,14 @@ func load_game(path: String) -> bool:
 
 func delete_save(path: String) -> bool:
 	return FOSaves.delete_save(path)
+
+
+## The newest of \a saves (list_saves()'s) made by \a empire_name, or {}.
+static func newest_for(saves: Array, empire_name: String) -> Dictionary:
+	var newest := {}
+	for save: Dictionary in saves:
+		if save.get("empire", "") != empire_name:
+			continue
+		if newest.is_empty() or str(save.get("time", "")) > str(newest.get("time", "")):
+			newest = save
+	return newest

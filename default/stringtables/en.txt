@@ -1950,6 +1950,96 @@ Volume
 OPTIONS_SAVE_DESC
 Changes apply at once; Save keeps them for the next start.
 
+OPTIONS_PAGE_GAMEPLAY
+Gameplay
+
+OPTIONS_PAGE_ADVANCED
+Advanced
+
+OPTIONS_ADVANCED_NOTE
+Settings for testing, troubleshooting and servers; most players never need them. Point at a name to see it as the config file writes it.
+
+OPTIONS_HINTS
+Hints
+
+OPTIONS_GLASS
+Glass panels
+
+OPTIONS_GLASS_DESC
+See-through panels that show the galaxy behind them, blurred. Off: solid panels.
+
+OPTIONS_EMPIRE_ACCENT
+Empire colours
+
+OPTIONS_EMPIRE_ACCENT_DESC
+In a game, colour buttons and highlights in your empire's colour.
+
+OPTIONS_GROUP_TURNS
+Turns
+
+OPTIONS_GROUP_FLEETS
+Fleets
+
+OPTIONS_GROUP_NEW_GAMES
+New games
+
+OPTIONS_GROUP_AUTOSAVE
+Autosaves
+
+OPTIONS_GAME_READINESS
+Check before ending a turn
+
+OPTIONS_GAME_READINESS_DESC
+Before a turn ends, point out unspent points and ships still waiting for orders.
+
+OPTIONS_GAME_SCOUTS
+Scouts explore on their own
+
+OPTIONS_GAME_SCOUTS_DESC
+Your starting scouts, and scouts as they are built, go exploring without orders.
+
+OPTIONS_GAME_NEW_FLEET_STANCE
+Stance of new fleets
+
+OPTIONS_GAME_NEW_FLEET_STANCE_DESC
+The stance a fleet gets when you split ships off into it.
+
+OPTIONS_GAME_SAVED_DESIGNS
+Bring my saved designs
+
+OPTIONS_GAME_SAVED_DESIGNS_DESC
+Start new games with the ship designs you have saved.
+
+OPTIONS_GAME_PREMADE_DESIGNS
+Include the premade designs
+
+OPTIONS_GAME_PREMADE_DESIGNS_DESC
+Start new games with the game's ready-made ship designs.
+
+OPTIONS_GAME_AUTOSAVE_TURN
+Autosave as turns start
+
+OPTIONS_GAME_AUTOSAVE_TURN_DESC
+Save the game at the start of a turn (single player).
+
+OPTIONS_GAME_AUTOSAVE_EVERY
+Turns between autosaves
+
+OPTIONS_GAME_AUTOSAVE_EVERY_DESC
+1 saves every turn.
+
+OPTIONS_GAME_AUTOSAVE_KEEP
+Autosaves to keep
+
+OPTIONS_GAME_AUTOSAVE_KEEP_DESC
+Older autosaves are deleted beyond this many.
+
+OPTIONS_GAME_AUTOSAVE_EXIT
+Autosave when quitting
+
+OPTIONS_GAME_AUTOSAVE_EXIT_DESC
+Save the game when you leave it or close the window.
+
 OPTIONS_ALL
 All options
 
@@ -2207,6 +2297,33 @@ Close
 
 TITLE_NEW_GAME
 New game
+
+INTRO_BTN_CONTINUE_HINT
+Pick up your latest game where you left it.
+
+TITLE_NEW_GAME_HINT
+Choose your empire and shape a galaxy, then play.
+
+TITLE_QUICK_START_HINT
+Start at once in a new galaxy, with the settings you used last.
+
+INTRO_BTN_MULTI_PLAYER_HINT
+Host a game or join one over the network.
+
+GAME_MENU_LOAD_HINT
+Open a saved game.
+
+MAP_BTN_PEDIA_HINT
+Read about species, technologies, buildings, ships and how the game works.
+
+OPTIONS_TITLE_HINT
+Interface, sound, gameplay and keyboard settings.
+
+TITLE_ABOUT_HINT
+Who made FreeOrion, its vision and licence.
+
+TITLE_EXIT_HINT
+Close FreeOrion.
 
 TITLE_QUICK_START
 Quick start
@@ -5204,6 +5321,15 @@ SAVE_DISABLED_BROWSE_TEXT
 
 GAME_MENU_REALLY_CONCEDE
 Confirm conceding? This empire will be removed from the game.
+
+GAME_MENU_LAST_SAVED
+Last saved on turn %1%, %2%.
+
+GAME_MENU_LAST_SAVED_AUTO
+Last autosaved on turn %1%, %2%.
+
+GAME_MENU_NEVER_SAVED
+This game hasn't been saved yet.
 
 GAME_MENU_CONFIRM_NOT_READY
 Confirm quit? Orders not finalized.

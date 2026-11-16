@@ -25,7 +25,7 @@ func on_fleet_aggression(fleet_id: int, aggression: String) -> void:
 
 
 func on_fleet_split(ship_ids: PackedInt32Array) -> void:
-	var new_fleet := FOOrders.split_ships(ship_ids, _shell.fleet_panel.new_fleet_stance)
+	var new_fleet := FOOrders.split_ships(ship_ids, new_fleet_stance())
 	_shell.refresh_fleet_views(new_fleet if new_fleet >= 0 else _shell.fleet_panel.fleet_id)
 	if new_fleet < 0:
 		refused("ORDER_REFUSED_SPLIT")
@@ -42,7 +42,7 @@ func on_fleet_split_groups(groups: Array) -> void:
 	var source := _shell.fleet_panel.fleet_id
 	for ship_ids: PackedInt32Array in groups:
 		if not ship_ids.is_empty():
-			FOOrders.split_ships(ship_ids, _shell.fleet_panel.new_fleet_stance)
+			FOOrders.split_ships(ship_ids, new_fleet_stance())
 	_shell.refresh_fleet_views(source)
 
 
@@ -57,6 +57,16 @@ func on_fleet_merge_all(fleet_id: int) -> void:
 		if other and other_id != fleet_id and other.get_owner_id() == fleet.get_owner_id():
 			FOOrders.merge_ships(fleet_id, other.get_ship_ids())
 	_shell.refresh_fleet_views(fleet_id)
+
+
+## The stance new fleets get: as last set, in the fleet menu or Options.
+func new_fleet_stance() -> String:
+	var options := Engine.get_singleton("FOOptions") if _shell.follow_game else null
+	if options and options.exists(GameShell.OPTION_NEW_FLEET_STANCE):
+		_shell.fleet_panel.new_fleet_stance = str(
+			options.get_value(GameShell.OPTION_NEW_FLEET_STANCE)
+		)
+	return _shell.fleet_panel.new_fleet_stance
 
 
 func on_new_fleet_stance(stance: String) -> void:

@@ -499,26 +499,23 @@ func _report_view() -> void:
 
 ## Open the in-game menu over the map (and any open screen).
 func open_menu() -> void:
-	var subtitle := ""
-	if follow_game and is_instance_valid(GlobalFreeOrionNode):
-		subtitle = (
-			"%s  ·  %s"
-			% [
-				FOUniverse.get_empire_name(FOUniverse.get_empire_id()),
-				tr("MAP_BTN_TURN_UPDATE").replace(
-					"%1%", str(GlobalFreeOrionNode.get_current_turn())
-				),
-			]
-		)
-	var is_multiplayer: bool = (
-		follow_game
-		and is_instance_valid(GlobalFreeOrionNode)
-		and not GlobalFreeOrionNode.get_single_player_game()
+	var empire: String = (
+		FOUniverse.get_empire_name(FOUniverse.get_empire_id()) if follow_game else ""
 	)
+	var turn: int = GlobalFreeOrionNode.get_current_turn() if follow_game else 0
+	var is_multiplayer: bool = follow_game and not GlobalFreeOrionNode.get_single_player_game()
+	game_menu.last_save = func() -> Dictionary:
+		return (
+			SavesSource.newest_for(save_screen.source.list_saves(), empire) if follow_game else {}
+		)
 	game_menu.save_check = func() -> bool:
 		return not top_bar.is_waiting() and (not follow_game or FOSaves.can_save())
 	game_menu.open(
-		subtitle,
+		(
+			"%s  ·  %s" % [empire, tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(turn))]
+			if follow_game
+			else ""
+		),
 		game_menu.save_check.call(),
 		is_multiplayer,
 		is_multiplayer and FOMultiplayer.can_concede()

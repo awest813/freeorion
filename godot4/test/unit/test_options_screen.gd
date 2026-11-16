@@ -34,7 +34,7 @@ func test_interface_controls_apply():
 
 
 func test_list_and_search():
-	assert_eq(_row_names().size(), 3, "Interface options are not repeated")
+	assert_eq(_row_names().size(), 2, "Interface and gameplay options are not repeated")
 	screen._search.text = "detection"
 	screen._search.text_changed.emit("detection")
 	await wait_process_frames(1)
@@ -92,7 +92,7 @@ func _row_names() -> Array:
 
 
 func _row(option: String) -> Node:
-	for row in screen._list.get_children():
+	for row in screen._list.get_children() + screen._gameplay_list.get_children():
 		var labels := row.find_children("*", "Label", true, false)
 		if labels.size() > 0 and labels[0].tooltip_text == option:
 			return row
@@ -111,3 +111,17 @@ func test_launch_flags_and_other_screens_options_hidden():
 	for option in ["continue", "load", "quickstart", "setup.rules.RULE_X", "ui.map.minimap.shown"]:
 		assert_true(OptionsScreen._is_hidden(option), option)
 	assert_false(OptionsScreen._is_hidden("save.format.binary"))
+
+
+func test_pages_gameplay_first_and_advanced_apart():
+	assert_true(screen._gameplay.visible, "Gameplay shows first")
+	assert_false(screen._all_options.visible)
+	var gameplay := _row("save.auto.file.limit")
+	assert_not_null(gameplay, "the autosave limit is a gameplay option")
+	assert_eq(gameplay.get_parent(), screen._gameplay_list)
+	var title: Label = gameplay.find_children("*", "Label", true, false)[0]
+	assert_eq(title.text, tr("OPTIONS_GAME_AUTOSAVE_KEEP"), "in plain words")
+	screen.show_page(OptionsScreen.Page.ADVANCED)
+	assert_true(screen._all_options.visible)
+	assert_false(screen._gameplay.visible)
+	assert_eq(screen._right_tabs.current_tab, OptionsScreen.Page.ADVANCED)

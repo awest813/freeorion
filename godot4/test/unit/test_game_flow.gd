@@ -328,3 +328,13 @@ func test_important_events_become_cards():
 	cards.show_turn([])
 	await get_tree().process_frame
 	assert_eq(cards.get_child_count(), 0, "a new turn clears them")
+
+
+func test_title_menu_explains_the_pointed_entry():
+	var title := TitleScreen.new()
+	add_child_autofree(title)
+	title.set_content_ready(true)
+	title._new_game.mouse_entered.emit()
+	assert_eq(title._hint.text, tr("TITLE_NEW_GAME_HINT"))
+	title._continue.focus_entered.emit()
+	assert_eq(title._hint.text, tr("INTRO_BTN_CONTINUE_HINT"))

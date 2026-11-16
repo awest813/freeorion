@@ -25,6 +25,9 @@ var pending_leave := ""
 ## Whether saving is possible now: () -> bool, asked again while the menu is
 ## open (the AI players may still be finishing their turn when it opens).
 var save_check := Callable()
+## The game's newest save, for the leave confirmation: () -> Dictionary
+## ({turn, time, auto}, or {} when it was never saved). Unset: not shown.
+var last_save := Callable()
 
 var _subtitle: Label
 var _entries: VBoxContainer
@@ -35,6 +38,7 @@ var _save: Button
 var _load: Button
 var _concede: Button
 var _warning: Label
+var _saved_note: Label
 
 
 func _init() -> void:
@@ -105,6 +109,9 @@ func request_leave(action: String) -> void:
 	_entries.visible = false
 	_confirm.visible = true
 	_warning.text = tr("GAME_MENU_REALLY_CONCEDE" if action == "concede" else "MENU_CONFIRM_LEAVE")
+	# What leaving would lose: since when the game was last saved.
+	_saved_note.text = saved_note(last_save.call()) if last_save.is_valid() else ""
+	_saved_note.visible = action != "concede" and not _saved_note.text.is_empty()
 	match action:
 		"title":
 			_confirm_button.text = tr("MENU_QUIT_TO_TITLE")
@@ -113,6 +120,22 @@ func request_leave(action: String) -> void:
 		_:
 			_confirm_button.text = tr("TITLE_EXIT")
 	_confirm_button.call_deferred("grab_focus")
+
+
+## When \a save (SavesSource.newest_for()'s) was made: "Last saved on turn
+## 40 (autosave), 2026-11-16 12:25", or that the game has no save yet.
+static func saved_note(save: Dictionary) -> String:
+	if save.is_empty():
+		return TranslationServer.translate("GAME_MENU_NEVER_SAVED")
+	var note := (
+		TranslationServer
+		. translate(
+			"GAME_MENU_LAST_SAVED_AUTO" if save.get("auto", false) else "GAME_MENU_LAST_SAVED"
+		)
+		. replace("%1%", str(save.get("turn", 0)))
+		. replace("%2%", SaveLoadScreen.format_time(str(save.get("time", ""))))
+	)
+	return note
 
 
 func cancel_leave() -> void:
@@ -176,6 +199,9 @@ func _build() -> void:
 	_warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_warning.custom_minimum_size.x = 280
 	_confirm.add_child(_warning)
+	_saved_note = ScreenKit.label("", "SecondaryLabel")
+	_saved_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_confirm.add_child(_saved_note)
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	_confirm.add_child(buttons)

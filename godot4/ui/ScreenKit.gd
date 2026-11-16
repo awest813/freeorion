@@ -70,8 +70,8 @@ static func card(row: Control, band: Color) -> void:
 	row.queue_redraw()
 
 
-## An empty view: \a art_path's picture, faded, over \a text, centred
-## in the space it is given.
+## An empty view: \a art_path's picture (if any), faded, over \a text,
+## centred in the space it is given.
 static func empty_state(art_path: String, text: String) -> Control:
 	var tokens: FOTokens = FOUi.tokens
 	var box := VBoxContainer.new()
@@ -82,6 +82,7 @@ static func empty_state(art_path: String, text: String) -> Control:
 	var art := icon(art_path, tokens.icon_large)
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	art.modulate = Color(1, 1, 1, 0.35)
+	art.visible = art.texture != null  # no picture: the line alone
 	box.add_child(art)
 	var message := label(text, "SecondaryLabel")
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

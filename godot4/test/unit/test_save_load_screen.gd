@@ -70,7 +70,8 @@ func test_no_saves():
 	add_child_autofree(screen)
 	screen.refresh()
 	await wait_process_frames(1)
-	assert_eq(screen._list.get_child(0).text, tr("SAVES_EMPTY"))
+	var empty: Label = screen._list.get_child(0).find_children("*", "Label", true, false)[0]
+	assert_eq(empty.text, tr("SAVES_EMPTY"))
 
 
 func test_format_time():

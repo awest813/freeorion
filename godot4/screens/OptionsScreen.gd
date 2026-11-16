@@ -1,11 +1,15 @@
 class_name OptionsScreen
 extends PanelContainer
-## Options: the client's interface settings (UI scale, theme, reduced
-## motion) as proper controls that apply at once, and every other option as
-## a searchable list with a typed editor, validation feedback and reset.
+## Options: the interface and sound on the left, as proper controls that
+## apply at once; on the right, the options players change (Gameplay) in
+## plain words, keyboard shortcuts, and every other option (Advanced) as a
+## searchable list with a typed editor, validation feedback and reset.
 ## Save writes them to config.xml; changes apply immediately either way.
 
 signal close_requested
+
+## The pages on the right.
+enum Page { GAMEPLAY, HOTKEYS, ADVANCED }
 
 const SCALE_STEPS := [0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
 const THEMES := ["default", "high_contrast"]
@@ -43,6 +47,37 @@ const HIDDEN_PREFIXES := [
 	"setup.",
 	"ui.map.",
 ]
+## The options players change, on the Gameplay page, in groups: the
+## group's caption key, then [option, key]: the key names it and key +
+## "_DESC" says what it does. Everything else is under Advanced.
+const GAMEPLAY := [
+	["OPTIONS_GROUP_TURNS", [["ui.turn.readiness.check", "OPTIONS_GAME_READINESS"]]],
+	[
+		"OPTIONS_GROUP_FLEETS",
+		[
+			["ui.fleet.explore.scouts", "OPTIONS_GAME_SCOUTS"],
+			["ui.fleet.new.aggression", "OPTIONS_GAME_NEW_FLEET_STANCE"],
+		]
+	],
+	[
+		"OPTIONS_GROUP_NEW_GAMES",
+		[
+			["resource.shipdesign.saved.enabled", "OPTIONS_GAME_SAVED_DESIGNS"],
+			["resource.shipdesign.default.enabled", "OPTIONS_GAME_PREMADE_DESIGNS"],
+		]
+	],
+	[
+		"OPTIONS_GROUP_AUTOSAVE",
+		[
+			["save.auto.turn.start.enabled", "OPTIONS_GAME_AUTOSAVE_TURN"],
+			["save.auto.turn.interval", "OPTIONS_GAME_AUTOSAVE_EVERY"],
+			["save.auto.file.limit", "OPTIONS_GAME_AUTOSAVE_KEEP"],
+			["save.auto.exit.enabled", "OPTIONS_GAME_AUTOSAVE_EXIT"],
+		]
+	],
+]
+## Look switches under Interface: option, label key.
+const LOOK := [["ui.glass", "OPTIONS_GLASS"], ["ui.accent.empire", "OPTIONS_EMPIRE_ACCENT"]]
 ## Words written in capitals in option titles.
 const ACRONYMS := ["ui", "ai", "fps", "id", "xml", "gl", "uri", "ip", "mp"]
 ## Sound controls: on/off option, volume option, label key.
@@ -64,6 +99,9 @@ var _audio: Array = []
 var _search: LineEdit
 var _list: VBoxContainer
 var _right_tabs: TabBar
+var _gameplay: Control
+var _gameplay_list: VBoxContainer
+var _look: Array[CheckButton] = []
 var _all_options: Control
 var _hotkeys: Control
 var _hotkey_list: VBoxContainer
@@ -137,8 +175,14 @@ func refresh() -> void:
 			_audio[i][0].set_pressed_no_signal(bool(source.get_value(AUDIO[i][0])))
 			_audio[i][1].set_value_no_signal(float(source.get_value(AUDIO[i][1])))
 			_audio[i][1].editable = _audio[i][0].button_pressed
+	for i in LOOK.size():
+		_look[i].visible = source.exists(LOOK[i][0])
+		_look[i].get_parent().get_child(_look[i].get_index() - 1).visible = _look[i].visible
+		if _look[i].visible:
+			_look[i].set_pressed_no_signal(bool(source.get_value(LOOK[i][0])))
 	_status.text = ""
 	_capturing = ""
+	_refresh_gameplay()
 	_refresh_list()
 	_refresh_hotkeys()
 
@@ -191,7 +235,15 @@ func _build() -> void:
 	_fullscreen.toggled.connect(func(on): FOWindow.set_fullscreen(on, source))
 	grid.add_child(_fullscreen)
 
-	grid.add_child(ScreenKit.label(tr("HINT_TITLE"), "SecondaryLabel"))
+	for entry in LOOK:
+		grid.add_child(ScreenKit.label(tr(entry[1]), "SecondaryLabel"))
+		var look := CheckButton.new()
+		look.tooltip_text = tr(entry[1] + "_DESC")
+		look.toggled.connect(func(on): _apply(entry[0], on))
+		grid.add_child(look)
+		_look.push_back(look)
+
+	grid.add_child(ScreenKit.label(tr("OPTIONS_HINTS"), "SecondaryLabel"))
 	var hints := Button.new()
 	hints.text = tr("HINT_RESET")
 	hints.pressed.connect(reset_hints)
@@ -236,24 +288,25 @@ func _build() -> void:
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(right)
 	_right_tabs = TabBar.new()
-	_right_tabs.add_tab(tr("OPTIONS_ALL"))
-	_right_tabs.add_tab(tr("OPTIONS_PAGE_HOTKEYS"))
+	for key in ["OPTIONS_PAGE_GAMEPLAY", "OPTIONS_PAGE_HOTKEYS", "OPTIONS_PAGE_ADVANCED"]:
+		_right_tabs.add_tab(tr(key))
 	right.add_child(_right_tabs)
-	var all := VBoxContainer.new()
-	all.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right.add_child(all)
-	_all_options = all
+	_gameplay_list = ScreenKit.list()
+	_gameplay = ScreenKit.scrolling(_gameplay_list)
+	right.add_child(_gameplay)
 	_hotkey_list = ScreenKit.list()
 	_hotkeys = ScreenKit.scrolling(_hotkey_list)
 	_hotkeys.visible = false
 	right.add_child(_hotkeys)
-	_right_tabs.tab_changed.connect(
-		func(tab: int):
-			_all_options.visible = tab == 0
-			_hotkeys.visible = tab == 1
-			_capturing = ""
-			_refresh_hotkeys()
-	)
+	var all := VBoxContainer.new()
+	all.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	all.visible = false
+	right.add_child(all)
+	_all_options = all
+	_right_tabs.tab_changed.connect(show_page)
+	var note := ScreenKit.label(tr("OPTIONS_ADVANCED_NOTE"), "SecondaryLabel")
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	all.add_child(note)
 	_search = LineEdit.new()
 	_search.placeholder_text = tr("OPTIONS_SEARCH")
 	_search.clear_button_enabled = true
@@ -261,6 +314,31 @@ func _build() -> void:
 	all.add_child(_search)
 	_list = ScreenKit.list()
 	all.add_child(ScreenKit.scrolling(_list))
+
+
+## Show \a page (a Page) on the right.
+func show_page(page: int) -> void:
+	if _right_tabs.current_tab != page:
+		_right_tabs.current_tab = page  # calls back here
+		return
+	_gameplay.visible = page == Page.GAMEPLAY
+	_hotkeys.visible = page == Page.HOTKEYS
+	_all_options.visible = page == Page.ADVANCED
+	_capturing = ""
+	_refresh_hotkeys()
+
+
+# The Gameplay page: GAMEPLAY's options that exist (some only in a game),
+# under their group captions, in plain words.
+func _refresh_gameplay() -> void:
+	ScreenKit.clear(_gameplay_list)
+	for group: Array in GAMEPLAY:
+		var rows: Array = group[1].filter(func(entry): return source.exists(entry[0]))
+		if rows.is_empty():
+			continue
+		_gameplay_list.add_child(ScreenKit.section(tr(group[0])))
+		for entry: Array in rows:
+			_gameplay_list.add_child(_option_row(entry[0], tr(entry[1] + "_DESC"), tr(entry[1])))
 
 
 # One row per shortcut: what it does, its key (click to change), reset to
@@ -375,13 +453,13 @@ static func _readable(words: String) -> String:
 	return text.left(1).to_upper() + text.substr(1)
 
 
-func _option_row(option: String, description: String) -> Control:
+func _option_row(option: String, description: String, title_text := "") -> Control:
 	var row := HBoxContainer.new()
 	var text := VBoxContainer.new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_constant_override("separation", 0)
 	row.add_child(text)
-	var title := ScreenKit.label(option_title(option))
+	var title := ScreenKit.label(title_text if not title_text.is_empty() else option_title(option))
 	# The option's own name, as the command line and config file know it.
 	title.tooltip_text = option
 	title.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -402,6 +480,8 @@ func _option_row(option: String, description: String) -> Control:
 # Editor matching the option's type; invalid values revert and show why.
 func _editor(option: String) -> Control:
 	var value: Variant = source.get_value(option)
+	if option == GameShell.OPTION_NEW_FLEET_STANCE:
+		return _stance_editor(option, str(value))
 	match typeof(value):
 		TYPE_BOOL:
 			var check := CheckBox.new()
@@ -425,6 +505,17 @@ func _editor(option: String) -> Control:
 			edit.custom_minimum_size.x = 200
 			edit.text_submitted.connect(func(t): _apply(option, t, edit))
 			return edit
+
+
+# The new fleets' stance, by name (the fleet menu offers the same).
+func _stance_editor(option: String, value: String) -> OptionButton:
+	var pick := OptionButton.new()
+	for stance: String in FleetPanel.NEW_FLEET_STANCES:
+		pick.add_item(tr("FW_AUTO") if stance == "auto" else tr("FW_" + stance.to_upper()))
+		if stance == value:
+			pick.select(pick.item_count - 1)
+	pick.item_selected.connect(func(i): _apply(option, FleetPanel.NEW_FLEET_STANCES[i]))
+	return pick
 
 
 func _apply(option: String, value: Variant, editor: Control = null) -> void:
@@ -484,8 +575,16 @@ func _scale_index(setting: String) -> int:
 	return 0
 
 
+# Not under Advanced: internal, edited elsewhere, or on another page.
 static func _is_hidden(option: String) -> bool:
 	for prefix in HIDDEN_PREFIXES:
 		if option.begins_with(prefix):
 			return true
+	for entry: Array in LOOK:
+		if entry[0] == option:
+			return true
+	for group: Array in GAMEPLAY:
+		for entry: Array in group[1]:
+			if entry[0] == option:
+				return true
 	return false

@@ -103,3 +103,25 @@ func test_shell_menu_load_leaves_with_the_save():
 		shell, "leave_requested", ["load", "/saves/Terran_Imperium_turn_42.sav"]
 	)
 	assert_eq(shell.load_screen.source.calls, [], "The shell loads only after leaving")
+
+
+func test_leaving_says_when_the_game_was_last_saved():
+	var saves := [
+		{"empire": "Terran Imperium", "turn": 38, "time": "2026-11-16T12:20:00", "auto": true},
+		{"empire": "Terran Imperium", "turn": 40, "time": "2026-11-16T12:25:00", "auto": false},
+		{"empire": "Someone Else", "turn": 99, "time": "2026-11-16T13:00:00", "auto": false},
+	]
+	var newest := SavesSource.newest_for(saves, "Terran Imperium")
+	assert_eq(newest["turn"], 40, "the newest save of this empire")
+	assert_eq(
+		GameMenu.saved_note(newest),
+		tr("GAME_MENU_LAST_SAVED").replace("%1%", "40").replace("%2%", "2026-11-16 12:25")
+	)
+	assert_eq(GameMenu.saved_note({}), tr("GAME_MENU_NEVER_SAVED"))
+	var menu := GameMenu.new()
+	add_child_autofree(menu)
+	menu.last_save = func(): return newest
+	menu.open("Terran Imperium · Turn 40")
+	menu.request_leave("title")
+	assert_true(menu._saved_note.visible)
+	assert_string_contains(menu._saved_note.text, "40")
