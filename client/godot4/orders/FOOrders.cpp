@@ -19,6 +19,8 @@ void FOOrders::_bind_methods() {
     const auto cls = get_class_static();
     ClassDB::bind_static_method(cls, D_METHOD("issue_fleet_move", "fleet_id", "dest_system_id", "append"),
                                 &FOOrders::issue_fleet_move, DEFVAL(false));
+    ClassDB::bind_static_method(cls, D_METHOD("move_problem", "fleet_id", "dest_system_id", "append"),
+                                &FOOrders::move_problem, DEFVAL(false));
     ClassDB::bind_static_method(cls, D_METHOD("rescind_order", "order_id"), &FOOrders::rescind_order);
     ClassDB::bind_static_method(cls, D_METHOD("get_order_count"), &FOOrders::get_order_count);
     ClassDB::bind_static_method(cls, D_METHOD("revert_all"), &FOOrders::revert_all);
@@ -42,6 +44,10 @@ int FOOrders::issue_fleet_move(int fleet_id, int dest_system_id, bool append) {
     const int empire_id = app->EmpireID();
     if (!FleetMoveOrder::Check(empire_id, fleet_id, dest_system_id, append, context))
         return -1;
+    // An order with no way there would leave the fleet where it is, silently.
+    const auto problem = move_problem(fleet_id, dest_system_id, append);
+    if (!problem.is_empty() && problem != "MOVE_PROBLEM_FUEL")
+        return -1;
 
     const auto order = app->Orders().IssueOrder<FleetMoveOrder>(context, empire_id, fleet_id, dest_system_id, append);
     for (const auto& [order_id, issued] : app->Orders()) {
@@ -50,6 +56,38 @@ int FOOrders::issue_fleet_move(int fleet_id, int dest_system_id, bool append) {
     }
     ErrorLogger() << "FOOrders::issue_fleet_move: issued order not found in order set";
     return -1;
+}
+
+godot::String FOOrders::move_problem(int fleet_id, int dest_system_id, bool append) {
+    auto* app = ClientApp::GetApp();
+    if (!app)
+        return "MOVE_PROBLEM_UNKNOWN";
+    const auto& context = app->GetContext();
+    const auto& objects = context.ContextObjects();
+    const auto* fleet = objects.getRaw<Fleet>(fleet_id);
+    if (!fleet || !fleet->OwnedBy(app->EmpireID()) || !objects.getRaw<System>(dest_system_id))
+        return "MOVE_PROBLEM_UNKNOWN";
+    int start = fleet->SystemID();
+    if (start == INVALID_OBJECT_ID)
+        start = fleet->NextSystemID();
+    if (append && !fleet->TravelRoute().empty())
+        start = fleet->TravelRoute().back();
+    if (start == dest_system_id)
+        return "";
+    if (fleet->Speed(objects) <= 0.0f)
+        return "MOVE_PROBLEM_IMMOBILE";
+    auto path = context.ContextUniverse().GetPathfinder().ShortestPath(
+        start, dest_system_id, app->EmpireID()).first;
+    if (path.empty())
+        return "MOVE_PROBLEM_NO_ROUTE";
+    if (append && !fleet->TravelRoute().empty()) {
+        // The fuel check covers the whole route: the current one, then this.
+        std::vector<int> whole(fleet->TravelRoute().begin(), fleet->TravelRoute().end());
+        whole.insert(whole.end(), path.begin() + 1, path.end());
+        path = std::move(whole);
+    }
+    const auto eta = fleet->ETA(fleet->MovePath(path, false, context)).first;
+    return eta == Fleet::ETA_OUT_OF_RANGE ? "MOVE_PROBLEM_FUEL" : "";
 }
 
 bool FOOrders::rescind_order(int order_id) {

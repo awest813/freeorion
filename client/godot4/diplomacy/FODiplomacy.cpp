@@ -1,9 +1,12 @@
 #include "FODiplomacy.h"
 
+#include <cmath>
+
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/packed_string_array.hpp>
 
 #include "../../ClientApp.h"
+#include "../../../universe/Fleet.h"
 #include "../../ClientNetworking.h"
 #include "../../../Empire/Diplomacy.h"
 #include "../../../Empire/Empire.h"
@@ -79,6 +82,48 @@ void FODiplomacy::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("act", "empire_id", "action"), &FODiplomacy::act);
 }
 
+namespace {
+    // Where empire \a id can be found on the map, as far as \a self knows:
+    // its capital, else its known planet nearest our capital, else a fleet
+    // of it seen; the system and "capital", "planet" or "fleet" ({-1, ""}
+    // when nothing of it is known).
+    template <typename IdSet>
+    std::pair<int, godot::String> KnownLocation(const ScriptingContext& context, int id, int self,
+                                                const IdSet& destroyed, const IdSet& stale)
+    {
+        const auto& objects = context.ContextObjects();
+        const auto known = [&](const UniverseObject* object) {
+            return object && object->Owner() == id && object->SystemID() != INVALID_OBJECT_ID &&
+                   !destroyed.contains(object->ID()) && !stale.contains(object->ID());
+        };
+        if (id == self)
+            return {INVALID_OBJECT_ID, godot::String()};
+        const auto* empire = context.GetEmpire(id).get();
+        const auto* capital = empire ? objects.getRaw<Planet>(empire->CapitalID()) : nullptr;
+        if (known(capital))
+            return {capital->SystemID(), "capital"};
+        const auto* own = context.GetEmpire(self).get();
+        const auto* home = own ? objects.getRaw<Planet>(own->CapitalID()) : nullptr;
+        const Planet* nearest = nullptr;
+        double best = 0.0;
+        for (const auto* planet : objects.allRaw<Planet>()) {
+            if (!known(planet))
+                continue;
+            const double d = home ? std::hypot(planet->X() - home->X(), planet->Y() - home->Y()) : 0.0;
+            if (!nearest || d < best) {
+                nearest = planet;
+                best = d;
+            }
+        }
+        if (nearest)
+            return {nearest->SystemID(), "planet"};
+        for (const auto* fleet : objects.allRaw<Fleet>())
+            if (known(fleet))
+                return {fleet->SystemID(), "fleet"};
+        return {INVALID_OBJECT_ID, godot::String()};
+    }
+}
+
 godot::Array FODiplomacy::get_empires() {
     godot::Array result;
     auto* app = ClientApp::GetApp();
@@ -144,6 +189,9 @@ godot::Array FODiplomacy::get_empires() {
         }
         entry["ships"] = ships;
         entry["planets"] = planets;
+        const auto [where, how] = KnownLocation(context, id, self, destroyed, stale);
+        entry["known_system_id"] = where;
+        entry["known_by"] = how;
         entry["industry"] = industry;
         entry["research"] = research;
         entry["influence"] = influence;

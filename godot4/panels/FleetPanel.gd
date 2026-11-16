@@ -82,6 +82,8 @@ const STANCE_MENU_BASE := 100
 var fleet_id := -1
 ## The stance fleets split off this one get ("auto" or a stance).
 var new_fleet_stance := "auto"
+## Where the fleet's colony ships could settle (send_requested moves it).
+var settle_targets := SettleTargets.new()
 ## Empires at peace the fleet can be given to: FOOrders.get_give_targets().
 var give_targets_provider := func(id: int) -> Dictionary: return FOOrders.get_give_targets(id)
 
@@ -153,6 +155,7 @@ func show_data(data: Dictionary) -> void:
 	_menu.visible = own or data.get("ghost", false)
 	_fill_totals(fleet_totals(data.get("ships", [])))
 	_route.text = route_text(data)
+	settle_targets.show_fleet(data, own)
 	var blockade: Dictionary = data.get("blockade", {})
 	_route.tooltip_text = ""
 	if blockade.get("blockaded", false):
@@ -288,6 +291,7 @@ func _build() -> void:
 	box.add_child(_owner)
 	_route = ScreenKit.label("", "SecondaryLabel")
 	box.add_child(_route)
+	box.add_child(settle_targets)
 	_totals = HFlowContainer.new()
 	_totals.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
 	box.add_child(_totals)

@@ -13,8 +13,18 @@ func before_each():
 	screen.refresh()
 
 
+# The diplomacy buttons of \a card (not Show on map).
 func _buttons(card: Node) -> Array:
-	return card.find_children("*", "Button", true, false)
+	return card.find_children("*", "Button", true, false).filter(
+		func(b): return b.text != tr("EMPIRES_LOCATE")
+	)
+
+
+func _locate(card: Node) -> Button:
+	for b in card.find_children("*", "Button", true, false):
+		if b.text == tr("EMPIRES_LOCATE"):
+			return b
+	return null
 
 
 func test_lists_every_empire_own_first():
@@ -112,3 +122,16 @@ func test_player_marks_and_summary_numbers():
 	assert_eq(values, ["12", "4", "31.5", "18.2", "3.0", "30.0"])
 	var texts := screen._list.find_children("*", "Label", true, false).map(func(l): return l.text)
 	assert_has(texts, "31.5", "Shown on the card")
+
+
+func test_empires_can_be_found_on_the_map():
+	assert_null(_locate(screen._list.get_child(0)), "not for yourself")
+	var found := _locate(screen._list.get_child(1))
+	assert_false(found.disabled)
+	assert_eq(found.tooltip_text, tr("EMPIRES_LOCATE_CAPITAL"))
+	watch_signals(screen)
+	found.pressed.emit()
+	assert_signal_emitted_with_parameters(screen, "locate_requested", [42])
+	var unknown := _locate(screen._list.get_child(2))
+	assert_true(unknown.disabled, "nothing of it seen yet")
+	assert_eq(unknown.tooltip_text, tr("EMPIRES_NOT_LOCATED"))

@@ -155,6 +155,19 @@ func select_location(planet_id: int) -> void:
 		_refresh_catalog()
 
 
+## Build at one of \a planet_ids (a system's planets): a populated one before
+## an outpost, which can build little; none of them a location: no change.
+func select_location_among(planet_ids: Variant) -> void:
+	var best := -1
+	for location: Dictionary in _locations:
+		if location["id"] in planet_ids and (best < 0 or location.get("populated", false)):
+			best = location["id"]
+			if location.get("populated", false):
+				break
+	if best >= 0:
+		select_location(best)
+
+
 func _build() -> void:
 	var margin := MarginContainer.new()
 	add_child(margin)
@@ -331,7 +344,28 @@ func _refresh_catalog() -> void:
 		_catalog.add_child(_catalog_row(item))
 		shown += 1
 	if shown == 0:
-		_catalog.add_child(ScreenKit.label(tr("PRODUCTION_NOTHING_BUILDABLE"), "SecondaryLabel"))
+		_catalog.add_child(_nothing_here(filter, location_id))
+
+
+# What the empty catalogue says: for ships at a location other than the
+# capital, that ships need a shipyard, and a button to build at the capital.
+func _nothing_here(filter: String, location_id: int) -> Control:
+	var box := VBoxContainer.new()
+	var capital: Dictionary = _locations[0] if not _locations.is_empty() else {}
+	var ships: bool = filter == "ship" and not capital.is_empty() and capital["id"] != location_id
+	var text := ScreenKit.label(
+		tr("PRODUCTION_NO_SHIPS_HERE" if ships else "PRODUCTION_NOTHING_BUILDABLE"),
+		"SecondaryLabel"
+	)
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(text)
+	if ships:
+		var go := Button.new()
+		go.text = tr("PRODUCTION_BUILD_AT").replace("%1%", capital["name"])
+		go.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		go.pressed.connect(select_location.bind(capital["id"]))
+		box.add_child(go)
+	return box
 
 
 func _queue_row(entry: Dictionary, position: int, count: int) -> Control:

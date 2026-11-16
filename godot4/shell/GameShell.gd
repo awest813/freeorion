@@ -49,6 +49,10 @@ var designer_screen: DesignerScreen
 var combat_screen: CombatScreen
 var objects_screen: ObjectsScreen
 var empires_screen: EmpiresScreen
+## Notes, toasts and server errors.
+var message_log: MessageLog
+## Automatic turn advance: ends each new turn, unless in danger.
+var auto_turn_guard := AutoTurnGuard.new()
 ## Name of the full screen shown over the map, or "" for the map.
 var active_screen := ""
 
@@ -247,6 +251,10 @@ func _ready() -> void:
 	planet_panel.forget_requested.connect(func(id: int): panel_orders.on_forget([id]))
 	system_panel.forget_requested.connect(panel_orders.on_forget)
 	planet_panel.give_requested.connect(panel_orders.on_give)
+	fleet_panel.settle_targets.send_requested.connect(_move_fleet.bind(false))
+	fleet_panel.settle_targets.settle_requested.connect(
+		panel_orders.on_planet_action.bind("colonize")
+	)
 	fleet_panel.explore_requested.connect(
 		func(fleet_id: int, exploring: bool):
 			if follow_game:
@@ -283,7 +291,8 @@ func _ready() -> void:
 	chat_window.unread_changed.connect(top_bar.set_unread_messages)
 	screens.add_child(chat_window)
 	top_bar.messages_requested.connect(chat_window.toggle)
-	add_child(MessageLog.new(self))
+	message_log = MessageLog.new(self)
+	add_child(message_log)
 	screens.add_child(ModeratorTools.new(self), true)
 
 	# The menu covers everything, the top bar included.
@@ -552,8 +561,7 @@ func _prepare_screen(screen_name: String) -> void:
 			# Build at the selected system's own planet, if there is one.
 			var system: FOSystem = FOUniverse.get_system(map_view.map.selected_system_id())
 			if system:
-				for planet_id in system.get_planet_ids():
-					production_screen.select_location(planet_id)
+				production_screen.select_location_among(system.get_planet_ids())
 		"save":
 			save_screen.suggested_name = _suggested_save_name()
 			save_screen.refresh()
@@ -617,15 +625,22 @@ func _on_system_context_requested(system_id: int) -> void:
 	if fleet_id < 0 or not follow_game:
 		return
 	# With Shift, the move is a waypoint after the fleet's current route.
-	var append := Input.is_key_pressed(KEY_SHIFT)
-	if FOOrders.issue_fleet_move(fleet_id, system_id, append) < 0:
-		system_panel.show_notice(tr("SYSTEM_PANEL_ORDER_REFUSED"))
-		return
-	system_panel.refresh()
-	if fleet_panel.visible:
-		fleet_panel.refresh()
-	map_view.map.fleets.set_preview(PackedVector2Array(), PackedVector2Array())
-	_show_route(fleet_id)
+	_move_fleet(fleet_id, system_id, Input.is_key_pressed(KEY_SHIFT))
+
+
+# Order \a fleet_id to \a system_id (\a append: after its route), saying
+# why when it can't get there.
+func _move_fleet(fleet_id: int, system_id: int, append: bool) -> void:
+	var problem := FOOrders.move_problem(fleet_id, system_id, append)
+	var moved := FOOrders.issue_fleet_move(fleet_id, system_id, append) >= 0
+	if moved:
+		system_panel.refresh()
+		if fleet_panel.visible:
+			fleet_panel.refresh()
+		map_view.map.fleets.set_preview(PackedVector2Array(), PackedVector2Array())
+		_show_route(fleet_id)
+	var notice := MapModes.move_refusal_text(problem) if not moved or problem != "" else ""
+	(fleet_panel if fleet_panel.visible else system_panel).show_notice(notice)
 
 
 # The own fleet orders go to: the one in the fleet panel (also between
@@ -914,9 +929,7 @@ func _on_turn_update() -> void:
 	if objects_screen.visible:
 		objects_screen.refresh()
 	_show_route(system_panel.selected_fleet_id())
-	# Automatic turn advance: the new turn ends at once.
-	if top_bar.auto_end_turn:
-		top_bar.end_turn.call_deferred()
+	auto_turn_guard.on_new_turn(self)
 
 
 func _show_route(fleet_id: int) -> void:

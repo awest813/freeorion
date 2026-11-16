@@ -7,9 +7,13 @@ extends PanelContainer
 ## player list, who plays it (human or AI, and whether they've finished the
 ## turn) and what this client knows of it: ships, planets, and their
 ## industry, research and influence, and its detection strength. The
-## Statistics tab charts the empires' statistics turn by turn.
+## Statistics tab charts the empires' statistics turn by turn. "Show on map"
+## goes to where another empire is known to be (its capital, a planet, a
+## fleet).
 
 signal close_requested
+## Show the map at \a system_id, where an empire was found.
+signal locate_requested(system_id: int)
 
 ## Actions: name for FODiplomacy.act(), label key, button variation.
 const ACTIONS := {
@@ -268,6 +272,8 @@ func _empire_card(empire: Dictionary) -> Control:
 	text.add_child(status)
 	if empire.has("ships"):
 		text.add_child(_summary_row(empire))
+	if not empire.get("own", false) and not empire.get("eliminated", false):
+		row.add_child(_locate_button(empire))
 	if empire.get("eliminated", false):
 		card.modulate = Color(1, 1, 1, 0.5)
 	for action: String in empire.get("actions", []):
@@ -335,6 +341,23 @@ func _summary_row(empire: Dictionary) -> HFlowContainer:
 		cell.add_child(ScreenKit.label(values[i][1], "SmallLabel"))
 		row.add_child(cell)
 	return row
+
+
+# "Show on map" for \a empire, disabled (saying so) while it isn't located.
+func _locate_button(empire: Dictionary) -> Button:
+	var button := Button.new()
+	button.text = tr("EMPIRES_LOCATE")
+	button.theme_type_variation = "GhostButton"
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var system_id: int = empire.get("known_system_id", -1)
+	button.disabled = system_id < 0
+	button.tooltip_text = (
+		tr("EMPIRES_LOCATE_" + str(empire.get("known_by", "")).to_upper())
+		if system_id >= 0
+		else tr("EMPIRES_NOT_LOCATED")
+	)
+	button.pressed.connect(func(): locate_requested.emit(system_id))
+	return button
 
 
 func _on_action(empire_id: int, action: String) -> void:

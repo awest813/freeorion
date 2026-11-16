@@ -2179,7 +2179,7 @@ The research queue is empty: %1% RP go unused.
 
 # %1% fleet name, %2% system name
 READINESS_COLONY_SHIPS
-%1% at %2% carries colony ships but has no orders.
+%1% at %2% carries colony ships but has no orders: its fleet panel lists places to settle.
 
 # %1% fleet name, %2% system name
 READINESS_NEW_FLEET
@@ -2597,6 +2597,75 @@ Right-click a system on the map to send the selected fleet there.
 
 SYSTEM_PANEL_ORDER_REFUSED
 The selected fleet can't move to that system.
+
+EMPIRES_LOCATE
+Show on map
+
+EMPIRES_LOCATE_CAPITAL
+Go to this empire's capital.
+
+EMPIRES_LOCATE_PLANET
+Go to the planet of this empire nearest your capital (its capital isn't known).
+
+EMPIRES_LOCATE_FLEET
+Go to where a fleet of this empire was last seen (none of its planets is known).
+
+EMPIRES_NOT_LOCATED
+Nothing of this empire has been seen yet: explore further, or build more detection range.
+
+SETTLE_TARGETS_TITLE
+Places to settle
+
+SETTLE_TARGETS_NONE
+No known free planet these ships can settle is in reach. Explore further, or research growth techs.
+
+SETTLE_TARGETS_OUTPOST
+outpost
+
+# %1% target population
+SETTLE_TARGETS_POPULATION
+population %1%
+
+SETTLE_TARGETS_HERE
+here
+
+SETTLE_TARGETS_SETTLE
+Settle this planet now (the order goes with End turn).
+
+# %1% system name
+SETTLE_TARGETS_SEND
+Send the fleet to %1%. Once there, settle from the system panel.
+
+MOVE_PROBLEM_NO_ROUTE
+No known starlanes lead there. Explore nearer systems first to find a way.
+
+MOVE_PROBLEM_IMMOBILE
+This fleet can't move: its speed is 0.
+
+MOVE_PROBLEM_FUEL
+Too far outside supply for this fleet's fuel: it will stop where its fuel runs out.
+
+MOVE_PROBLEM_UNKNOWN
+Only your own fleets can be sent, and only to known systems.
+
+# %1% the reason, one of the AUTO_TURN_STOP_ texts
+AUTO_TURN_STOPPED
+Automatic turn advance stopped: %1%
+
+AUTO_TURN_STOP_COMBAT
+your forces were in a battle.
+
+AUTO_TURN_STOP_INVASION
+there was a ground battle on one of your planets.
+
+AUTO_TURN_STOP_SHIP_LOST
+one of your ships was destroyed.
+
+AUTO_TURN_STOP_PLANET_LOST
+you lost a planet.
+
+AUTO_TURN_STOP_DEPOPULATED
+one of your planets lost its population.
 
 SYSTEM_PANEL_ACTION_REFUSED
 That order isn't possible right now.
@@ -3481,6 +3550,13 @@ Nothing queued. Add items from the list on the right.
 
 PRODUCTION_NOTHING_BUILDABLE
 Nothing matching can be built here.
+
+PRODUCTION_NO_SHIPS_HERE
+No ships can be built here: ships need a shipyard on a populated planet.
+
+# %1% planet name
+PRODUCTION_BUILD_AT
+Build at %1%
 
 PRODUCTION_ITEM_COST
 %1% PP · %2%

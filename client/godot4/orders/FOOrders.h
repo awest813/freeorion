@@ -17,6 +17,13 @@ public:
       * move to the fleet's current system stops it. Returns the order ID, or -1
       * if the order is not allowed (the reason is logged). */
     static int issue_fleet_move(int fleet_id, int dest_system_id, bool append = false);
+    /** Why moving \a fleet_id to \a dest_system_id can't work, or works only in
+      * part, as a string table key: MOVE_PROBLEM_NO_ROUTE (no known starlanes
+      * lead there), MOVE_PROBLEM_IMMOBILE (speed 0), MOVE_PROBLEM_FUEL (too
+      * far outside supply for the fleet's fuel; it moves as far as it can),
+      * MOVE_PROBLEM_UNKNOWN (not an own fleet or a known system); "" when
+      * it can get there. issue_fleet_move() refuses all but MOVE_PROBLEM_FUEL. */
+    static godot::String move_problem(int fleet_id, int dest_system_id, bool append = false);
 
     /** Undo and remove an order issued this turn. Returns false if there is no
       * such order or its type can't be undone (for example fleet moves; issue a

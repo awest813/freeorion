@@ -26,6 +26,8 @@ var empires: Array = [
 	{
 		"id": 2,
 		"name": "Congregation",
+		"known_system_id": 42,
+		"known_by": "capital",
 		"player": "AI_1",
 		"color": Color("#00ff00"),
 		"own": false,

@@ -30,6 +30,12 @@ func _init(shell: GameShell) -> void:
 func _ready() -> void:
 	_shell.chat_window.pedia_requested.connect(open_pedia)
 	_shell.chat_window.zoom_requested.connect(zoom_to)
+	# Places named elsewhere: where an empire was found.
+	_shell.empires_screen.locate_requested.connect(
+		func(system_id: int):
+			_shell.show_screen("")
+			_shell.go_to({"system_id": system_id})
+	)
 	# Saved from the save screen: back to the game, with a note that it worked.
 	_shell.save_screen.saved.connect(
 		func(filename: String):

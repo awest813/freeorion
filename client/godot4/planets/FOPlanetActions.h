@@ -42,6 +42,13 @@ public:
       * stringtable key; a generic one when no reason is known). */
     static godot::String last_refusal();
 
+    /** The places \a fleet_id's colony or outpost ships could settle, nearest
+      * first, at most \a count: [{planet_id, planet_name, system_id,
+      * system_name, eta (turns), outpost, target_population}]. Known free
+      * planets its ships can live on (colony ships: a target population above
+      * 0), reachable along known starlanes with the fleet's fuel. */
+    static godot::Array colony_targets(int fleet_id, int count = 3);
+
     /** Order (or cancel) annexing \a planet_id. */
     static bool annex(int planet_id);
 

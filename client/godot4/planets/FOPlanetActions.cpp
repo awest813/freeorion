@@ -435,6 +435,8 @@ void FOPlanetActions::_bind_methods() {
     ClassDB::bind_static_method(cls, D_METHOD("set_focus", "planet_id", "focus"), &FOPlanetActions::set_focus);
     ClassDB::bind_static_method(cls, D_METHOD("scrap", "object_id"), &FOPlanetActions::scrap);
     ClassDB::bind_static_method(cls, D_METHOD("last_refusal"), &FOPlanetActions::last_refusal);
+    ClassDB::bind_static_method(cls, D_METHOD("colony_targets", "fleet_id", "count"),
+                                &FOPlanetActions::colony_targets, DEFVAL(3));
     ClassDB::bind_static_method(cls, D_METHOD("is_scrapping", "object_id"), &FOPlanetActions::is_scrapping);
 }
 
@@ -684,4 +686,109 @@ bool FOPlanetActions::is_scrapping(int object_id) {
         if (auto scrap = std::dynamic_pointer_cast<ScrapOrder>(order); scrap && scrap->ObjectID() == object_id)
             return true;
     return false;
+}
+
+godot::Array FOPlanetActions::colony_targets(int fleet_id, int count) {
+    godot::Array result;
+    auto* app = ClientApp::GetApp();
+    if (!app || count <= 0)
+        return result;
+    auto& context = app->GetContext();
+    const int empire_id = app->EmpireID();
+    const auto& objects = context.ContextObjects();
+    const auto* fleet = objects.getRaw<Fleet>(fleet_id);
+    if (!fleet || !fleet->OwnedBy(empire_id))
+        return result;
+    // The fleet's best settler: a colony ship (colonists) before an outpost ship.
+    const Ship* settler = nullptr;
+    for (const auto* ship : objects.findRaw<const Ship>(fleet->ShipIDs())) {
+        if (!ship || !ship->CanColonize(context.ContextUniverse(), context.species))
+            continue;
+        if (!settler || (ColonyCapacity(*ship, context.ContextUniverse()) > 0.0f &&
+                         ColonyCapacity(*settler, context.ContextUniverse()) == 0.0f))
+            settler = ship;
+    }
+    if (!settler)
+        return result;
+    const bool outpost = ColonyCapacity(*settler, context.ContextUniverse()) == 0.0f;
+    int start = fleet->SystemID();
+    if (start == INVALID_OBJECT_ID)
+        start = fleet->NextSystemID();
+    const auto& pathfinder = context.ContextUniverse().GetPathfinder();
+
+    struct Candidate { Planet* planet; int eta; };
+    std::vector<Candidate> candidates;
+    std::map<int, int> eta_by_system;  // -1: unreachable
+    for (auto* planet : context.ContextObjects().allRaw<Planet>()) {
+        // As last seen: planets out of detection range now still count (their
+        // type is known once seen); the order is checked again on arrival.
+        if (!planet || !planet->Unowned() || planet->IsAboutToBeColonized() ||
+            Initial(*planet, MeterType::METER_POPULATION) > 0.0f ||
+            !CanColonizePlanetType(*settler, planet->Type(), context))
+        { continue; }
+        const int system_id = planet->SystemID();
+        auto it = eta_by_system.find(system_id);
+        if (it == eta_by_system.end()) {
+            int eta = 0;
+            if (system_id != start) {
+                const auto path = pathfinder.ShortestPath(start, system_id, empire_id).first;
+                const auto turns = path.empty() ? Fleet::ETA_NEVER :
+                    fleet->ETA(fleet->MovePath(path, false, context)).first;
+                eta = (turns == Fleet::ETA_NEVER || turns == Fleet::ETA_UNKNOWN ||
+                       turns == Fleet::ETA_OUT_OF_RANGE) ? -1 : static_cast<int>(turns);
+            }
+            it = eta_by_system.emplace(system_id, eta).first;
+        }
+        if (it->second >= 0)
+            candidates.push_back({planet, it->second});
+    }
+    std::stable_sort(candidates.begin(), candidates.end(),
+                     [](const auto& a, const auto& b) { return a.eta < b.eta; });
+    // Other own settler fleets on their way somewhere claim a planet there
+    // each, so several ships aren't all pointed at the same one.
+    std::map<int, int> claimed;
+    for (const auto* other : objects.allRaw<Fleet>()) {
+        if (!other || other->ID() == fleet_id || !other->OwnedBy(empire_id))
+            continue;
+        const int dest = other->FinalDestinationID();
+        if (dest == INVALID_OBJECT_ID || dest == other->SystemID())
+            continue;
+        for (const auto* ship : objects.findRaw<const Ship>(other->ShipIDs())) {
+            if (ship && ship->CanColonize(context.ContextUniverse(), context.species)) {
+                ++claimed[dest];
+                break;
+            }
+        }
+    }
+    std::erase_if(candidates, [&claimed](const Candidate& c) {
+        auto it = claimed.find(c.planet->SystemID());
+        if (it == claimed.end() || it->second == 0)
+            return false;
+        --it->second;
+        return true;
+    });
+    // Projections are costly: only for the nearest few.
+    int projected = 0;
+    for (const auto& [planet, eta] : candidates) {
+        if (static_cast<int>(result.size()) >= count || projected >= count * 6)
+            break;
+        float target = 0.0f;
+        if (!outpost) {
+            ++projected;
+            target = ProjectedTargetPopulation(*planet, settler->SpeciesName(), empire_id, context);
+            if (target <= 0.0f)
+                continue;
+        }
+        godot::Dictionary row;
+        row["planet_id"] = planet->ID();
+        row["planet_name"] = ToGodot(planet->Name());
+        row["system_id"] = planet->SystemID();
+        const auto* system = objects.getRaw<System>(planet->SystemID());
+        row["system_name"] = system ? ToGodot(system->Name()) : godot::String();
+        row["eta"] = eta;
+        row["outpost"] = outpost;
+        row["target_population"] = target;
+        result.push_back(row);
+    }
+    return result;
 }

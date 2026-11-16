@@ -1041,6 +1041,11 @@ godot::Dictionary FOUniverse::get_empire_resources() {
     result["wasted_pp_system"] = wasted_system;
     const auto* detection = empire->GetMeter("METER_DETECTION_STRENGTH");
     result["detection"] = detection ? detection->Current() : 0.0f;
+    int planets = 0;
+    for (const auto* planet : context.ContextObjects().allRaw<Planet>())
+        if (planet->OwnedBy(empire->EmpireID()))
+            ++planets;
+    result["planets"] = planets;
     result["capital_id"] = empire->CapitalID();
     result["eliminated"] = empire->Eliminated();
     result["won"] = empire->Won();

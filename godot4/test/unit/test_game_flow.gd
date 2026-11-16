@@ -146,3 +146,83 @@ func test_buildings_that_empty_a_planet_ask_first():
 	dialog.choose(0)
 	assert_eq(fake.calls.size(), 2)
 	assert_eq(fake.calls[1], ["enqueue", "Evacuation", 101])
+
+
+func test_auto_end_turn_stops_in_danger():
+	var guard := AutoTurnGuard.new()
+	assert_eq(guard.check({"planets": 3}, []), "", "first turn: nothing to compare")
+	assert_eq(guard.check({"planets": 4}, [{"label": "SITREP_TECH_RESEARCHED_LABEL"}]), "")
+	assert_eq(guard.check({"planets": 3}, []), "AUTO_TURN_STOP_PLANET_LOST")
+	assert_eq(
+		guard.check({"planets": 3}, [{"label": "SITREP_COMBAT_SYSTEM_LABEL"}]),
+		"AUTO_TURN_STOP_COMBAT"
+	)
+	assert_eq(
+		guard.check({"planets": 3}, [{"label": "SITREP_OWN_SHIP_DESTROYED_AT_SYSTEM_LABEL"}]),
+		"AUTO_TURN_STOP_SHIP_LOST"
+	)
+	assert_eq(guard.check({"planets": 3}, []), "", "calm again")
+
+
+func test_refused_moves_say_why():
+	assert_eq(MapModes.move_refusal_text("MOVE_PROBLEM_NO_ROUTE"), tr("MOVE_PROBLEM_NO_ROUTE"))
+	assert_eq(MapModes.move_refusal_text(""), tr("SYSTEM_PANEL_ORDER_REFUSED"))
+	assert_ne(tr("MOVE_PROBLEM_FUEL"), "MOVE_PROBLEM_FUEL", "has a text")
+
+
+func test_colony_fleets_list_places_to_settle():
+	var targets := SettleTargets.new()
+	add_child_autofree(targets)
+	var places := [
+		{
+			"planet_name": "Vega II",
+			"system_id": 9,
+			"system_name": "Vega",
+			"eta": 3,
+			"target_population": 8.0,
+		},
+		{"planet_name": "Rock", "planet_id": 12, "system_id": 4, "eta": 0, "outpost": true},
+	]
+	targets.provider = func(_id, _count): return places
+	var colony := {"id": 5, "ships": [{"colony": true}]}
+	targets.show_fleet({"id": 5, "ships": [{"colony": false}]}, true)
+	assert_false(targets.visible, "no settlers, no list")
+	targets.show_fleet(colony.merged({"destination": "Sol"}), true)
+	assert_false(targets.visible, "already on its way")
+	targets.show_fleet(colony, false)
+	assert_false(targets.visible, "not our fleet")
+	targets.show_fleet(colony, true)
+	assert_true(targets.visible)
+	var buttons := targets.find_children("*", "Button", true, false)
+	assert_eq(buttons.size(), 2)
+	assert_string_contains(buttons[0].text, "Vega II")
+	assert_string_contains(buttons[1].text, tr("SETTLE_TARGETS_HERE"))
+	watch_signals(targets)
+	buttons[0].pressed.emit()
+	assert_signal_emitted_with_parameters(targets, "send_requested", [5, 9])
+	buttons[1].pressed.emit()
+	assert_signal_emitted_with_parameters(targets, "settle_requested", [12])
+	places.clear()
+	targets.show_fleet(colony, true)
+	await get_tree().process_frame
+	assert_eq(targets.find_children("*", "Button", true, false).size(), 0)
+	var texts := targets.find_children("*", "Label", true, false).map(func(l): return l.text)
+	assert_has(texts, tr("SETTLE_TARGETS_NONE"))
+
+
+func test_ships_need_a_shipyard_location():
+	var screen := ProductionScreen.new()
+	screen.source = FakeProduction.new()
+	add_child_autofree(screen)
+	screen.refresh()
+	screen.select_location_among([102])
+	assert_eq(screen.selected_location_id(), 102)
+	var note := screen._nothing_here("ship", 102)
+	add_child_autofree(note)
+	var go: Button = note.find_children("*", "Button", true, false)[0]
+	assert_eq(go.text, tr("PRODUCTION_BUILD_AT").replace("%1%", "Hegira β I"))
+	go.pressed.emit()
+	assert_eq(screen.selected_location_id(), 101, "back at the capital")
+	var plain := screen._nothing_here("building", 101)
+	add_child_autofree(plain)
+	assert_eq(plain.find_children("*", "Button", true, false).size(), 0)

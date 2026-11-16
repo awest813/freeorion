@@ -191,15 +191,31 @@ func merge_selected_fleets() -> void:
 
 ## Order every selected fleet to \a system_id (Shift: after their routes);
 ## say how many could go.
+## What to tell the player when a move order to a system is refused, for
+## \a problem (FOOrders.move_problem()).
+static func move_refusal_text(problem: String) -> String:
+	return TranslationServer.translate(
+		problem if problem.begins_with("MOVE_PROBLEM_") else "SYSTEM_PANEL_ORDER_REFUSED"
+	)
+
+
 func move_selected_fleets(system_id: int) -> void:
 	var append := Input.is_key_pressed(KEY_SHIFT)
 	var moved := 0
+	var problem := ""
 	for fleet_id in selected_fleets:
+		var why := FOOrders.move_problem(fleet_id, system_id, append)
 		if FOOrders.issue_fleet_move(fleet_id, system_id, append) >= 0:
 			moved += 1
-	_update_fleet_banner(
-		tr("FLEETS_ORDERED").replace("%1%", str(moved)).replace("%2%", str(selected_fleets.size()))
+		if problem == "":
+			problem = why
+	var text := tr("FLEETS_ORDERED").replace("%1%", str(moved)).replace(
+		"%2%", str(selected_fleets.size())
 	)
+	# The first reason a fleet won't get there, so the count isn't a riddle.
+	if problem != "":
+		text += " " + tr(problem)
+	_update_fleet_banner(text)
 	_shell.system_panel.refresh()
 
 
