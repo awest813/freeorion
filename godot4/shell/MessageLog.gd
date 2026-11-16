@@ -83,12 +83,13 @@ func players_changed() -> void:
 
 
 func turn_begun(turn: int) -> void:
-	_shell.chat_window.add_event(tr("TURN_BEGIN").replace("%1%", str(turn)))
+	_shell.chat_window.add_event(tr("TURN_BEGIN").replace("%1%", str(turn)), true)
 
 
 func saved(filename: String, bytes: int) -> void:
 	_shell.chat_window.add_event(
-		tr("SERVER_SAVE_COMPLETE").replace("%1%", filename.get_file()).replace("%2%", str(bytes))
+		tr("SERVER_SAVE_COMPLETE").replace("%1%", filename.get_file()).replace("%2%", str(bytes)),
+		true
 	)
 
 

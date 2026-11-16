@@ -175,3 +175,17 @@ func test_add_all_saved_and_unbuildable_marks():
 	assert_eq(add_all.text, tr("DESIGN_WND_ADD_ALL_SAVED_NOW"))
 	add_all.pressed.emit()
 	assert_has(fake.calls, ["add_all_saved"])
+
+
+func test_empty_slots_are_pointed_out_but_allowed():
+	screen._name.text = "Raider"
+	screen._name.text_changed.emit("Raider")
+	var empty := Array(screen.parts).count("")
+	assert_gt(empty, 0)
+	assert_string_contains(
+		screen._validity.text,
+		tr("DESIGNER_EMPTY_SLOT" if empty == 1 else "DESIGNER_EMPTY_SLOTS").replace(
+			"%1%", str(empty)
+		)
+	)
+	assert_false(screen._create.disabled, "only a note")

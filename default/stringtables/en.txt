@@ -2598,6 +2598,13 @@ Right-click a system on the map to send the selected fleet there.
 SYSTEM_PANEL_ORDER_REFUSED
 The selected fleet can't move to that system.
 
+DESIGNER_EMPTY_SLOT
+1 slot is empty: the design can still be added.
+
+# %1% number of slots
+DESIGNER_EMPTY_SLOTS
+%1% slots are empty: the design can still be added.
+
 EMPIRES_LOCATE
 Show on map
 
@@ -2644,6 +2651,15 @@ This fleet can't move: its speed is 0.
 
 MOVE_PROBLEM_FUEL
 Too far outside supply for this fleet's fuel: it will stop where its fuel runs out.
+
+MOVE_PROBLEM_NO_ROUTE_SHORT
+No known route
+
+MOVE_PROBLEM_IMMOBILE_SHORT
+Can't move
+
+MOVE_PROBLEM_FUEL_SHORT
+Out of fuel range
 
 MOVE_PROBLEM_UNKNOWN
 Only your own fleets can be sent, and only to known systems.

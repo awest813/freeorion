@@ -4,6 +4,8 @@ extends RefCounted
 ## points, colony ships without orders, newly built fleets without orders,
 ## unarmed fleets (scouts) idle and not exploring, and a free policy slot
 ## while a policy could be adopted into it.
+## An issue the player ended a turn anyway on isn't raised again until it is
+## resolved (unacknowledged()), so the same reminder doesn't come every turn.
 ## check() works on plain data (gather() reads it from the game), so tests
 ## can feed it directly.
 
@@ -26,8 +28,15 @@ static func check(data: Dictionary) -> Array:
 		var unspent: float = resources.get(entry[0], 0.0) - resources.get(entry[0] + "_spent", 0.0)
 		if unspent > EPSILON:
 			var key: String = entry[4] if data.get(entry[2], 0) == 0 else entry[3]
-			issues.push_back(
-				{"text": tr_s(key).replace("%1%", "%.1f" % unspent), "screen": entry[1]}
+			(
+				issues
+				. push_back(
+					{
+						"text": tr_s(key).replace("%1%", "%.1f" % unspent),
+						"screen": entry[1],
+						"key": key,
+					}
+				)
 			)
 	for fleet: Dictionary in data.get("fleets", []):
 		if fleet.get("moving", false) or fleet.get("destination", "") != "":
@@ -48,6 +57,7 @@ static func check(data: Dictionary) -> Array:
 						tr_s(key).replace("%1%", fleet["name"]).replace(
 							"%2%", fleet["system_name"]
 						),
+						"key": "%s:%d" % [key, fleet["id"]],
 						"target":
 						{
 							"system_id": fleet["system_id"],
@@ -59,8 +69,22 @@ static func check(data: Dictionary) -> Array:
 			)
 	for category: String in data.get("free_policy_slots", []):
 		var text := tr_s("READINESS_POLICY_SLOT").replace("%1%", tr_s(category))
-		issues.push_back({"text": text, "screen": "government"})
+		issues.push_back({"text": text, "screen": "government", "key": "policy:" + category})
 	return issues
+
+
+## \a issues (check()) without those whose key is in \a acknowledged (the
+## player ended a turn anyway while they stood). Acknowledged keys no longer
+## among \a issues are dropped from it: once resolved, an issue counts again
+## when it comes back.
+static func unacknowledged(issues: Array, acknowledged: Dictionary) -> Array:
+	var keys := {}
+	for issue: Dictionary in issues:
+		keys[issue.get("key", "")] = true
+	for key in acknowledged.keys():
+		if not keys.has(key):
+			acknowledged.erase(key)
+	return issues.filter(func(i): return not acknowledged.has(i.get("key", "")))
 
 
 ## The data check() needs, from the running game.

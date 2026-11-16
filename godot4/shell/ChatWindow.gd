@@ -104,8 +104,9 @@ func toggle() -> void:
 
 
 ## Note \a text (FreeOrion markup allowed) in the log, after the chat so far.
-func add_event(text: String) -> void:
-	events.push_back({"text": text, "after": source.chat().size()})
+## \a quiet notes (turn markers, saves) don't count as unread.
+func add_event(text: String, quiet := false) -> void:
+	events.push_back({"text": text, "after": source.chat().size(), "quiet": quiet})
 	refresh()
 
 
@@ -115,7 +116,10 @@ func merged(lines: Array) -> Array:
 	var event_index := 0
 	for i in lines.size() + 1:
 		while event_index < events.size() and events[event_index]["after"] <= i:
-			result.push_back({"text": events[event_index]["text"], "event": true})
+			var event: Dictionary = events[event_index]
+			result.push_back(
+				{"text": event["text"], "event": true, "quiet": event.get("quiet", false)}
+			)
 			event_index += 1
 		if i < lines.size():
 			result.push_back(lines[i])
@@ -128,7 +132,12 @@ func refresh() -> void:
 	chat.set_lines(lines)
 	if visible:
 		_seen = lines.size()
-	unread = maxi(0, lines.size() - _seen)
+	unread = (
+		lines
+		. slice(mini(_seen, lines.size()))
+		. filter(func(l): return not l.get("quiet", false))
+		. size()
+	)
 	unread_changed.emit(unread)
 	_fill_recipients()
 

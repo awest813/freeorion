@@ -87,6 +87,17 @@ func test_route_preview():
 	assert_eq(fleets.preview_label(), "3 turns")
 	fleets.set_preview(PackedVector2Array(), PackedVector2Array(), "x")
 	assert_eq(fleets.preview_label(), "", "no label without a path")
+	assert_false(fleets.is_preview_warning())
+	fleets.set_preview(
+		PackedVector2Array([Vector2(0, 0), Vector2(600, 0)]),
+		PackedVector2Array(),
+		tr("MOVE_PROBLEM_NO_ROUTE_SHORT"),
+		PackedInt32Array(),
+		PackedInt32Array(),
+		true
+	)
+	assert_true(fleets.is_preview_warning(), "drawn in the warning colour")
+	assert_eq(fleets.preview_label(), tr("MOVE_PROBLEM_NO_ROUTE_SHORT"))
 
 
 func test_selected_and_box_marked_fleets():

@@ -619,7 +619,7 @@ func _on_system_context_requested(system_id: int) -> void:
 	if map_modes.has_fleet_selection() and follow_game:
 		map_modes.move_selected_fleets(system_id)
 		return
-	var fleet_id := _active_fleet()
+	var fleet_id := active_fleet()
 	if fleet_id < 0 and follow_game and fleet_panel.visible:
 		fleet_panel.show_notice(tr("MAP_MOVE_NEEDS_OWN_FLEET"))
 	if fleet_id < 0 or not follow_game:
@@ -639,13 +639,13 @@ func _move_fleet(fleet_id: int, system_id: int, append: bool) -> void:
 			fleet_panel.refresh()
 		map_view.map.fleets.set_preview(PackedVector2Array(), PackedVector2Array())
 		_show_route(fleet_id)
-	var notice := MapModes.move_refusal_text(problem) if not moved or problem != "" else ""
+	var notice := MoveOrders.move_refusal_text(problem) if not moved or problem != "" else ""
 	(fleet_panel if fleet_panel.visible else system_panel).show_notice(notice)
 
 
-# The own fleet orders go to: the one in the fleet panel (also between
-# systems), else the one picked in the system panel; -1 for none.
-func _active_fleet() -> int:
+## The own fleet orders go to: the one in the fleet panel (also between
+## systems), else the one picked in the system panel; -1 for none.
+func active_fleet() -> int:
 	if fleet_panel.visible and fleet_panel.fleet_id >= 0:
 		return fleet_panel.fleet_id if fleet_panel.is_own() else -1
 	return system_panel.selected_fleet_id()
@@ -713,31 +713,7 @@ func _on_fleet_clicked(fleet_id: int) -> void:
 # With an own fleet active, hovering a system shows the route it would take
 # there and when it would arrive (Shift: after its current route).
 func _on_system_hovered(system_id: int) -> void:
-	preview_route_to(system_id)
-
-
-## The route the fleet picked (or the box-selected fleets) would take to
-## \a system_id, with its ETA, drawn on the map; nothing if none would go.
-func preview_route_to(system_id: int) -> void:
-	var fleets := map_view.map.fleets
-	var preview := {}
-	if follow_game and system_id >= 0 and map_modes.has_fleet_selection():
-		preview = map_modes.group_preview(system_id)
-	elif follow_game and system_id >= 0 and _active_fleet() >= 0:
-		var fleet: FOFleet = FOUniverse.get_fleet(_active_fleet())
-		if fleet and system_id != fleet.get_system_id():
-			preview = fleet.preview_route(system_id, Input.is_key_pressed(KEY_SHIFT))
-	if preview.is_empty():
-		fleets.set_preview(PackedVector2Array(), PackedVector2Array())
-		return
-	var eta: int = preview.get("eta", -1)
-	fleets.set_preview(
-		preview.get("points", PackedVector2Array()),
-		preview.get("turn_ends", PackedVector2Array()),
-		eta_text(eta) if not preview.is_empty() else "",
-		preview.get("turn_etas", PackedInt32Array()),
-		preview.get("turn_flags", PackedInt32Array())
-	)
+	MoveOrders.preview_route(self, system_id)
 
 
 # A planet's details replace a fleet's, and the other way round.

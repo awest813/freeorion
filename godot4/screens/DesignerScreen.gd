@@ -825,6 +825,14 @@ func _update_create() -> void:
 	if not unavailable.is_empty():
 		var names := ", ".join(Array(unavailable).map(func(n): return tr(n)))
 		notes.push_back(tr("DESIGNER_NOT_YET_AVAILABLE").replace("%1%", names))
+	# Not a reason to refuse it, but easy to miss: slots left empty.
+	var empty := Array(parts).count("")
+	if not hull_name.is_empty() and empty > 0:
+		notes.push_back(
+			tr("DESIGNER_EMPTY_SLOT" if empty == 1 else "DESIGNER_EMPTY_SLOTS").replace(
+				"%1%", str(empty)
+			)
+		)
 	_validity.text = "\n".join(notes)
 	_create.disabled = not problems.is_empty()
 	_create.tooltip_text = "\n".join(problems)

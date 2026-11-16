@@ -191,14 +191,6 @@ func merge_selected_fleets() -> void:
 
 ## Order every selected fleet to \a system_id (Shift: after their routes);
 ## say how many could go.
-## What to tell the player when a move order to a system is refused, for
-## \a problem (FOOrders.move_problem()).
-static func move_refusal_text(problem: String) -> String:
-	return TranslationServer.translate(
-		problem if problem.begins_with("MOVE_PROBLEM_") else "SYSTEM_PANEL_ORDER_REFUSED"
-	)
-
-
 func move_selected_fleets(system_id: int) -> void:
 	var append := Input.is_key_pressed(KEY_SHIFT)
 	var moved := 0
@@ -257,7 +249,7 @@ func group_preview(system_id: int) -> Dictionary:
 func _input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if key and key.keycode == KEY_SHIFT and not key.echo and _shell.follow_game:
-		_shell.preview_route_to(_shell.map_view.map.hovered_system_id())
+		MoveOrders.preview_route(_shell, _shell.map_view.map.hovered_system_id())
 
 
 func _update_fleet_banner(note: String) -> void:

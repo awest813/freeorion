@@ -129,6 +129,10 @@ func test_messages_window_counts_unread_and_whispers():
 	window.refresh()
 	assert_eq(window.unread, 1)
 	assert_signal_emitted_with_parameters(window, "unread_changed", [1])
+	window.add_event("Turn 6 begins", true)
+	assert_eq(window.unread, 1, "turn markers aren't news")
+	window.add_event("Alice and Bob are now at war.")
+	assert_eq(window.unread, 2)
 
 
 func test_turn_timeout_counts_down_in_top_bar():

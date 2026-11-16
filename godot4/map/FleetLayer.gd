@@ -6,6 +6,9 @@ extends Node2D
 ## and the route a selected fleet would take to the hovered system. Picks
 ## the fleet under the cursor.
 
+## The previewed route changed (its label is drawn with the map's labels).
+signal preview_changed
+
 ## Screen pixels around a marker that still pick it.
 const PICK_PX := 10.0
 ## Fleet icons (GG's FleetButton art): head by role, tail by size.
@@ -52,6 +55,8 @@ var _preview_turn_ends := PackedVector2Array()
 var _preview_label := ""
 var _preview_etas := PackedInt32Array()
 var _preview_flags := PackedInt32Array()
+## The previewed route can't get there (no route, or out of fuel range).
+var _preview_warning := false
 
 
 func _init() -> void:
@@ -141,14 +146,17 @@ func set_preview(
 	turn_ends: PackedVector2Array,
 	label := "",
 	etas := PackedInt32Array(),
-	flags := PackedInt32Array()
+	flags := PackedInt32Array(),
+	warning := false
 ) -> void:
+	_preview_warning = warning
 	_preview = points
 	_preview_turn_ends = turn_ends
 	_preview_etas = etas
 	_preview_flags = flags
 	_preview_label = label if points.size() > 1 else ""
 	queue_redraw()
+	preview_changed.emit()
 
 
 func preview_points() -> PackedVector2Array:
@@ -157,6 +165,10 @@ func preview_points() -> PackedVector2Array:
 
 func preview_label() -> String:
 	return _preview_label
+
+
+func is_preview_warning() -> bool:
+	return _preview_warning
 
 
 func is_blockaded(fleet_id: int) -> bool:
@@ -219,6 +231,8 @@ func _draw_preview(px: float) -> void:
 	if _preview.size() < 2:
 		return
 	var accent: Color = FOUi.tokens.accent if FOUi.tokens else Color.WHITE
+	if _preview_warning and FOUi.tokens:
+		accent = FOUi.tokens.negative
 	var line := Color(accent, 0.7)
 	for i in _preview.size() - 1:
 		draw_dashed_line(

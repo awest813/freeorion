@@ -204,6 +204,7 @@ func _ready() -> void:
 	# Fleets above the overlay (selection, routes).
 	fleets = FleetLayer.new()
 	fleets.map = self
+	fleets.preview_changed.connect(_label_layer.queue_redraw)
 	add_child(fleets)
 	move_child(fleets, _overlay.get_index() + 1)
 	_overlay.draw_callback = _draw_overlay
@@ -737,23 +738,35 @@ func _draw_labels(layer: CanvasItem) -> void:
 		)
 
 
-# ETA (or other route text) next to the end of the planned route.
+# ETA (or other route text) next to the end of the planned route, and of
+# the route previewed under the pointer (in the warning colour when it can't
+# get there).
 func _draw_route_chip(layer: CanvasItem, placed: LabelGrid) -> void:
-	if _route.size() < 2 or _route_label.is_empty():
+	var tokens: FOTokens = FOUi.tokens
+	_draw_end_chip(layer, placed, _route, _route_label, tokens.accent)
+	var preview := fleets.preview_points()
+	var color: Color = tokens.negative if fleets.is_preview_warning() else tokens.accent
+	_draw_end_chip(layer, placed, preview, fleets.preview_label(), color)
+
+
+func _draw_end_chip(
+	layer: CanvasItem, placed: LabelGrid, points: PackedVector2Array, text: String, color: Color
+) -> void:
+	if points.size() < 2 or text.is_empty():
 		return
 	var tokens: FOTokens = FOUi.tokens
 	var size := MapStyle.LABEL_FONT_SIZE
-	var width := _label_font.get_string_size(_route_label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var end := camera.world_to_screen(_route[_route.size() - 1])
+	var width := _label_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var end := camera.world_to_screen(points[points.size() - 1])
 	var pad := Vector2(tokens.space_2, tokens.space_1)
 	var top_left := (end + Vector2(MapStyle.SELECTION_RING_PX + pad.x, -size * 0.6)).round()
 	var chip := Rect2(top_left - pad, Vector2(width, size * 1.25) + pad * 2.0)
 	placed.try_place(chip)
-	layer.draw_rect(chip, Color(tokens.accent, 0.9))
+	layer.draw_rect(chip, Color(color, 0.9))
 	layer.draw_string(
 		_label_font,
 		top_left + Vector2(0, size),
-		_route_label,
+		text,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		size,

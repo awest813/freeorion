@@ -165,8 +165,8 @@ func test_auto_end_turn_stops_in_danger():
 
 
 func test_refused_moves_say_why():
-	assert_eq(MapModes.move_refusal_text("MOVE_PROBLEM_NO_ROUTE"), tr("MOVE_PROBLEM_NO_ROUTE"))
-	assert_eq(MapModes.move_refusal_text(""), tr("SYSTEM_PANEL_ORDER_REFUSED"))
+	assert_eq(MoveOrders.move_refusal_text("MOVE_PROBLEM_NO_ROUTE"), tr("MOVE_PROBLEM_NO_ROUTE"))
+	assert_eq(MoveOrders.move_refusal_text(""), tr("SYSTEM_PANEL_ORDER_REFUSED"))
 	assert_ne(tr("MOVE_PROBLEM_FUEL"), "MOVE_PROBLEM_FUEL", "has a text")
 
 

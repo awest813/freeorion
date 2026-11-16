@@ -128,3 +128,30 @@ func test_dialog_goes_to_the_issue():
 	dialog = shell.show_readiness([{"text": "PP", "screen": "production"}])
 	dialog.choose(0)
 	assert_true(shell.top_bar.is_waiting(), "End turn anyway")
+
+
+func test_issues_ended_anyway_wait_until_resolved():
+	var bar := TopBar.new()
+	bar.follow_game = false
+	add_child_autofree(bar)
+	bar.set_state("Empire", Color.WHITE, 3, false)
+	var pp := {"text": "PP", "screen": "production", "key": "READINESS_PP"}
+	var scout := {"text": "Scout", "screen": "map", "key": "READINESS_IDLE_SCOUT:7"}
+	var issues := [pp, scout]
+	bar.readiness_provider = func(): return issues
+	watch_signals(bar)
+	bar._end_turn.pressed.emit()
+	assert_signal_emit_count(bar, "readiness_issues", 1)
+	bar.end_turn()  # anyway
+	bar._waiting = false
+	bar._end_turn.pressed.emit()
+	assert_true(bar.is_waiting(), "the same issues don't ask again")
+	bar._waiting = false
+	issues.erase(pp)  # PP resolved
+	bar._end_turn.pressed.emit()
+	assert_true(bar.is_waiting())
+	bar._waiting = false
+	issues.push_front(pp)  # PP back: worth saying again
+	bar._end_turn.pressed.emit()
+	assert_false(bar.is_waiting())
+	assert_eq(get_signal_parameters(bar, "readiness_issues", 1)[0], [pp], "only the one back")

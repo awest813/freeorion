@@ -88,6 +88,10 @@ var _phase := ""
 var _phase_text := ""
 var _messages: Button
 var _auto_turn: Button
+## Readiness issue keys ended anyway (TurnReadiness.unacknowledged()), and
+## the issues last shown.
+var _acknowledged := {}
+var _shown_issues: Array = []
 var _turn_menu: PopupMenu
 ## Last resources shown (set_resources()).
 var _resources := {}
@@ -591,7 +595,8 @@ func _on_end_turn_pressed() -> void:
 		if follow_game and is_instance_valid(GlobalFreeOrionNode):
 			GlobalFreeOrionNode.revise_turn()
 		return
-	var issues: Array = readiness_provider.call()
+	var issues := TurnReadiness.unacknowledged(readiness_provider.call(), _acknowledged)
+	_shown_issues = issues
 	if not issues.is_empty():
 		readiness_issues.emit(issues)
 		return
@@ -608,6 +613,10 @@ func _game_readiness() -> Array:
 func end_turn() -> void:
 	if _waiting:
 		return
+	# Ended anyway: the issues just shown are not raised again until resolved.
+	for issue: Dictionary in _shown_issues:
+		_acknowledged[issue.get("key", "")] = true
+	_shown_issues = []
 	_waiting = true
 	_refresh_from_game()
 	if follow_game and is_instance_valid(GlobalFreeOrionNode):
