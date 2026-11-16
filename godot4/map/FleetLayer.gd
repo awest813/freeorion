@@ -6,7 +6,8 @@ extends Node2D
 ## and the route a selected fleet would take to the hovered system. Picks
 ## the fleet under the cursor.
 
-## The previewed route changed (its label is drawn with the map's labels).
+## The previewed route or the places to settle changed (their labels and
+## edge pointers are drawn with the map's labels).
 signal preview_changed
 
 ## Screen pixels around a marker that still pick it.
@@ -180,6 +181,7 @@ func is_preview_warning() -> bool:
 func set_settle_marks(marks: Array) -> void:
 	_settle_marks = marks
 	queue_redraw()
+	preview_changed.emit()
 
 
 func settle_marks() -> Array:

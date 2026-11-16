@@ -348,6 +348,14 @@ func _ready() -> void:
 			production_screen.select_location(planet_id)
 	)
 	map_view.map.system_hovered.connect(_on_system_hovered)
+	# Pointers to targets off screen stay clear of the top bar and side panels.
+	map_view.map.edge_pointers.free_area = func() -> Rect2:
+		var size := get_viewport_rect().size
+		var top := top_bar.get_global_rect().end.y
+		var side := system_panel.visible or fleet_panel.visible
+		var right := _side_scroll.global_position.x if side else size.x
+		var bottom := feed.get_global_rect().position.y if feed.visible else size.y
+		return Rect2(0.0, top, right, bottom - top)
 	map_view.map.field_activated.connect(
 		func(field_type: String): open_pedia("fieldtype", field_type)
 	)

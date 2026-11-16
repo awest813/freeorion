@@ -89,7 +89,7 @@ func _target_button(target: Dictionary) -> Button:
 	return button
 
 
-## Map marks ([{position, text}], FleetLayer.set_settle_marks()) for
+## Map marks ([{position, name, text}], FleetLayer.set_settle_marks()) for
 ## \a targets: one per system, with what its places would be (population or
 ## outpost, "×2" for two alike) and how far.
 static func map_marks(targets: Array) -> Array:
@@ -100,11 +100,22 @@ static func map_marks(targets: Array) -> Array:
 		if system == null:
 			continue
 		if not by_system.has(system_id):
-			by_system[system_id] = {"position": system.get_position(), "targets": []}
+			by_system[system_id] = {
+				"position": system.get_position(), "name": system.get_name(), "targets": []
+			}
 		by_system[system_id]["targets"].push_back(target)
 	var marks := []
 	for entry: Dictionary in by_system.values():
-		marks.push_back({"position": entry["position"], "text": mark_text(entry["targets"])})
+		(
+			marks
+			. push_back(
+				{
+					"position": entry["position"],
+					"name": entry["name"],
+					"text": mark_text(entry["targets"]),
+				}
+			)
+		)
 	return marks
 
 

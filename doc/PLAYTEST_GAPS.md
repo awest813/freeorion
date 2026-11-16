@@ -39,7 +39,7 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
 - **S2**: blocks a goal, or a player can't tell what to do next.
 - **S3**: friction or a misleading label.
 
-**Fixed** means fixed in this branch, with a unit test: items 1, 3, 4, 9 and 10 in commit `c44827f`, items 2 and 5–8 in commit `7123a3a`, and the rest of 2, 3, 5 and 7 plus 11–13 in the commits after it (`3ad36eb` to `c106dee`). Items 2 and 5–8 were also checked in real games by a scripted player using the new controls (see "Checked after the fixes").
+**Fixed** means fixed in this branch, with a unit test: items 1, 3, 4, 9 and 10 in commit `c44827f`, items 2 and 5–8 in commit `7123a3a`, and the rest of 2, 3, 5 and 7 plus 11–14 in the commits after it (`3ad36eb` onwards). Items 2 and 5–8 were also checked in real games by a scripted player using the new controls (see "Checked after the fixes").
 
 ## Gaps
 
@@ -110,9 +110,9 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
 13. **New designs can leave slots empty without a word.** **Fixed.**
     - Evidence: warlord. Designs were created with empty external slots.
     - Fix: once a part is placed, a note under the name says how many slots are empty. It doesn't block Create.
-14. **Map targets can be off screen.**
+14. **Map targets can be off screen.** **Fixed.**
     - Evidence: explorer runs 1, 2 and 4. The nearest free system was off screen and the map had to be panned.
-    - Suggested: let a readiness or "nearest target" link centre the map on the target. The minimap already allows a quick jump.
+    - Fix: targets off screen get a pointer at the edge of the map area the top bar and panels leave free. That covers the selected colony fleet's places to settle (with the system's name, what it'd be and how far) and the end of the route previewed under the pointer. Clicking a pointer centres the map there.
 
 ## Checked after the fixes
 

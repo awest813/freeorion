@@ -68,6 +68,8 @@ var own_empire_id := -2
 var fleets: FleetLayer
 ## Supply half lanes, split owner rings, scanlines (as GG draws them).
 var details := MapDetails.new()
+## Pointers to targets off screen (the shell sets their free_area).
+var edge_pointers := EdgePointers.new()
 ## The map options (GG's map menu): owner-coloured system circles, fields,
 ## background stars, supply.
 var show_system_circles := true:
@@ -468,6 +470,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var button := event as InputEventMouseButton
 		if button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
+			if edge_pointers.follow(self, button.position):
+				get_viewport().set_input_as_handled()
+				return
 			var world := camera.screen_to_world(button.position)
 			# A fleet marker beside a star wins over the star.
 			var fleet_id := fleets.pick(world, 1.0 / camera.zoom_level())
@@ -706,6 +711,7 @@ func _draw_box(layer: CanvasItem, px: float) -> void:
 func _draw_labels(layer: CanvasItem) -> void:
 	if _label_font == null or _names.is_empty():
 		return
+	edge_pointers.draw(layer, self, _label_font)
 	var px := 1.0 / camera.zoom_level()
 	# Far out, systems crowd together and no label would fit.
 	if _typical_spacing() / px < MapStyle.LABEL_MIN_SPACING_PX:

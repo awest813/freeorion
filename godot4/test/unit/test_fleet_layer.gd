@@ -117,3 +117,22 @@ func test_places_to_settle_are_marked():
 	await wait_process_frames(1)  # draws without errors
 	fleets.set_settle_marks([])
 	assert_eq(fleets.settle_marks(), [])
+
+
+func test_targets_off_screen_get_a_pointer_at_the_edge():
+	var area := Rect2(0, 100, 800, 600)
+	assert_eq(EdgePointers.edge_point(area, Vector2(400, 300)), Vector2(400, 300), "on screen")
+	assert_eq(EdgePointers.edge_point(area, Vector2(1200, 400)), Vector2(800, 400), "off right")
+	assert_eq(EdgePointers.edge_point(area, Vector2(400, -500)), Vector2(400, 100), "off top")
+	var map := shell.map_view.map
+	map.fleets.set_settle_marks([{"position": Vector2(100000, 0), "text": "outpost · 9 turns"}])
+	map.edge_pointers.free_area = func(): return Rect2(0, 0, 1000, 700)
+	map._label_layer.queue_redraw()
+	await wait_process_frames(2)
+	var tip := EdgePointers.edge_point(
+		Rect2(0, 0, 1000, 700).grow(-EdgePointers.MARGIN_PX),
+		map.camera.world_to_screen(Vector2(100000, 0))
+	)
+	assert_eq(map.edge_pointers.hit(tip), Vector2(100000, 0), "the pointer leads there")
+	assert_true(map.edge_pointers.follow(map, tip))
+	map.fleets.set_settle_marks([])
