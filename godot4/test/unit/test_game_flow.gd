@@ -257,3 +257,16 @@ func test_autosaves_stay_out_of_the_log():
 	assert_true(MessageLog.is_autosave("C:\\Users\\a\\save\\auto\\x.sav"))
 	assert_false(MessageLog.is_autosave("/home/a/.local/share/freeorion/save/mine.sav"))
 	assert_true(MessageLog.is_autosave("/s/de6fbad8-86fd-41b2-9498-09fd97f4790f/g_0003.mps"))
+
+
+func test_new_scouts_explore_on_their_own():
+	var fleets := [
+		{"id": 1, "age": 0},
+		{"id": 2, "age": 1073741825},
+		{"id": 3, "age": 0, "exploring": true},
+		{"id": 4, "age": 0, "destination": "Vega"},
+		{"id": 5, "age": 0},
+	]
+	var heads := {1: "scout", 2: "scout", 3: "scout", 4: "scout", 5: "colony"}
+	assert_eq(MoveOrders.scouts_to_explore(fleets, heads, 7), [1], "new idle scouts only")
+	assert_eq(MoveOrders.scouts_to_explore(fleets, heads, 2), [1, 2], "the starting ones too")

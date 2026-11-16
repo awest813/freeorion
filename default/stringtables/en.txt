@@ -1983,6 +1983,9 @@ Show the detection ranges of your planets and ships on the map (Ctrl+D)
 OPTIONS_DB_UI_TURN_READINESS_CHECK
 Before a turn ends, point out unspent points and ships still waiting for orders
 
+OPTIONS_DB_UI_FLEET_EXPLORE_SCOUTS
+The starting scouts, and scouts as they are built, explore on their own
+
 # Keyboard shortcuts of the Godot client, and their page in Options.
 HOTKEY_GODOT_OPTION
 Keyboard shortcut of the Godot client, such as Ctrl+H or F2; empty for none

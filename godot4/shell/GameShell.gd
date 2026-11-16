@@ -369,6 +369,7 @@ func _ready() -> void:
 			map_modes.set_map_mode(options.get_value(MapModes.OPTION_MAP_MODE))
 		# A loaded game that was already won or lost isn't announced again.
 		check_game_over(FOUniverse.get_empire_resources(), true)
+		MoveOrders.explore_new_scouts()
 		chat_window.refresh()
 		chat_window.mark_read()
 		hints.offer("map")
@@ -911,6 +912,8 @@ func _on_turn_update() -> void:
 	if objects_screen.visible:
 		objects_screen.refresh()
 	_show_route(system_panel.selected_fleet_id())
+	if follow_game:
+		MoveOrders.explore_new_scouts()
 	auto_turn_guard.on_new_turn(self)
 
 

@@ -55,6 +55,7 @@ namespace {
         db.Add("ui.map.messages.timestamp.shown", UserStringNop("OPTIONS_DB_DISPLAY_TIMESTAMP"),           true,  Validator<bool>());
         db.Add("resource.shipdesign.default.enabled", UserStringNop("OPTIONS_DB_ADD_DEFAULT_DESIGNS"),        true,  Validator<bool>());
         db.Add("ui.turn.readiness.check",        UserStringNop("OPTIONS_DB_UI_TURN_READINESS_CHECK"),           true,  Validator<bool>());
+        db.Add("ui.fleet.explore.scouts",        UserStringNop("OPTIONS_DB_UI_FLEET_EXPLORE_SCOUTS"),           true,  Validator<bool>());
         db.Add("save.auto.initial.enabled",      UserStringNop("OPTIONS_DB_AUTOSAVE_GALAXY_CREATION"),          true,  Validator<bool>());
     }
     bool temp_bool = RegisterOptions(&AddOptions);

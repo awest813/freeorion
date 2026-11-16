@@ -1,7 +1,14 @@
 class_name MoveOrders
 extends RefCounted
-## Fleet move orders: why one is refused (FOOrders.move_problem()), and the
-## route a fleet would take, previewed on the map.
+## Fleet move orders: why one is refused (FOOrders.move_problem()), the
+## route a fleet would take, previewed on the map, and scouts sent exploring
+## on their own (option ui.fleet.explore.scouts).
+
+## Option: the starting scouts, and scouts as they're built, explore.
+const OPTION_EXPLORE_SCOUTS := "ui.fleet.explore.scouts"
+## Age of the starting fleets, made before the first turn (and of nothing
+## else).
+const STARTING_FLEET_AGE := 1 << 29
 
 
 ## What to tell the player when a move order to a system is refused, for
@@ -48,3 +55,44 @@ static func preview_route(shell: GameShell, system_id: int) -> void:
 		preview.get("turn_flags", PackedInt32Array()),
 		problem != ""
 	)
+
+
+## Ids of the scouts in \a fleets (FOObjects.list_objects("fleets", true))
+## to send exploring on turn \a turn: each fleet whose \a heads entry
+## (FOUniverse.get_map_snapshot() fleet_heads by id) is "scout", that is
+## new (built this turn, or one of the starting fleets in the first turns),
+## idle, and not exploring yet.
+static func scouts_to_explore(fleets: Array, heads: Dictionary, turn: int) -> Array:
+	var ids := []
+	for fleet: Dictionary in fleets:
+		var id: int = fleet.get("id", -1)
+		var age: int = fleet.get("age", 1)
+		if (
+			heads.get(id, "") == "scout"
+			and (age == 0 or (turn <= 2 and age >= STARTING_FLEET_AGE))
+			and not fleet.get("moving", false)
+			and str(fleet.get("destination", "")) == ""
+			and not fleet.get("exploring", false)
+		):
+			ids.push_back(id)
+	return ids
+
+
+## At the start of a turn: new scouts explore, if the player wants that.
+static func explore_new_scouts() -> void:
+	if not Engine.has_singleton("FOOptions"):
+		return
+	if not Engine.get_singleton("FOOptions").get_value(OPTION_EXPLORE_SCOUTS):
+		return
+	var snapshot: Dictionary = FOUniverse.get_map_snapshot()
+	var heads := {}
+	var ids: PackedInt32Array = snapshot.get("fleet_ids", PackedInt32Array())
+	var names: Array = Array(snapshot.get("fleet_heads", []))
+	for k in mini(ids.size(), names.size()):
+		heads[ids[k]] = names[k]
+	var fleets: Array = FOObjects.list_objects("fleets", true)
+	for fleet: Dictionary in fleets:
+		fleet["exploring"] = FOExplore.is_exploring(fleet["id"])
+	var turn: int = GlobalFreeOrionNode.get_current_turn()
+	for id: int in scouts_to_explore(fleets, heads, turn):
+		FOExplore.set_exploring(id, true)
