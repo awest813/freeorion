@@ -18,6 +18,8 @@ const OPTION_GLASS := "ui.glass"
 ## Panels that get the glass shader (see glass_panel.gdshader).
 const GLASS_PANELS := ["OverlayPanel", "TopBarPanel", "BackgroundPanel"]
 const GLASS_SHADER := preload("res://ui/theme/glass_panel.gdshader")
+## A screen opening settles from this scale.
+const SETTLE_SCALE := 1.015
 const THEMES := {
 	"default": "res://ui/tokens/default.tres",
 	"high_contrast": "res://ui/tokens/high_contrast.tres",
@@ -66,19 +68,22 @@ func set_empire_accent(color: Color) -> void:
 	apply_theme(_theme_name)
 
 
-## Bring \a item in: fade and rise a little into place (a full screen
-## opening), unless motion is reduced.
+## Bring \a item in: fade in while settling from a touch larger (a full
+## screen opening), unless motion is reduced. Only its drawing changes (scale
+## and modulate), never its layout: moving an anchored screen as it first
+## shows would upset its offsets.
 func slide_in(item: Control) -> void:
 	if reduce_motion or not item.is_inside_tree():
 		item.modulate.a = 1.0
+		item.scale = Vector2.ONE
 		return
-	var rest := item.position
-	item.position = rest + Vector2(0, tokens.space_4)
+	item.pivot_offset = item.get_parent_area_size() / 2.0
+	item.scale = Vector2.ONE * SETTLE_SCALE
 	item.modulate.a = 0.0
 	var tween := item.create_tween().set_parallel()
 	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tween.tween_property(item, "modulate:a", 1.0, tokens.motion)
-	tween.tween_property(item, "position", rest, tokens.motion)
+	tween.tween_property(item, "scale", Vector2.ONE, tokens.motion)
 
 
 ## Switch token set ("default", "high_contrast") and rebuild the theme.
@@ -143,11 +148,12 @@ func _on_node_added(node: Node) -> void:
 func adopt_glyph(button: Button) -> void:
 	if not is_instance_valid(button) or button.icon != null:
 		return
-	var texture := FOIcons.for_glyph(
-		button.text, tokens.icon_small + tokens.space_1 if tokens else 20
-	)
+	var size := tokens.icon_small + tokens.space_1 if tokens else 20
+	var texture := FOIcons.for_glyph(button.text, size)
 	if texture == null:
 		return
+	# Drawn at the UI scale for sharpness, shown at its size in UI units.
+	button.add_theme_constant_override("icon_max_width", size)
 	button.set_meta("glyph", button.text)
 	button.text = ""
 	button.icon = texture

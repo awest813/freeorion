@@ -257,3 +257,18 @@ That is about 34 working days in total. Phases 1, 2 and 4 can run in parallel af
   - Mitigation: regenerate per phase in one commit with screenshots in the message, and keep behaviour tests independent of look (text and signals, not pixels).
 - **Scope creep.**
   - Mitigation: each phase has acceptance criteria above; anything else goes to a follow-up list.
+
+
+## Status
+
+The plan was carried out in the "observatory glass" direction, in the order 0 → 2 → 1 → 5 → 3 → 4 → 6. The style guide is `godot4/ui/README.md`.
+
+| Phase | Done | Not done (follow-ups) |
+|-------|------|-----------------------|
+| 0 Foundation | Tokens for glass, edges, shadows, cut corners and display type. Glass shader on floating panels, the top bar and screens. Exo 2 display face, `SectionCaps` captions. Empire accent, readable at 4.5:1. Options `ui.glass` and `ui.accent.empire`. Monochrome interface icon set. | — |
+| 2 Worlds and peoples | Planet spheres from GG's surface art (system and planet panels). Composed empire flags (top bar, Empires, setup, turn banner). Species portraits (planet panel, Empires, setup, Pedia). | Rendered-sphere cache; spheres in the Objects list |
+| 1 Living map | Territory regions with borders. Twinkling stars with hot cores. Parallax nebulae. Lane glow. Fleet glow and turning selection ring. Empire names when zoomed out. | Animated route flow; planets orbiting when zoomed in |
+| 5 Front end | Title screen with a glass column, menu in the display face and drifting splash. Loading view with spinner and tips. Drawn galaxy-shape previews in setup and the lobby. Identity card in setup. | Setup as a three-step flow |
+| 3 Screens | Screens slide in over the blurred galaxy. Card rows with category colours in Research, Production and Government. Species paintings in the Pedia. | Research card grid and timeline; Empires power bars; combat hero header |
+| 4 Rhythm | Turn banner, spinner while the turn is processed, counting resource numbers, sounds for battles and auto-turn stops. | Notification card stack; music that follows peace or war |
+| 6 Quality | Every screen checked at 100%, 150% and 200% and in German and Russian (icons were drawn twice too large at 200%; fixed). Style guide written. Persona games re-run: all five ran clean except the warlord, whose designs failed because the screen transition moved the designer as it first appeared and stretched it to 5,000 px. The transition now only scales and fades (regression test added). | — |

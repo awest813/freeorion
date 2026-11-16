@@ -293,3 +293,22 @@ func test_new_turns_are_announced_and_numbers_count_up():
 	bar.end_turn()
 	assert_true(bar._busy.visible, "busy while the turn is processed")
 	FOUi.reduce_motion = was
+
+
+func test_screens_open_with_motion_but_keep_their_size():
+	var holder := Control.new()
+	holder.size = Vector2(1280, 800)
+	add_child_autofree(holder)
+	var shell := GameShell.new()
+	shell.follow_game = false
+	holder.add_child(shell)
+	await wait_process_frames(1)
+	var was := FOUi.reduce_motion
+	FOUi.reduce_motion = false
+	shell.show_screen("design")
+	await wait_seconds(FOUi.tokens.motion + 0.2)
+	var screen := shell.designer_screen
+	assert_lte(screen.size.y, holder.size.y, "fits the window")
+	assert_eq(screen.scale, Vector2.ONE, "settled")
+	assert_eq(screen.modulate.a, 1.0)
+	FOUi.reduce_motion = was
