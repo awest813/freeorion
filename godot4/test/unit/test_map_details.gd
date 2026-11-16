@@ -122,3 +122,20 @@ func test_planet_gifts_and_rename():
 	panel.show_data({"id": 6, "name": "Theirs", "own": false})
 	assert_false(panel._give.visible)
 	assert_false(panel._title.editable)
+
+
+func test_planets_orbit_only_when_zoomed_in():
+	var map := shell.map_view.map
+	var orbits: OrbitLayer
+	for child in map.get_children():
+		if child is OrbitLayer:
+			orbits = child
+	assert_not_null(orbits, "the map has an orbit layer")
+	map.camera._set_zoom_now(0.1)
+	assert_false(orbits._zoomed_in(), "no orbits zoomed out")
+	map.camera._set_zoom_now(OrbitLayer.MIN_SPACING_PX / map._typical_spacing() * 1.5)
+	assert_true(orbits._zoomed_in(), "orbits zoomed in")
+	orbits._planets[1] = [["PT_OCEAN", "SZ_LARGE", 7]]
+	assert_eq(orbits._planets_of(1).size(), 1, "planets kept per system")
+	map.set_snapshot({"system_ids": PackedInt32Array([1])}, PackedStringArray(), PackedColorArray())
+	assert_false(orbits._planets.has(1), "a new snapshot forgets them")

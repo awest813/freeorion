@@ -132,10 +132,11 @@ func _apply_scale() -> void:
 
 
 func _on_node_added(node: Node) -> void:
+	# Deferred, so the node's own setup comes first; it may be freed by then.
 	if node is PanelContainer:
-		_glaze.call_deferred(node)
+		_when_valid.call_deferred(_glaze, node)
 	elif node is Button and not node is OptionButton:
-		adopt_glyph.call_deferred(node)
+		_when_valid.call_deferred(adopt_glyph, node)
 	# A new current scene: let its _ready() run, then restore our scale and
 	# add fork features to upstream scenes.
 	if node.get_parent() == get_tree().root:
@@ -162,6 +163,11 @@ func adopt_glyph(button: Button) -> void:
 
 # Glass for \a panel if it is one of GLASS_PANELS (its variation may be set
 # in its _ready, hence deferred).
+func _when_valid(action: Callable, node: Variant) -> void:
+	if is_instance_valid(node):
+		action.call(node)
+
+
 func _glaze(panel: PanelContainer) -> void:
 	if (
 		is_instance_valid(panel)

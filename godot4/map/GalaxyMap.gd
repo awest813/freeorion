@@ -207,6 +207,10 @@ func _ready() -> void:
 	add_child(_mode_layer)
 	move_child(_mode_layer, _lane_layer.get_index() + 1)
 	# Fleets above the overlay (selection, routes).
+	var orbits := OrbitLayer.new()
+	orbits.map = self
+	snapshot_changed.connect(orbits.reset)
+	add_child(orbits)
 	fleets = FleetLayer.new()
 	fleets.map = self
 	fleets.preview_changed.connect(_label_layer.queue_redraw)
