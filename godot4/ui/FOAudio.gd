@@ -52,6 +52,11 @@ const PANELS := [
 ## Hover ticks are quieter than clicks.
 const ROLLOVER_DB := -9.0
 const EFFECT_PLAYERS := 4
+## The music's bus, and its low-pass cutoff in peace and when fighting.
+const MUSIC_BUS := "Music"
+const CALM_HZ := 3200.0
+const TENSE_HZ := 20000.0
+const TENSION_SECONDS := 4.0
 
 var music_enabled := true
 var effects_enabled := true
@@ -65,6 +70,7 @@ var last_sound := ""
 var audible := false
 
 var _music: AudioStreamPlayer
+var _lowpass: AudioEffectLowPassFilter
 var _effects: Array[AudioStreamPlayer] = []
 var _next_effect := 0
 var _streams := {}
@@ -72,6 +78,7 @@ var _streams := {}
 
 func _ready() -> void:
 	_music = AudioStreamPlayer.new()
+	_music.bus = _music_bus()
 	add_child(_music)
 	for i in EFFECT_PLAYERS:
 		var player := AudioStreamPlayer.new()
@@ -81,6 +88,7 @@ func _ready() -> void:
 	get_tree().node_added.connect(_on_node_added)
 	if is_instance_valid(get_node_or_null("/root/GlobalFreeOrionNode")):
 		get_node("/root/GlobalFreeOrionNode").turn_update.connect(play.bind("new_turn"))
+		get_node("/root/GlobalFreeOrionNode").combat_logs_updated.connect(_on_combats)
 	_apply_music()
 
 
@@ -145,6 +153,44 @@ func _apply_music() -> void:
 	_music.volume_db = volume_db(music_volume)
 	if _music.stream and not _music.playing:
 		_music.play()
+
+
+## Let the music open up (\a tense: the empire fought in the last turn) or
+## settle back, muffled, in peace; over a few seconds.
+func set_tension(tense: bool) -> void:
+	if _lowpass == null:
+		return
+	var target := TENSE_HZ if tense else CALM_HZ
+	if is_equal_approx(_lowpass.cutoff_hz, target):
+		return
+	create_tween().tween_property(_lowpass, "cutoff_hz", target, TENSION_SECONDS)
+
+
+func is_tense() -> bool:
+	return _lowpass != null and _lowpass.cutoff_hz > (CALM_HZ + TENSE_HZ) / 2.0
+
+
+# A bus of its own for the music, behind a low-pass filter that follows the
+# tension (set_tension()).
+func _music_bus() -> String:
+	var index := AudioServer.get_bus_index(MUSIC_BUS)
+	if index < 0:
+		AudioServer.add_bus()
+		index = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(index, MUSIC_BUS)
+		AudioServer.set_bus_send(index, "Master")
+		_lowpass = AudioEffectLowPassFilter.new()
+		_lowpass.cutoff_hz = CALM_HZ
+		AudioServer.add_bus_effect(index, _lowpass)
+	else:
+		_lowpass = AudioServer.get_bus_effect(index, 0) as AudioEffectLowPassFilter
+	return MUSIC_BUS
+
+
+# Combat reports arrived: tense when one of them is from the last turn.
+func _on_combats() -> void:
+	var turn: int = get_node("/root/GlobalFreeOrionNode").get_current_turn()
+	set_tension(FOCombat.list_combats().any(func(c): return c.get("turn", 0) >= turn - 1))
 
 
 func _stream(file: String) -> AudioStream:

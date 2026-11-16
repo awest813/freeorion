@@ -96,3 +96,13 @@ func test_lists_dropdowns_panels_and_the_map_sound():
 	assert_eq(FOAudio.played_count, before, "Leaving a system is silent")
 	map.fleet_clicked.emit(5)
 	assert_eq(FOAudio.last_sound, "fleet_click")
+
+
+func test_music_opens_up_in_war():
+	assert_false(FOAudio.is_tense(), "calm to begin with")
+	FOAudio.set_tension(true)
+	await wait_seconds(FOAudio.TENSION_SECONDS + 0.3)
+	assert_true(FOAudio.is_tense())
+	FOAudio.set_tension(false)
+	await wait_seconds(FOAudio.TENSION_SECONDS + 0.3)
+	assert_false(FOAudio.is_tense(), "settles back in peace")
