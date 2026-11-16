@@ -64,10 +64,13 @@ func test_host_emits_name():
 
 func test_lan_servers_listed_and_picked():
 	var screen := _connect_screen()
+	assert_eq(screen._lan_empty.text, tr("MP_LAN_LOOK"), "the empty list says how to look")
 	screen.find_lan_servers()
 	assert_true(screen.join_button.disabled, "No joining while searching")
+	assert_eq(screen._lan_empty.text, tr("MP_SEARCHING_LAN"))
 	await wait_for_signal(screen.lan_search_done, 5)
 	assert_eq(screen.lan_list.item_count, 1)
+	assert_false(screen._lan_empty.visible, "a found game hides the note")
 	screen.lan_list.select(0)
 	screen.lan_list.item_selected.emit(0)
 	assert_eq(screen.address_edit.text, "192.168.1.20")
@@ -75,6 +78,8 @@ func test_lan_servers_listed_and_picked():
 	screen.find_lan_servers()
 	await wait_for_signal(screen.lan_search_done, 5)
 	assert_eq(screen.status_text(), tr("MP_NO_LAN_SERVERS"))
+	assert_true(screen._lan_empty.visible)
+	assert_eq(screen._lan_empty.text, tr("MP_NO_LAN_SERVERS"))
 
 
 # Players ---------------------------------------------------------------

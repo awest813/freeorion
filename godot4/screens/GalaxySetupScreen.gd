@@ -76,6 +76,10 @@ const LEVELS := [
 	["GALAXY_SETUP_RANDOM", "GSETUP_RANDOM"],
 ]
 ## Number fields: option, label key, min, max.
+## Systems per empire below which a galaxy is crowded, above which spacious
+## (the game's own advice is 15 to 30).
+const ROOM_CROWDED := 12.0
+const ROOM_SPACIOUS := 35.0
 const NUMBERS := [
 	["setup.star.count", "GSETUP_STARS", 10, 5000],
 	["setup.ai.player.count", "GSETUP_NUMBER_AIS", 0, 40],
@@ -106,6 +110,7 @@ var _preview: GalaxyPreview
 var _flag: TextureRect
 var _identity: Label
 var _portrait: TextureRect
+var _room: Label
 var _species_name: Label
 var _status: Label
 
@@ -245,6 +250,7 @@ func _build() -> void:
 		_add_row(grid, field[1], spin, field[0])
 		if field[0] == "setup.star.count":
 			spin.value_changed.connect(func(v: float): _preview.systems = int(v))
+		spin.value_changed.connect(func(_v): _update_room())
 	for field in CHOICES:
 		var choice := OptionButton.new()
 		var values: Array = field[2] if field[2] is Array else _levels(field[2])
@@ -261,6 +267,11 @@ func _build() -> void:
 	_preview = GalaxyPreview.new()
 	_preview.custom_minimum_size = Vector2(420, 310)
 	side.add_child(_preview)
+	# How much room each empire gets, in words.
+	_room = ScreenKit.label("", "SecondaryLabel")
+	_room.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_room.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	side.add_child(_room)
 	var who := HBoxContainer.new()
 	who.add_theme_constant_override("separation", FOUi.tokens.space_3)
 	side.add_child(who)
@@ -496,6 +507,35 @@ func _select_color(index: int) -> void:
 	_update_identity()
 
 
+## The room line for \a systems shared by \a empires: the numbers, then
+## whether that is crowded, balanced or spacious.
+static func room_text(systems: int, empires: int) -> String:
+	var each := float(systems) / maxi(empires, 1)
+	var t := func(key: String) -> String: return TranslationServer.translate(key)
+	if empires <= 1:
+		return t.call("GSETUP_ROOM_ALONE").replace("%1%", str(systems))
+	var summary: String = (
+		t
+		. call("GSETUP_ROOM")
+		. replace("%1%", str(systems))
+		. replace("%2%", str(empires))
+		. replace("%3%", str(roundi(each)))
+	)
+	var verdict := "GSETUP_ROOM_BALANCED"
+	if each < ROOM_CROWDED:
+		verdict = "GSETUP_ROOM_CROWDED"
+	elif each > ROOM_SPACIOUS:
+		verdict = "GSETUP_ROOM_SPACIOUS"
+	return summary + "\n" + t.call(verdict)
+
+
+func _update_room() -> void:
+	var stars: SpinBox = _editors.get("setup.star.count")
+	var ais: SpinBox = _editors.get("setup.ai.player.count")
+	if _room and stars and ais:
+		_room.text = room_text(int(stars.value), int(ais.value) + 1)
+
+
 func _update_preview() -> void:
 	var shape: OptionButton = _editors["setup.galaxy.shape"]
 	var key: String = shape.get_item_metadata(shape.selected) if shape.selected >= 0 else ""
@@ -503,6 +543,7 @@ func _update_preview() -> void:
 	var stars: SpinBox = _editors.get("setup.star.count")
 	if stars:
 		_preview.systems = int(stars.value)
+	_update_room()
 	_update_identity()
 
 

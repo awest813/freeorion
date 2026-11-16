@@ -2738,6 +2738,21 @@ DESIGNER_EMPTY_SLOTS
 EMPIRES_STRENGTH
 Known strength %1%× yours (industry, ships and planets seen)
 
+GSETUP_ROOM
+%1% systems · %2% empires · about %3% systems each
+
+GSETUP_ROOM_ALONE
+%1% systems, and no other empires: the galaxy is yours to explore.
+
+GSETUP_ROOM_CROWDED
+Crowded: neighbours close by, early wars likely.
+
+GSETUP_ROOM_BALANCED
+Balanced room for each empire.
+
+GSETUP_ROOM_SPACIOUS
+Spacious: a long, quiet start before you meet anyone.
+
 GSETUP_TAB_EMPIRE
 Empire
 
@@ -5007,6 +5022,12 @@ A player lost their connection to the server, so the server ended the game.
 
 MP_SERVER_ADDRESS
 Server address
+
+MP_LAN_GAMES
+Games on your network
+
+MP_LAN_LOOK
+Refresh to look for games on your network, or type a server's address above.
 
 MP_SEARCHING_LAN
 Looking for servers on the local network…

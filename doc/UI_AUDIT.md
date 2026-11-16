@@ -102,3 +102,5 @@ The same per-control checks ran on each.
 | Game menu | Quitting warned that progress since the last save is lost, without saying when that was. | The confirmation says when the game was last saved ("Last autosaved on turn 40, 2026-11-16 12:25") or that it never was. |
 | Title | Entries had no explanation ("Quick start" does what?). | The entry pointed at or focused is explained under the menu. |
 | Load | With no saves, a grey line at the top of an empty list. | The empty state, centred. |
+| Galaxy setup | The numbers alone: what do 150 systems and 6 AIs make? | Under the preview: "150 systems · 7 empires · about 21 systems each", and whether that is crowded (early wars), balanced or spacious, as the counts change. Alone in the galaxy, it says so. |
+| Connect | "Lan game at:" over an empty box. | "Games on your network" as a section caption; the empty list says how to look, that it is looking, or that nothing answered. |

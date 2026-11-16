@@ -31,6 +31,7 @@ var host_button: Button
 var join_button: Button
 
 var _status: Label
+var _lan_empty: Label
 var _refresh_button: Button
 # The local network search running in the background (it waits about two
 # seconds for answers).
@@ -75,6 +76,8 @@ func find_lan_servers() -> void:
 		return
 	lan_list.clear()
 	set_status(tr("MP_SEARCHING_LAN"))
+	_lan_empty.text = tr("MP_SEARCHING_LAN")
+	_lan_empty.visible = true
 	_search = Thread.new()
 	_search.start(lobby_source.discover_lan_servers)
 	_update_buttons()
@@ -88,6 +91,8 @@ func find_lan_servers() -> void:
 	for server in found:
 		lan_list.add_item(server)
 	set_status("" if not found.is_empty() else tr("MP_NO_LAN_SERVERS"))
+	_lan_empty.text = tr("MP_NO_LAN_SERVERS")
+	_lan_empty.visible = found.is_empty()
 	lan_search_done.emit()
 
 
@@ -132,8 +137,9 @@ func _build() -> void:
 
 	var lan_row := HBoxContainer.new()
 	box.add_child(lan_row)
-	var lan_label := ScreenKit.label(tr("LAN_GAME_LABEL"), "SecondaryLabel")
+	var lan_label := ScreenKit.section(tr("MP_LAN_GAMES"))
 	lan_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lan_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	lan_row.add_child(lan_label)
 	_refresh_button = Button.new()
 	_refresh_button.text = tr("REFRESH_LIST_BN")
@@ -148,7 +154,19 @@ func _build() -> void:
 			address_edit.text = lan_list.get_item_text(i)
 			_on_join()
 	)
-	box.add_child(lan_list)
+	# An empty list says why: searching, nothing found, or how to look.
+	var lan_box := Control.new()
+	lan_box.custom_minimum_size.y = lan_list.custom_minimum_size.y
+	lan_list.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lan_box.add_child(lan_list)
+	_lan_empty = ScreenKit.label(tr("MP_LAN_LOOK"), "SecondaryLabel")
+	_lan_empty.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_lan_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lan_empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_lan_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_lan_empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lan_box.add_child(_lan_empty)
+	box.add_child(lan_box)
 
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", FOUi.tokens.space_3)

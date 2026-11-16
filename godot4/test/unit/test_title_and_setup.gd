@@ -170,3 +170,23 @@ func test_setup_walks_three_steps():
 	setup._next.pressed.emit()
 	assert_true(setup._pages[2].visible, "then the rules")
 	assert_false(setup._next.visible, "the last step")
+
+
+func test_setup_says_how_much_room_each_empire_gets():
+	assert_string_contains(GalaxySetupScreen.room_text(60, 7), tr("GSETUP_ROOM_CROWDED"))
+	assert_string_contains(GalaxySetupScreen.room_text(150, 7), tr("GSETUP_ROOM_BALANCED"))
+	assert_string_contains(GalaxySetupScreen.room_text(300, 4), tr("GSETUP_ROOM_SPACIOUS"))
+	assert_eq(
+		GalaxySetupScreen.room_text(150, 1),
+		tr("GSETUP_ROOM_ALONE").replace("%1%", "150"),
+		'no rivals: no "1 empires"'
+	)
+	var setup := GalaxySetupScreen.new()
+	setup.source = _setup_options()
+	add_child_autofree(setup)
+	setup.refresh()
+	var stars: SpinBox = setup._editors["setup.star.count"]
+	var ais: SpinBox = setup._editors["setup.ai.player.count"]
+	stars.value = 40
+	ais.value = 9
+	assert_eq(setup._room.text, GalaxySetupScreen.room_text(40, 10), "follows the numbers")
