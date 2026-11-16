@@ -270,3 +270,26 @@ func test_new_scouts_explore_on_their_own():
 	var heads := {1: "scout", 2: "scout", 3: "scout", 4: "scout", 5: "colony"}
 	assert_eq(MoveOrders.scouts_to_explore(fleets, heads, 7), [1], "new idle scouts only")
 	assert_eq(MoveOrders.scouts_to_explore(fleets, heads, 2), [1, 2], "the starting ones too")
+
+
+func test_new_turns_are_announced_and_numbers_count_up():
+	var banner := TurnBanner.new()
+	add_child_autofree(banner)
+	var was := FOUi.reduce_motion
+	FOUi.reduce_motion = false
+	banner.announce(12, null)
+	assert_true(banner.visible)
+	assert_string_contains(banner._title.text, "12")
+	var bar := TopBar.new()
+	bar.follow_game = false
+	add_child_autofree(bar)
+	bar.set_state("Empire", Color.WHITE, 3, false)
+	bar.set_resources({"industry": 10.0, "industry_spent": 10.0})
+	bar.set_resources({"industry": 20.0, "industry_spent": 20.0})
+	var chip: Button = bar._resource_chips["industry"]
+	assert_ne(chip.text, "20.0", "still counting")
+	await wait_seconds(FOUi.tokens.motion * 4.0 + 0.2)
+	assert_eq(chip.text, "20.0")
+	bar.end_turn()
+	assert_true(bar._busy.visible, "busy while the turn is processed")
+	FOUi.reduce_motion = was

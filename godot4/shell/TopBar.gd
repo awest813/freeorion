@@ -74,6 +74,8 @@ var readiness_provider: Callable = _game_readiness
 
 var _swatch: ColorRect
 var _flag: TextureRect
+## Turning while the turn is processed.
+var _busy: FOSpinner
 var _empire: Label
 var _turn: Label
 var _end_turn: Button
@@ -192,6 +194,8 @@ func _update_turn_controls() -> void:
 		turn_text += "  ·  " + tr("TOPBAR_TURN_TIMEOUT").replace("%1%", timeout_text(left))
 	_turn.text = turn_text
 	_turn.tooltip_text = turn_text
+	if _busy:
+		_busy.visible = _waiting
 	if _waiting:
 		_end_turn.text = (
 			tr("MAP_BTN_TURN_UNREADY").replace("%1%", str(_turn_number))
@@ -332,12 +336,28 @@ func _fill_chip(chip: Button, entry: Array, data: Dictionary) -> void:
 					tooltip += "\n%s: %d" % [tr(line[1]), data[line[0]]]
 		"detection":
 			text = "%.0f" % value
-	chip.text = text
+	_tick(chip, value, text)
 	chip.tooltip_text = tooltip
 	if color == Color():
 		chip.remove_theme_color_override("font_color")
 	else:
 		chip.add_theme_color_override("font_color", color)
+
+
+# Show \a text on \a chip; its number (\a value, written first in \a text)
+# counts there from the last one shown, unless motion is reduced.
+func _tick(chip: Button, value: float, text: String) -> void:
+	var before: float = chip.get_meta("value", value)
+	chip.set_meta("value", value)
+	var number := "%.1f" % value
+	if FOUi.reduce_motion or is_equal_approx(before, value) or not text.begins_with(number):
+		chip.text = text
+		return
+	var rest := text.substr(number.length())
+	var tween := chip.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_method(
+		func(v: float): chip.text = ("%.1f" % v) + rest, before, value, FOUi.tokens.motion * 4.0
+	)
 
 
 ## The population tooltip's census: each species' population, then each
@@ -366,6 +386,12 @@ func set_active_screen(screen_name: String) -> void:
 
 
 ## Show \a count new items on \a screen_name's button (0 clears it).
+## The count on \a screen_name's button (0 for none).
+func badge(screen_name: String) -> int:
+	var button: Button = _screen_buttons.get(screen_name)
+	return button.get_meta("badge", 0) if button else 0
+
+
 func set_badge(screen_name: String, count: int) -> void:
 	var button: Button = _screen_buttons.get(screen_name)
 	if button == null:
@@ -550,6 +576,10 @@ func _build() -> void:
 	_turn_menu = PopupMenu.new()
 	_turn_menu.id_pressed.connect(_on_turn_menu)
 	add_child(_turn_menu)
+	_busy = FOSpinner.new(FOUi.tokens.icon)
+	_busy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_busy.visible = false
+	row.add_child(_busy)
 	row.add_child(_end_turn)
 	_timeout_timer = Timer.new()
 	_timeout_timer.wait_time = 1.0

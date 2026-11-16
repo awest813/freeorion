@@ -815,6 +815,9 @@ func update_combat_badge(combats: Array, current_turn: int) -> void:
 	for combat: Dictionary in combats:
 		if combat["turn"] >= current_turn - 1 and combat["id"] > _seen_combat_id:
 			count += 1
+	# New battles sound once, as their badge appears.
+	if count > top_bar.badge("combat"):
+		FOAudio.play("combat")
 	top_bar.set_badge("combat", 0 if active_screen == "combat" else count)
 
 

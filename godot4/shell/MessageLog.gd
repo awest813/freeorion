@@ -21,6 +21,7 @@ var toast := Toast.new()
 var _shell: GameShell
 ## Diplomatic status with each other empire, as last seen: id -> status.
 var _statuses := {}
+var _banner: TurnBanner
 
 
 func _init(shell: GameShell) -> void:
@@ -84,6 +85,18 @@ func players_changed() -> void:
 
 func turn_begun(turn: int) -> void:
 	_shell.chat_window.add_event(tr("TURN_BEGIN").replace("%1%", str(turn)), true)
+	if _banner == null:
+		_banner = TurnBanner.new()
+		_shell.add_child(_banner)
+	var empire := FOUniverse.get_empire_id()
+	_banner.announce(
+		turn,
+		EmpireArt.flag(
+			FOUniverse.get_empire_name(empire),
+			FOUniverse.get_empire_color(empire),
+			FOUi.tokens.icon_large
+		)
+	)
 
 
 ## Note a save in the log; not autosaves (one a turn would bury the rest).

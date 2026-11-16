@@ -22,6 +22,7 @@ const SOUNDS := {
 	"turn": "turn_button_click.ogg",
 	"new_turn": "newturn.ogg",
 	"alert": "alert.ogg",
+	"combat": "combat/explosion-med1.ogg",
 	"close": "window_close.ogg",
 	"select": "item_select.ogg",
 	"open": "sidepanel_open.ogg",

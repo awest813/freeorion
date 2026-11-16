@@ -78,6 +78,7 @@ func on_new_turn(shell: GameShell) -> void:
 		"%1%", TranslationServer.translate(stop)
 	)
 	shell.message_log.toast.show_text(note)
+	FOAudio.play("alert")
 	shell.chat_window.add_event(note)
 
 
