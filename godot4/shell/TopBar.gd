@@ -441,6 +441,18 @@ func _build() -> void:
 	var resource_gap := Control.new()
 	resource_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	resources.add_child(resource_gap)
+	# The turn and, while it is processed, its phase, on the second row where
+	# there is room: the first row keeps the screens, End turn and Menu. Long
+	# phase texts are shortened (the whole text is the tooltip).
+	_turn = Label.new()
+	_turn.theme_type_variation = "SecondaryLabel"
+	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_turn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_turn.clip_text = true
+	_turn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_turn.size_flags_stretch_ratio = 3.0
+	_turn.mouse_filter = Control.MOUSE_FILTER_PASS
+	resources.add_child(_turn)
 	_auto_turn = Button.new()
 	_auto_turn.toggle_mode = true
 	_auto_turn.icon = FOArt.icon("icons/buttons/manual_turn.png")
@@ -489,17 +501,6 @@ func _build() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
-	# The turn and, while it is processed, its phase: shortened rather than
-	# pushing End turn and Menu off the right edge (the whole text is its
-	# tooltip).
-	_turn = Label.new()
-	_turn.theme_type_variation = "SecondaryLabel"
-	_turn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_turn.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_turn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_turn.clip_text = true
-	_turn.mouse_filter = Control.MOUSE_FILTER_PASS
-	row.add_child(_turn)
 	_end_turn = Button.new()
 	_end_turn.theme_type_variation = "PrimaryButton"
 	_end_turn.tooltip_text = tr("MAP_BTN_TURN_TOOLTIP_DESC_SP")
