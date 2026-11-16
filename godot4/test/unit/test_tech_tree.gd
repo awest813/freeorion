@@ -95,3 +95,15 @@ func test_view_pan_and_zoom_around_the_cursor():
 	view.center_on("B")
 	var center := view.offset + (view.cell_position("B") + TechTreeView.NODE_SIZE / 2.0) * view.zoom
 	assert_almost_eq(center, view.size / 2.0, Vector2.ONE * 0.01)
+
+
+func test_queued_path_glows():
+	var view := TechTreeView.new()
+	add_child_autofree(view)
+	view.techs = [
+		_tech("A", [], "complete"), _tech("B", ["A"]), _tech("C", ["B"]), _tech("D", ["B"])
+	]
+	view.queue_positions = {"B": 0, "C": 1}
+	assert_true(view.queued_path("A", "B"), "from a researched tech to a queued one")
+	assert_true(view.queued_path("B", "C"), "between queued techs")
+	assert_false(view.queued_path("B", "D"), "not to a tech that isn't queued")

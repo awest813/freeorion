@@ -298,6 +298,14 @@ func _update_related() -> void:
 	_related = _ancestors.merged(_descendants)
 
 
+## Whether arc \a from -> \a to is on the way research is queued to go:
+## to a queued tech from one queued or researched.
+func queued_path(from: String, to: String) -> bool:
+	if not queue_positions.has(to):
+		return false
+	return queue_positions.has(from) or _by_name.get(from, {}).get("status", "") == "complete"
+
+
 # Whether arc \a from -> \a to is on a chain through the selected tech.
 func _lit(from: String, to: String) -> bool:
 	if selected.is_empty():
@@ -325,7 +333,13 @@ func _draw() -> void:
 			if lit
 			else Color(tokens.positive if done else tokens.text_secondary, 0.35)
 		)
-		draw_polyline(_curve(from, to), color, (2.5 if lit else 1.5) * maxf(zoom, 0.6), true)
+		var curve := _curve(from, to)
+		var line := (2.5 if lit else 1.5) * maxf(zoom, 0.6)
+		# The path research will take glows.
+		if queued_path(arc[0], arc[1]):
+			color = tokens.accent
+			draw_polyline(curve, Color(tokens.accent, 0.18), line * 4.0, true)
+		draw_polyline(curve, color, line, true)
 	for tech_name in _layout["cells"]:
 		var rect := Rect2(offset + cell_position(tech_name) * zoom, NODE_SIZE * zoom)
 		if view.intersects(rect):
@@ -374,6 +388,11 @@ func _draw_card(tech_name: String, rect: Rect2) -> void:
 		border = tokens.text_primary
 		width = 2.0
 	draw_rect(rect, border, false, width)
+	# The category's colour down the left edge, as on the list's cards.
+	var band: Color = tech.get("category_color", Color.TRANSPARENT)
+	if dimmed:
+		band = Color(band, band.a * 0.4)
+	draw_rect(Rect2(rect.position, Vector2(maxf(3.0 * zoom, 2.0), rect.size.y)), band)
 	var pad := 6.0 * zoom
 	var icon := _icon(tech)
 	var icon_size := ICON * zoom

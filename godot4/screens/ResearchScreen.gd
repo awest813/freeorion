@@ -118,7 +118,7 @@ func _on_view_changed(tab: int) -> void:
 	_status_menu.visible = tree
 	_tree_view.visible = tree
 	# The tree needs the room more than the queue does.
-	_queue_column.size_flags_stretch_ratio = 0.6 if tree else 0.85
+	_queue_column.size_flags_stretch_ratio = 0.7 if tree else 0.85
 	_refresh_catalog()
 	if tree and _tree.selected.is_empty():
 		_center_tree_on_frontier.call_deferred()
