@@ -29,6 +29,37 @@ static func label(text: String, variation := "") -> Label:
 
 
 ## Fixed-size art icon; empty placeholder when the file is missing.
+## Draw \a row (a list row) as a card: a soft fill with a hairline edge and
+## a cut corner, and a band of \a band down its left side (a category's
+## colour). The row keeps its own children and input; spacers before and
+## after them clear the band and the edge.
+static func card(row: Control, band: Color) -> void:
+	var tokens: FOTokens = FOUi.tokens
+	var style := FOThemeBuilder.cut(
+		FOThemeBuilder.box(tokens, Color(tokens.surface_raised, 0.7), tokens.border, 0, 0),
+		tokens,
+		tokens.chamfer_small
+	)
+	var band_width := tokens.space_1
+	var edge := band_width + tokens.space_2
+	var spacer := Control.new()
+	spacer.custom_minimum_size.x = edge
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(spacer)
+	row.move_child(spacer, 0)
+	var end := Control.new()
+	end.custom_minimum_size.x = tokens.space_2
+	end.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(end)
+	row.draw.connect(
+		func():
+			row.draw_style_box(style, Rect2(Vector2.ZERO, row.size))
+			var top := float(tokens.chamfer_small)
+			row.draw_rect(Rect2(0, top, band_width, maxf(0.0, row.size.y - top)), band)
+	)
+	row.queue_redraw()
+
+
 ## A section caption: \a text in the display face's spaced capitals
 ## ("SectionCaps").
 static func section(text: String) -> Label:

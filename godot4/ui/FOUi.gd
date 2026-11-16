@@ -66,6 +66,21 @@ func set_empire_accent(color: Color) -> void:
 	apply_theme(_theme_name)
 
 
+## Bring \a item in: fade and rise a little into place (a full screen
+## opening), unless motion is reduced.
+func slide_in(item: Control) -> void:
+	if reduce_motion or not item.is_inside_tree():
+		item.modulate.a = 1.0
+		return
+	var rest := item.position
+	item.position = rest + Vector2(0, tokens.space_4)
+	item.modulate.a = 0.0
+	var tween := item.create_tween().set_parallel()
+	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(item, "modulate:a", 1.0, tokens.motion)
+	tween.tween_property(item, "position", rest, tokens.motion)
+
+
 ## Switch token set ("default", "high_contrast") and rebuild the theme.
 func apply_theme(theme_name: String) -> void:
 	if not THEMES.has(theme_name):

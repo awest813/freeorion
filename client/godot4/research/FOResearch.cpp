@@ -98,6 +98,11 @@ godot::Array FOResearch::get_techs() {
             godot::Dictionary entry;
             entry["name"] = ToGodot(name);
             entry["category"] = ToGodot(tech.Category());
+            // The category's colour (techs.inf), for the cards' colour band.
+            if (const auto* category = GetTechManager().GetTechCategory(tech.Category())) {
+                const auto& c = category->colour;
+                entry["category_color"] = godot::Color::from_rgba8(c[0], c[1], c[2], 255);
+            }
             entry["icon"] = ToGodot(tech.Graphic());
             entry["short_description"] = ToGodot(tech.ShortDescription());
             const float cost = tech.ResearchCost(empire->EmpireID(), context);

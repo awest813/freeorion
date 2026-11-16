@@ -570,6 +570,18 @@ func _fill_item_menu(popup: PopupMenu, entry: Dictionary, count: int) -> void:
 			popup.add_item(text, item[0])
 
 
+## The colour band of catalogue \a item's card: buildings, ships and
+## projects each their own.
+static func catalog_band(item: Dictionary) -> Color:
+	var tokens: FOTokens = FOUi.tokens
+	match item.get("build_type", ""):
+		"building":
+			return tokens.warning
+		"ship":
+			return tokens.info
+	return tokens.text_secondary
+
+
 func _catalog_row(item: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	var available: bool = item.get("available", true)
@@ -627,6 +639,7 @@ func _catalog_row(item: Dictionary) -> Control:
 				add_item(item)
 				row.accept_event()
 	)
+	ScreenKit.card(row, catalog_band(item))
 	return row
 
 

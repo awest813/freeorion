@@ -551,7 +551,7 @@ func show_screen(screen_name: String) -> void:
 	if screen_name == "combat":
 		_seen_combat_id = maxi(_seen_combat_id, CombatScreen.newest_id(combat_screen.combats()))
 		top_bar.set_badge("combat", 0)
-	FOUi.fade_in(screens[screen_name])
+	FOUi.slide_in(screens[screen_name])
 
 
 func _screens() -> Dictionary:

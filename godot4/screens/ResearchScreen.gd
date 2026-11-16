@@ -533,6 +533,7 @@ func _catalog_row(tech: Dictionary) -> Control:
 			add.tooltip_text = tr("QUEUE_ADD_TOP_TIP")
 		add.pressed.connect(_enqueue.bind(tech_name))
 		row.add_child(add)
+	ScreenKit.card(row, tech.get("category_color", FOUi.tokens.border_strong))
 	return row
 
 

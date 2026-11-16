@@ -287,6 +287,20 @@ func _refresh_catalog() -> void:
 		_catalog.add_child(ScreenKit.label(tr("GOVERNMENT_NOTHING_MATCHES"), "SecondaryLabel"))
 
 
+## The colour band of a policy card of \a category: economic, social and
+## military each their own.
+static func category_band(category: String) -> Color:
+	var tokens: FOTokens = FOUi.tokens
+	match category:
+		"ECONOMIC_CATEGORY":
+			return tokens.warning
+		"SOCIAL_CATEGORY":
+			return tokens.info
+		"MILITARY_CATEGORY":
+			return tokens.negative
+	return tokens.text_secondary
+
+
 func _policy_row(policy: Dictionary) -> Control:
 	var policy_name: String = policy["name"]
 	var row := HBoxContainer.new()
@@ -344,6 +358,7 @@ func _policy_row(policy: Dictionary) -> Control:
 		func(): _order(source.adopt(policy_name, free_slot(policy.get("category", ""))))
 	)
 	row.add_child(adopt)
+	ScreenKit.card(row, category_band(policy.get("category", "")))
 	return row
 
 

@@ -254,6 +254,11 @@ func _show_article(article: Dictionary) -> void:
 	)
 	_on_map.visible = not _object.is_empty()
 	_icon.texture = FOArt.icon(article.get("icon", ""))
+	# A species gets its painting where there is one.
+	if article.get("kind", "") == "species":
+		_icon.texture = EmpireArt.species_portrait(
+			str(article.get("name", "")), article.get("icon", "")
+		)
 	_icon.visible = _icon.texture != null
 	var text: String = article.get("text", "")
 	var requirements: String = article.get("requirements", "")
