@@ -278,7 +278,10 @@ func _show_article(article: Dictionary) -> void:
 		if group_links.is_empty():
 			continue
 		# In the facts' grid, so names and values line up with the facts.
-		_facts.add_child(ScreenKit.label(tr("PEDIA_LINKS_" + group.to_upper()), "SecondaryLabel"))
+		var caption := ScreenKit.label(tr("PEDIA_LINKS_" + group.to_upper()), "SecondaryLabel")
+		# At the top of a long list of links, not halfway down it.
+		caption.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		_facts.add_child(caption)
 		var row := HFlowContainer.new()
 		row.add_theme_constant_override("h_separation", FOUi.tokens.space_3)
 		for link: Dictionary in group_links:

@@ -591,8 +591,8 @@ func _rebuild() -> void:
 
 
 # Columns (but the name's) as wide as their longest value and title, up to
-# TEXT_WIDTH_MAX (NUMBER_WIDTH for numbers), so owners and foci aren't cut
-# off while the name column has room.
+# TEXT_WIDTH_MAX (numbers at least NUMBER_WIDTH), so owners, foci and
+# "structure / max" aren't cut off while the name column has room.
 func _fit_text_columns(columns: Array, rows: Array) -> void:
 	var font := _tree.get_theme_font("font")
 	var font_size := _tree.get_theme_font_size("font_size")
@@ -603,9 +603,12 @@ func _fit_text_columns(columns: Array, rows: Array) -> void:
 		for row: Dictionary in rows:
 			var text := _display(row, columns[i][0])
 			widest = maxf(widest, font.get_string_size(text, 0, -1, font_size).x)
-		# Numbers as wide as they need, so all columns fit more often.
-		var cap := TEXT_WIDTH_MAX if not NUMERIC.has(columns[i][2]) else NUMBER_WIDTH
-		_tree.set_column_custom_minimum_width(i, int(minf(widest + padding, cap)))
+		# Numbers as wide as they need (at least NUMBER_WIDTH, so the
+		# columns line up), never cut: "128 / 128" is wider than one number.
+		var width := minf(widest + padding, TEXT_WIDTH_MAX)
+		if NUMERIC.has(columns[i][2]):
+			width = maxf(width, NUMBER_WIDTH)
+		_tree.set_column_custom_minimum_width(i, int(width))
 
 
 # A group heading: its value, how many rows, and the totals of number

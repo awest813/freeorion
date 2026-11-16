@@ -148,3 +148,8 @@ func test_known_strength_is_weighed_against_yours():
 	assert_string_contains(balance.get_child(1).text, "3.1")
 	assert_null(screen._balance({"own": false, "ships": 0, "planets": 0}), "nothing known")
 	balance.free()
+
+
+func test_counts_tick_on_whole_numbers():
+	assert_eq(LineChart.nice_ticks(0.0, 2.0, 5, true), PackedFloat64Array([0, 1, 2]))
+	assert_eq(LineChart.nice_ticks(0.0, 2.0, 5), PackedFloat64Array([0, 0.5, 1, 1.5, 2]))

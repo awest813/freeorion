@@ -488,7 +488,11 @@ func _update_buttons() -> void:
 	# Ships are scrapped at a system; in transit only a cancel makes sense.
 	var in_transit: bool = not _data.get("in_system", true)
 	_scrap.disabled = _selected.is_empty() or (in_transit and not scrapping)
-	_scrap.tooltip_text = tr("FLEET_SCRAP_NEEDS_SYSTEM") if in_transit and not scrapping else ""
+	_scrap.tooltip_text = (
+		tr("FLEET_SCRAP_NEEDS_SYSTEM")
+		if in_transit and not scrapping
+		else (tr("FLEET_SCRAP_PICK_SHIPS") if _selected.is_empty() else "")
+	)
 	_scrap.text = tr("ORDER_CANCEL_SHIP_SCRAP" if scrapping else "ORDER_SHIP_SCRAP")
 	_scrap.theme_type_variation = "GhostButton" if scrapping else "DangerButton"
 

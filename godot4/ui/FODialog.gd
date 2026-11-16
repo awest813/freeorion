@@ -44,7 +44,11 @@ func set_content(title: String, message: String, choices: Array) -> void:
 		button.pressed.connect(choose.bind(_row.get_child_count()))
 		_row.add_child(button)
 	if _row.get_child_count() > 0:
-		_row.get_child(0).call_deferred("grab_focus")
+		# Enter does the first choice, unless it destroys something: then
+		# the focus starts on the way out (the last choice), as Esc does.
+		var first: String = choices[0][1]
+		var start := _row.get_child_count() - 1 if first == "DangerButton" else 0
+		_row.get_child(start).call_deferred("grab_focus")
 
 
 ## Put \a control between the message and the buttons (a list, a check box).

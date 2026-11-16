@@ -65,3 +65,30 @@ It also hovered cards and the top bar to see real tooltips.
 - At 1280×720 the panels scroll rather than clip, and the designer fits.
 - At 1920×1080 the research grid shows three columns.
 - No icon-only button lacks a tooltip, and no clipped text lacks a way to read it.
+
+# Late-game audit
+
+The first two passes ran at turn 3, when lists are short and screens are mostly empty. This pass loaded a turn-40 save (150 systems, 7 empires, six colonies, adopted policies, a research queue) and went through:
+- the map, zoomed in and out, and the home system's planet;
+- the largest fleet and one of its ships;
+- every screen, the tech tree, the Empires statistics, and each Objects tab;
+- Pedia articles for a tech, a species and a planet;
+- messages, the game menu and a delete confirmation.
+
+The same per-control checks ran on each.
+
+## Fixed
+
+| Where | Problem | Fix |
+|-------|---------|-----|
+| Research, tree view | The one-line hint under the tree (760 px) widened the screen past a 1280 px window by 14 px. | The hint wraps (test added). |
+| Confirmations | Delete dialogs started with the focus on the red button, so Enter deleted. | When the first choice destroys something, the focus starts on Cancel, as Esc does (test added). |
+| Objects | "structure / max" was cut ("128 / 1…"), as were sorted number headers: number columns were capped at 84 px. | Number columns are as wide as their values and title, up to the text cap. |
+| Empires statistics | Count charts (armed ships, planets) had ticks at 0.5 and 1.5. | Charts of whole numbers tick on whole numbers; the turn axis always does (test added). |
+| Fleet panel | "Scrap Ship" was disabled without a reason. | Its tooltip says to tick the ships to scrap. |
+| Pedia | Captions of long link lists ("Likes", "Dislikes") sat halfway down the list. | They sit at its top. |
+
+## Looked at and left
+
+- The research timeline's turns need not rise down the queue: a later tech can finish first when it gets more points (45, 44, 48). The marks show the real turns.
+- Combat reports aren't kept in saves, so the combat screen wasn't seen with late-game data. Its golden covers a report with both sides.

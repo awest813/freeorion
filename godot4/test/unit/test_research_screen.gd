@@ -181,3 +181,12 @@ func test_cards_do_not_widen_the_screen():
 	await wait_process_frames(3)
 	assert_almost_eq(screen._list_view.size.x, width, 1.0, "no growth from the cards' widths")
 	assert_lte(screen.get_combined_minimum_size().x, 1280.0)
+
+
+func test_tree_view_fits_the_window():
+	screen.size = Vector2(1280, 800)
+	screen.show_tree(true)
+	await wait_process_frames(2)
+	assert_lte(screen.get_combined_minimum_size().x, 1280.0)
+	# The one-line hint wraps rather than widening its column (it took 760 px).
+	assert_lt(screen._detail_title.get_combined_minimum_size().x, 200.0, "the tree's hint wraps")

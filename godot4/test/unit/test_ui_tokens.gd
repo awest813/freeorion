@@ -115,3 +115,16 @@ func test_long_tooltips_wrap():
 	short.text = "Close"
 	add_child_autofree(short)
 	assert_eq(short.autowrap_mode, TextServer.AUTOWRAP_OFF, "short ones keep their width")
+
+
+func test_destructive_dialogs_start_on_cancel():
+	var dialog := FODialog.open_on(
+		self, "Delete", "Sure?", [["Delete", "DangerButton"], ["Cancel", "GhostButton"]]
+	)
+	await wait_process_frames(2)
+	assert_eq(get_viewport().gui_get_focus_owner(), dialog._row.get_child(1), "Enter cancels")
+	dialog.queue_free()
+	var safe := FODialog.open_on(self, "Saved", "Done.", [["OK", "PrimaryButton"]])
+	await wait_process_frames(2)
+	assert_eq(get_viewport().gui_get_focus_owner(), safe._row.get_child(0))
+	safe.queue_free()

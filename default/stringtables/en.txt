@@ -3478,6 +3478,9 @@ Its people won't join your empire now.
 PLANET_REFUSED_NO_BOMBARD_SHIPS
 No ship here can bombard this planet.
 
+FLEET_SCRAP_PICK_SHIPS
+Tick the ships to scrap first.
+
 FLEET_SCRAP_NEEDS_SYSTEM
 Ships are scrapped at a system, not in transit.
 

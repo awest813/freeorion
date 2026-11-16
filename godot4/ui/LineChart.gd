@@ -33,6 +33,8 @@ var hidden_series := {}:
 var _turns := Vector2i(0, 1)
 var _values := Vector2(0.0, 1.0)
 var _hover_turn := -1
+## Every value shown is whole (a count): no ticks between whole numbers.
+var _whole := false
 
 
 func _init() -> void:
@@ -42,7 +44,10 @@ func _init() -> void:
 
 
 ## Round tick values from \a low to at least \a high, about \a count of them.
-static func nice_ticks(low: float, high: float, count := VALUE_TICKS) -> PackedFloat64Array:
+## With \a whole, ticks fall on whole numbers only (for counts).
+static func nice_ticks(
+	low: float, high: float, count := VALUE_TICKS, whole := false
+) -> PackedFloat64Array:
 	var ticks := PackedFloat64Array()
 	if high <= low:
 		high = low + 1.0
@@ -53,6 +58,8 @@ static func nice_ticks(low: float, high: float, count := VALUE_TICKS) -> PackedF
 		step = factor * magnitude
 		if step >= raw:
 			break
+	if whole:
+		step = maxf(ceilf(step), 1.0)
 	var value: float = floor(low / step) * step
 	# Up to the first tick at or above high (with a little slack for rounding).
 	while true:
@@ -108,6 +115,7 @@ func _update_range() -> void:
 	var last := -(1 << 30)
 	var low := INF
 	var high := -INF
+	var whole := true
 	for i in series.size():
 		if hidden_series.has(i):
 			continue
@@ -120,6 +128,7 @@ func _update_range() -> void:
 		for value: float in line.get("values", PackedFloat64Array()):
 			low = minf(low, value)
 			high = maxf(high, value)
+			whole = whole and is_equal_approx(value, roundf(value))
 	if first > last:
 		first = 0
 		last = 1
@@ -130,7 +139,8 @@ func _update_range() -> void:
 		high = 1.0
 	# Counts and outputs read best from zero.
 	low = minf(low, 0.0)
-	var ticks := nice_ticks(low, high)
+	_whole = whole
+	var ticks := nice_ticks(low, high, VALUE_TICKS, whole)
 	_turns = Vector2i(first, last)
 	_values = Vector2(ticks[0], ticks[-1])
 
@@ -147,7 +157,7 @@ func _font_size() -> int:
 func _plot_rect() -> Rect2:
 	var font := _font()
 	var label_width := 0.0
-	for tick in nice_ticks(_values.x, _values.y):
+	for tick in nice_ticks(_values.x, _values.y, VALUE_TICKS, _whole):
 		label_width = maxf(
 			label_width,
 			font.get_string_size(short_number(tick), HORIZONTAL_ALIGNMENT_LEFT, -1, _font_size()).x
@@ -171,7 +181,7 @@ func _draw() -> void:
 	var grid_color := Color(tokens.text_secondary, 0.15) if tokens else Color(1, 1, 1, 0.15)
 	var text_color := tokens.text_secondary if tokens else Color(0.7, 0.7, 0.7)
 	# Value grid and labels.
-	for tick in nice_ticks(_values.x, _values.y):
+	for tick in nice_ticks(_values.x, _values.y, VALUE_TICKS, _whole):
 		var y := _point(plot, _turns.x, tick).y
 		draw_line(Vector2(plot.position.x, y), Vector2(plot.end.x, y), grid_color, 1.0)
 		var text := short_number(tick)
@@ -186,7 +196,7 @@ func _draw() -> void:
 			text_color
 		)
 	# Turn labels.
-	for tick in nice_ticks(_turns.x, _turns.y, 6):
+	for tick in nice_ticks(_turns.x, _turns.y, 6, true):
 		if tick < _turns.x or tick > _turns.y:
 			continue
 		var x := _point(plot, tick, _values.x).x

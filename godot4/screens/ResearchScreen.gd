@@ -254,6 +254,9 @@ func _build() -> void:
 	detail_text.add_theme_constant_override("separation", 0)
 	detail.add_child(detail_text)
 	_detail_title = ScreenKit.label(tr("RESEARCH_TREE_HINT"), "SecondaryLabel")
+	# Wraps: the one-line hint is wider than the column, and would widen the
+	# whole screen past the window.
+	_detail_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_text.add_child(_detail_title)
 	_detail_text = ScreenKit.label("", "SmallLabel")
 	_detail_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
