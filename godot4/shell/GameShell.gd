@@ -252,6 +252,12 @@ func _ready() -> void:
 	system_panel.forget_requested.connect(panel_orders.on_forget)
 	planet_panel.give_requested.connect(panel_orders.on_give)
 	fleet_panel.settle_targets.send_requested.connect(_move_fleet.bind(false))
+	fleet_panel.settle_targets.target_hovered.connect(
+		func(system_id: int): MoveOrders.preview_route(self, system_id)
+	)
+	fleet_panel.settle_targets.targets_changed.connect(
+		func(targets: Array): map_view.map.fleets.set_settle_marks(SettleTargets.map_marks(targets))
+	)
 	fleet_panel.settle_targets.settle_requested.connect(
 		panel_orders.on_planet_action.bind("colonize")
 	)

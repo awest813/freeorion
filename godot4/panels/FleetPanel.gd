@@ -138,6 +138,7 @@ func show_data(data: Dictionary) -> void:
 	_data = data
 	visible = not data.is_empty()
 	if data.is_empty():
+		settle_targets.show_fleet({}, false)
 		return
 	fleet_id = data.get("id", fleet_id)
 	if was_hidden:

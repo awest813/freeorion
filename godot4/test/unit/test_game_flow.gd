@@ -198,6 +198,19 @@ func test_colony_fleets_list_places_to_settle():
 	assert_string_contains(buttons[0].text, "Vega II")
 	assert_string_contains(buttons[1].text, tr("SETTLE_TARGETS_HERE"))
 	watch_signals(targets)
+	targets.show_fleet(colony, true)
+	assert_signal_emitted_with_parameters(targets, "targets_changed", [places])
+	targets.show_fleet({}, false)
+	assert_signal_emitted_with_parameters(targets, "targets_changed", [[]], 1)
+	targets.show_fleet(colony, true)
+	await get_tree().process_frame
+	buttons = targets.find_children("*", "Button", true, false)
+	buttons[0].mouse_entered.emit()
+	assert_signal_emitted_with_parameters(targets, "target_hovered", [9])
+	assert_eq(
+		SettleTargets.mark_text([places[1], places[1]]),
+		"%s ×2 · %s" % [tr("SETTLE_TARGETS_OUTPOST"), tr("SETTLE_TARGETS_HERE")]
+	)
 	buttons[0].pressed.emit()
 	assert_signal_emitted_with_parameters(targets, "send_requested", [5, 9])
 	buttons[1].pressed.emit()

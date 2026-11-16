@@ -21,6 +21,8 @@ const STACK_PX := 18.0
 ## Turn-end markers: radius and number size, in screen pixels.
 const MARK_PX := 7.0
 const MARK_FONT := 10
+## Text size of the places-to-settle marks.
+const SETTLE_FONT := 12
 var map: GalaxyMap
 ## The selected fleet, ringed (-1 for none).
 var selected_fleet := -1:
@@ -57,6 +59,8 @@ var _preview_etas := PackedInt32Array()
 var _preview_flags := PackedInt32Array()
 ## The previewed route can't get there (no route, or out of fuel range).
 var _preview_warning := false
+## Places the selected colony fleet could settle: [{position, text}].
+var _settle_marks: Array = []
 
 
 func _init() -> void:
@@ -171,6 +175,17 @@ func is_preview_warning() -> bool:
 	return _preview_warning
 
 
+## Mark \a marks ([{position (world), text}]) on the map: the places the
+## selected colony or outpost fleet could settle (none: clear them).
+func set_settle_marks(marks: Array) -> void:
+	_settle_marks = marks
+	queue_redraw()
+
+
+func settle_marks() -> Array:
+	return _settle_marks
+
+
 func is_blockaded(fleet_id: int) -> bool:
 	var index := _ids.find(fleet_id)
 	return index >= 0 and index < _blockaded.size() and _blockaded[index] == 1
@@ -190,7 +205,36 @@ func _draw() -> void:
 	if show_paths:
 		_draw_paths(px, view)
 	_draw_preview(px)
+	_draw_settle_marks(px)
 	_draw_markers(px, view)
+
+
+# A dashed ring in the positive colour around each place to settle, with
+# what grows there and how far, below the star's name.
+func _draw_settle_marks(px: float) -> void:
+	if _settle_marks.is_empty() or FOUi.tokens == null:
+		return
+	var color: Color = FOUi.tokens.positive
+	var font := ThemeDB.fallback_font
+	for mark: Dictionary in _settle_marks:
+		var at: Vector2 = mark.get("position", Vector2.ZERO)
+		for n in 16:
+			if n % 2 == 0:
+				var from := n * TAU / 16.0
+				draw_arc(at, 16.0 * px, from, from + TAU / 16.0, 4, color, 2.0 * px, true)
+		var text: String = mark.get("text", "")
+		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, SETTLE_FONT).x
+		draw_set_transform(at + Vector2(0, 30.0 * px), 0.0, Vector2.ONE * px)
+		draw_string(
+			font,
+			Vector2(-width / 2.0, font.get_ascent(SETTLE_FONT)),
+			text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			SETTLE_FONT,
+			color
+		)
+		draw_set_transform(Vector2.ZERO)
 
 
 # Each moving fleet's path in its owner's colour, faint, with turn ends.

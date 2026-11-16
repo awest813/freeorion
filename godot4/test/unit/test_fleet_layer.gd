@@ -108,3 +108,12 @@ func test_selected_and_box_marked_fleets():
 	assert_eq(
 		shell.map_view.map.fleets_in_rect(Rect2(-10, -10, 400, 20), 1), PackedInt32Array([10, 12])
 	)
+
+
+func test_places_to_settle_are_marked():
+	var fleets := shell.map_view.map.fleets
+	fleets.set_settle_marks([{"position": Vector2(10, 10), "text": "population 8.0 · 3 turns"}])
+	assert_eq(fleets.settle_marks().size(), 1)
+	await wait_process_frames(1)  # draws without errors
+	fleets.set_settle_marks([])
+	assert_eq(fleets.settle_marks(), [])
