@@ -57,6 +57,7 @@ func draw(layer: CanvasItem, map: GalaxyMap, font: Font) -> void:
 	var viewport := Rect2(Vector2.ZERO, map.get_viewport_rect().size)
 	var area: Rect2 = free_area.call() if free_area.is_valid() else viewport
 	area = area.grow(-MARGIN_PX)
+	var placed: Array[Rect2] = []
 	for target: Array in targets(map):
 		var at := map.camera.world_to_screen(target[0])
 		var tip := edge_point(area, at)
@@ -68,7 +69,9 @@ func draw(layer: CanvasItem, map: GalaxyMap, font: Font) -> void:
 		layer.draw_colored_polygon(PackedVector2Array([tip, back + side, back - side]), target[2])
 		var hit := Rect2(tip, Vector2.ZERO).grow(ARROW_PX)
 		if not str(target[1]).is_empty():
-			hit = hit.merge(_draw_text(layer, font, target[1], back, dir, area, target[2]))
+			var chip := _draw_text(layer, font, target[1], back, dir, area, target[2], placed)
+			placed.push_back(chip)
+			hit = hit.merge(chip)
 		_hits.push_back({"rect": hit, "world": target[0]})
 
 
@@ -88,6 +91,20 @@ func follow(map: GalaxyMap, screen_pos: Vector2) -> bool:
 	return target != null
 
 
+## \a chip moved off the \a placed ones: inward from a top or bottom edge,
+## down along a side one (\a dir points at the edge), within \a area.
+static func clear_of(chip: Rect2, placed: Array[Rect2], dir: Vector2, area: Rect2) -> Rect2:
+	var step := Vector2(0, chip.size.y + 2.0)
+	if absf(dir.y) > absf(dir.x) and dir.y > 0:
+		step = -step  # bottom edge: stack upwards
+	for i in placed.size() + 1:
+		if not placed.any(func(other: Rect2): return other.intersects(chip)):
+			break
+		chip.position += step
+	chip.position.y = clampf(chip.position.y, area.position.y, area.end.y - chip.size.y)
+	return chip
+
+
 # \a text in a chip beside the arrow whose base is \a at, on its inner
 # side (away from \a dir), kept inside \a area, edged in \a color; returns
 # the chip.
@@ -98,7 +115,8 @@ func _draw_text(
 	at: Vector2,
 	dir: Vector2,
 	area: Rect2,
-	color: Color
+	color: Color,
+	placed: Array[Rect2] = []
 ) -> Rect2:
 	var tokens: FOTokens = FOUi.tokens
 	var size := MapStyle.LABEL_FONT_SIZE
@@ -111,6 +129,7 @@ func _draw_text(
 	top_left.x = clampf(top_left.x, area.position.x, area.end.x - box.x)
 	top_left.y = clampf(top_left.y, area.position.y, area.end.y - box.y)
 	var chip := Rect2(top_left.round(), box)
+	chip = clear_of(chip, placed, dir, area)
 	layer.draw_rect(chip, Color(tokens.surface_overlay, 0.92))
 	layer.draw_rect(chip, color, false, 2.0)
 	layer.draw_string(

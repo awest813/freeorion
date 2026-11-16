@@ -3619,6 +3619,12 @@ Tick the ships to scrap first.
 FLEET_SCRAP_NEEDS_SYSTEM
 Ships are scrapped at a system, not in transit.
 
+PRODUCTION_ENQUEUE_REFUSED
+%1% can't be built at %2% now. Pick another place under "Build at", or look under Unavailable for what it needs.
+
+PRODUCTION_REFUSED
+That change wasn't accepted; the queue is as it was.
+
 ORDER_REFUSED_RENAME
 That name can't be used.
 

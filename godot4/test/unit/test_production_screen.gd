@@ -146,3 +146,14 @@ func test_where_dialog_shows_the_map():
 	var params: Array = get_signal_parameters(screen, "build_on_map_requested")
 	assert_eq(params[0]["label"], "Scout")
 	assert_eq(params[1].size(), 3)
+
+
+func test_a_refused_add_says_why():
+	fake.accept_enqueue = false
+	var item: Dictionary = fake.buildable[0]
+	screen.add_item(item)
+	assert_true(screen._refused.visible, "refused orders are not silent")
+	assert_string_contains(screen._refused.text, screen._display_name(item))
+	fake.accept_enqueue = true
+	screen.add_item(item)
+	assert_false(screen._refused.visible, "the note goes once an order goes through")

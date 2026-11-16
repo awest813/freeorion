@@ -236,3 +236,15 @@ func test_own_systems_are_renamed_in_place():
 	assert_signal_emitted_with_parameters(panel, "rename_requested", [9, "New Home"])
 	panel.show_data(SAMPLE)
 	assert_false(panel._title.editable, "not someone else's")
+
+
+func test_system_list_opens_wide_enough_to_read():
+	panel.systems_provider = func(): return [[1, "Alpha Centauri"], [2, "Beta"], [3, "Gamma"]]
+	panel._picker.show_popup()
+	await wait_process_frames(2)
+	var popup: PopupMenu = panel._picker.get_popup()
+	assert_eq(popup.item_count, 3)
+	assert_gt(popup.max_size.x, 100, "not capped to nothing")
+	if DisplayServer.get_name() != "headless":
+		assert_gt(popup.size.x, 60, "shown wide enough to read")
+	popup.hide()

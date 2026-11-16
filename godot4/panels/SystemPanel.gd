@@ -156,7 +156,9 @@ func _fill_picker() -> void:
 	popup.clear()
 	for entry: Array in systems_provider.call():
 		popup.add_item(entry[1], entry[0])
-	popup.max_size = Vector2i(0, 480)
+	# Long lists scroll. (A 0 width here would cap it at 0: the list showed
+	# 1 pixel wide.)
+	popup.max_size = Vector2i(FOUi.tokens.space_8 * 16, FOUi.tokens.space_8 * 15)
 
 
 func selected_fleet_id() -> int:

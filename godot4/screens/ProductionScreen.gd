@@ -52,6 +52,7 @@ var rally_target: Callable = func() -> Array: return [-1, ""]
 
 var _points: Label
 var _stockpile: Label
+var _refused: Label
 var _group_points: Label
 ## The listed queue items' indices in the empire's queue.
 var _queue_indices: Array = []
@@ -185,6 +186,12 @@ func _build() -> void:
 	_stockpile.tooltip_text = tr("PRODUCTION_STOCKPILE_TIP")
 	_stockpile.mouse_filter = Control.MOUSE_FILTER_PASS
 	queue_column.add_child(_stockpile)
+	# Why the last order didn't go through (the server refused it).
+	_refused = ScreenKit.label("", "SmallLabel")
+	_refused.add_theme_color_override("font_color", FOUi.tokens.warning)
+	_refused.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_refused.visible = false
+	queue_column.add_child(_refused)
 	var queue_box := VBoxContainer.new()
 	queue_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_queue_list = ScreenKit.list()
@@ -667,7 +674,14 @@ func add_item(item: Dictionary) -> FODialog:
 	var top := Input.is_key_pressed(KEY_SHIFT)
 	var forced: bool = not item.get("available", true)
 	var location_id := selected_location_id()
-	var queue := func(): _order(source.enqueue(item, location_id, 0 if top else -1, forced))
+	var queue := func():
+		var ok: bool = source.enqueue(item, location_id, 0 if top else -1, forced)
+		_order(
+			ok,
+			tr("PRODUCTION_ENQUEUE_REFUSED").replace("%1%", _display_name(item)).replace(
+				"%2%", _location.get_item_text(_location.selected)
+			)
+		)
 	if not item.get("name", "") in DESTRUCTIVE:
 		queue.call()
 		return null
@@ -833,7 +847,12 @@ func _add_at(item: Dictionary, checks: Array[CheckBox]) -> void:
 	_order(added)
 
 
-func _order(ok: bool) -> void:
+## After an order: on success refresh; else say why (\a refused_text, or
+## that the server refused it).
+func _order(ok: bool, refused_text := "") -> void:
+	_refused.visible = not ok
+	if not ok:
+		_refused.text = refused_text if not refused_text.is_empty() else tr("PRODUCTION_REFUSED")
 	if ok:
 		_refresh_queue.call_deferred()
 		# What can be added and the group's points change with the queue

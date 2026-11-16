@@ -134,3 +134,14 @@ The bot captured each of these in a real game:
 | Hints | "Tip" in plain grey. | A section caption, like the other cards. |
 
 Also captured and found fine: the About tabs (credits, vision, licence, Godot), hints anchored to their control, the turn log, a scout sent across the galaxy.
+
+## The three captures that first failed
+
+Loading the turn-40 save, the bot opened each of them properly. Two of the three hid real bugs.
+
+| Where | Found | Fix |
+|-------|-------|-----|
+| System panel's list of systems (⌄) | It opened 1 pixel wide: its maximum size was set as (0, 480), and a 0 width caps rather than lifts. Players could never use it. | A real maximum (512 × 480 UI units); a test checks it opens wide enough to read. |
+| Production: adding where it can't be built | Add did nothing and said nothing (Scout at a planet without a shipyard). | A note under the stockpile line says the item can't be built there now, and to pick another place or look under Unavailable; any refused change says so. It clears once an order goes through (test added). |
+| Production queue item menu | Fine: move, duplicate, rally, show where, Pedia. | — |
+| Off-screen pointers | Labels of two targets near the same edge overlapped. | A label that would cover another moves inward from the edge (test added). |

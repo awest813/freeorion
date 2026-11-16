@@ -70,6 +70,8 @@ var buildable: Array = [
 	},
 ]
 var calls: Array = []
+## Whether enqueue() succeeds (the server takes the order).
+var accept_enqueue := true
 ## Items removed this turn (get_removed()).
 var removed: Array = []
 
@@ -128,7 +130,7 @@ func enqueue(item: Dictionary, location_id: int, position := -1, force := false)
 		calls.push_back(["enqueue", item.get("label"), location_id])
 	else:
 		calls.push_back(["enqueue_at", item.get("label"), location_id, position])
-	return true
+	return accept_enqueue
 
 
 func remove(index: int) -> bool:

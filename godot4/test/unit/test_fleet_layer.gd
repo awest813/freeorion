@@ -157,3 +157,15 @@ func test_route_dashes_flow_along_the_route():
 	layer.queue_redraw()
 	await wait_process_frames(2)
 	assert_eq(drawn.size(), 1, "drawn without errors")
+
+
+func test_pointer_labels_do_not_cover_each_other():
+	var area := Rect2(0, 0, 800, 600)
+	var first := Rect2(100, 0, 160, 24)
+	var placed: Array[Rect2] = [first]
+	var second := EdgePointers.clear_of(Rect2(150, 0, 160, 24), placed, Vector2(0, -1), area)
+	assert_false(second.intersects(first), "moved off the first")
+	assert_gt(second.position.y, first.position.y, "inward from the top edge")
+	var low: Array[Rect2] = [Rect2(100, 576, 160, 24)]
+	var third := EdgePointers.clear_of(Rect2(150, 576, 160, 24), low, Vector2(0, 1), area)
+	assert_lt(third.position.y, 576.0, "upward from the bottom edge")
