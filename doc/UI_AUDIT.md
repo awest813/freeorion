@@ -118,3 +118,16 @@ Every popup menu was opened in a real game and captured, along with each dialog 
 | End turn's menu | "Send 4 Orders and Start Turn 2" (during turn 2), "Revoke 4 Orders and Restart Turn 2". | "End turn 2" and "Undo this turn's orders (4)", with a tooltip saying what undo takes back. |
 | Victory and defeat | A small dialog with one line. | The empire's flag, VICTORY in green or DEFEAT in red in the display face, the empire's name, the line, and what it came to (turn, planets, ships, population). |
 | Dialogs | The focus started on the first button, even with a primary one ("Keep playing"). | It starts on the primary choice; on Cancel when the main choice destroys something. |
+
+# Map widgets, screen details and the lobby
+
+The bot captured each of these in a real game:
+- **Map:** every map mode, the zoom slider, scale circle and detection ranges, a hovered system, and the map panned away from everything.
+- **Screens:** the Objects conditions, a Pedia search, the designer's description, proposing peace, the production planet finder, and a ship's panel.
+- **Lobby:** a hosted multiplayer lobby with an AI player added.
+
+| Where | Before | Now |
+|-------|--------|-----|
+| Map modes | What a mode's colours mean was only in the picker's tooltip. | A small glass caption above the picker explains the mode while it is on (not in the standard map), as wide as the picker. |
+| Pedia search | Names shared by two kinds of article showed twice, alike ("Armor Plating", "Armor Plating"). | Such names say their kind ("Armor Plating · Ship part", "Armor Plating · Technology"). |
+| Lobby | "Players" and "Chat" in large title type; nothing said what the galaxy size meant. | Section captions as elsewhere; under the preview, the same room line as single-player setup, counting the players and AIs. |

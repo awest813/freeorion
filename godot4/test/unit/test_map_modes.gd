@@ -72,3 +72,13 @@ func test_switching_modes():
 	assert_true(shell._handle_map_key("map_mode"), "The hotkey cycles")
 	assert_eq(map.map_mode, "standard", "From the last back to the first")
 	assert_eq(asked.back(), "standard")
+
+
+func test_a_mode_explains_itself_on_the_map():
+	shell.map_modes.mode_data_provider = func(_mode): return {}
+	shell.map_modes.set_map_mode("threat")
+	var legend: PanelContainer = shell.map_modes._legend
+	assert_true(legend.visible, "the legend shows above the picker")
+	assert_eq((legend.get_child(0) as Label).text, tr("MAP_MODE_TIP_THREAT"))
+	shell.map_modes.set_map_mode("standard")
+	assert_false(legend.visible, "nothing to explain in the standard map")

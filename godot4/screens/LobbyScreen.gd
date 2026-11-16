@@ -41,6 +41,7 @@ var _galaxy_grid: GridContainer
 var _save_label: Label
 var _conditions: Label
 var _preview: GalaxyPreview
+var _room: Label
 var _info: Label
 # What the server is doing while it starts the game ("" before it begins).
 var _progress := ""
@@ -201,6 +202,15 @@ func _fill_galaxy(galaxy: Dictionary, editable: bool) -> void:
 		picker.disabled = not editable
 	var shape: String = galaxy.get("shape", "")
 	_preview.shape = shape
+	_preview.systems = int(stars.value)
+	# As in single-player setup: how much room each empire gets.
+	var empires: int = (
+		_lobby
+		. get("players", [])
+		. filter(func(p): return p.get("client_type", "") in ["player", "ai"])
+		. size()
+	)
+	_room.text = GalaxySetupScreen.room_text(int(stars.value), maxi(empires, 1))
 
 
 func _fill_save(editable: bool) -> void:
@@ -241,7 +251,7 @@ func _build() -> void:
 	left.add_theme_constant_override("separation", FOUi.tokens.space_3)
 	columns.add_child(left)
 	_info = ScreenKit.header(left, "MPLOBBY_WINDOW_TITLE", leave_requested.emit)
-	left.add_child(ScreenKit.label(tr("MP_LOBBY_PLAYERS"), "TitleLabel"))
+	left.add_child(ScreenKit.section(tr("MP_LOBBY_PLAYERS")))
 	players = LobbyPlayerList.new()
 	players.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	players.players_edited.connect(func(list): source.send_lobby({"players": list}))
@@ -249,7 +259,7 @@ func _build() -> void:
 	player_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	player_scroll.size_flags_stretch_ratio = 1.4
 	left.add_child(player_scroll)
-	left.add_child(ScreenKit.label(tr("MP_LOBBY_CHAT"), "TitleLabel"))
+	left.add_child(ScreenKit.section(tr("MP_LOBBY_CHAT")))
 	chat = ChatPanel.new()
 	chat.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	chat.message_sent.connect(func(text): source.send_chat(text))
@@ -334,6 +344,10 @@ func _build_galaxy(parent: VBoxContainer) -> void:
 	_preview = GalaxyPreview.new()
 	_preview.custom_minimum_size = Vector2(380, 140)
 	parent.add_child(_preview)
+	_room = ScreenKit.label("", "SmallLabel")
+	_room.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_room.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(_room)
 	_galaxy_grid = GridContainer.new()
 	_galaxy_grid.columns = 2
 	_galaxy_grid.add_theme_constant_override("h_separation", FOUi.tokens.space_4)

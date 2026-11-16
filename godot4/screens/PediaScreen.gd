@@ -376,6 +376,7 @@ func _refresh_results() -> void:
 		if needle.is_empty() or title.to_lower().contains(needle):
 			matches.push_back([title, entry])
 	matches.sort_custom(func(a, b): return a[0].naturalnocasecmp_to(b[0]) < 0)
+	_name_kinds_of_twins(matches)
 	# Then articles whose text has it (GG's full-text search).
 	if needle.length() >= 3:
 		var found := {}
@@ -396,6 +397,18 @@ func _refresh_results() -> void:
 		_results.add_child(button)
 	if matches.is_empty():
 		_results.add_child(ScreenKit.label(tr("PEDIA_NO_RESULTS"), "SecondaryLabel"))
+
+
+# Results with the same title (a part and its article, "Armor Plating")
+# say which kind each is, so the list doesn't show the same name twice.
+static func _name_kinds_of_twins(matches: Array) -> void:
+	var count := {}
+	for entry: Array in matches:
+		count[entry[0]] = count.get(entry[0], 0) + 1
+	for entry: Array in matches:
+		if count[entry[0]] > 1:
+			var kind := TranslationServer.translate("PEDIA_KIND_" + entry[1]["kind"].to_upper())
+			entry[0] = "%s  ·  %s" % [entry[0], kind]
 
 
 # Browsing entry point: one button per kind with its article count.

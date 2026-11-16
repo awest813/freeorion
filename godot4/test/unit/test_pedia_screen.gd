@@ -183,3 +183,15 @@ func test_start_page_lists_content_read_after_it_was_built():
 	assert_true(
 		texts.has(tr("PEDIA_KIND_MONSTERDESIGN") + "\n1"), "the tiles are refreshed on showing"
 	)
+
+
+func test_search_results_with_the_same_name_say_their_kind():
+	var matches := [
+		["Armor Plating", {"kind": "shippart", "name": "AR_STD_PLATE"}],
+		["Armor Plating", {"kind": "tech", "name": "SHP_ZORTRIUM_PLATE"}],
+		["Zortrium", {"kind": "tech", "name": "X"}],
+	]
+	PediaScreen._name_kinds_of_twins(matches)
+	assert_eq(matches[0][0], "Armor Plating  ·  " + tr("PEDIA_KIND_SHIPPART"))
+	assert_eq(matches[1][0], "Armor Plating  ·  " + tr("PEDIA_KIND_TECH"))
+	assert_eq(matches[2][0], "Zortrium", "unique names stay as they are")

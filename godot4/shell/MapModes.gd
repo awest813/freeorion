@@ -32,6 +32,9 @@ var _placement := {}
 var _label: Label
 var _buttons: HBoxContainer
 
+## What the current mode shows, above the picker (not in standard mode).
+var _legend: PanelContainer
+
 
 func _init(shell: GameShell) -> void:
 	_shell = shell
@@ -358,11 +361,33 @@ func set_map_mode(mode: String) -> void:
 	_shell.map_mode_picker.tooltip_text = (tr("MAP_MODE_TIP_" + map.map_mode.to_upper()).replace(
 		"%1%", FOHotkeys.shown("map_mode")
 	))
+	_show_legend(map.map_mode)
 	var options := Engine.get_singleton("FOOptions") if _shell.follow_game else null
 	if options:
 		options.add_option(OPTION_MAP_MODE, "OPTIONS_DB_UI_MAP_MODE", "standard")
 		options.set_value(OPTION_MAP_MODE, map.map_mode)
 		options.commit()
+
+
+# Above the picker, while a mode other than the standard one is on: what
+# its colours and marks mean (the picker's tooltip says it too, but only
+# when pointed at).
+func _show_legend(mode: String) -> void:
+	var picker := _shell.map_mode_picker
+	if _legend == null and picker.get_parent():
+		_legend = PanelContainer.new()
+		_legend.theme_type_variation = "OverlayPanel"
+		_legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# As wide as the picker, so the corner doesn't grow over the log.
+		_legend.size_flags_horizontal = Control.SIZE_FILL
+		var text := ScreenKit.label("", "SmallLabel")
+		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_legend.add_child(text)
+		picker.get_parent().add_child(_legend)
+		picker.get_parent().move_child(_legend, picker.get_index())
+	if _legend:
+		_legend.visible = mode != "standard"
+		(_legend.get_child(0) as Label).text = tr("MAP_MODE_TIP_" + mode.to_upper())
 
 
 ## The next map mode (the map-mode hotkey), back to the first after the last.
