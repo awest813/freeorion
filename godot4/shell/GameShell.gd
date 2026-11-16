@@ -827,23 +827,18 @@ func check_game_over(resources: Dictionary, silently := false) -> void:
 		_announced[outcome] = true
 		if silently:
 			continue
-		var quit := [
-			tr("MENU_QUIT_TO_TITLE"), "GhostButton", leave_requested.emit.bind("title", "")
-		]
-		if outcome == "won":
-			FODialog.open_on(
-				self,
-				tr("GAME_OVER_VICTORY_TITLE"),
-				tr("GAME_OVER_VICTORY"),
-				[quit, [tr("GAME_OVER_KEEP_PLAYING"), "PrimaryButton"]]
-			)
-		else:
-			FODialog.open_on(
-				self,
-				tr("GAME_OVER_DEFEAT_TITLE"),
-				tr("GAME_OVER_DEFEAT"),
-				[quit, [tr("GAME_OVER_KEEP_WATCHING"), "GhostButton"]]
-			)
+		var id: int = FOUniverse.get_empire_id() if follow_game else -1
+		var stats := resources.duplicate()
+		stats["planets"] = (
+			FOObjects.list_objects("planets", true, false).size() if follow_game else 0
+		)
+		var empire := {}
+		if follow_game:
+			empire = {
+				"name": FOUniverse.get_empire_name(id), "color": FOUniverse.get_empire_color(id)
+			}
+		var turn: int = GlobalFreeOrionNode.get_current_turn() if follow_game else 0
+		GameOver.open(self, outcome, empire, turn, stats, leave_requested.emit.bind("title", ""))
 
 
 ## Before the turn ends: list \a issues (TurnReadiness.check()), each going

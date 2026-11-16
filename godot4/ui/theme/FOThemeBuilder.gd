@@ -325,15 +325,38 @@ static func _line_edit(theme: Theme, t: FOTokens) -> void:
 		theme.set_color("selection_color", type, Color(t.accent, 0.35))
 
 
+# Menus and tooltips float like the other chrome: cut corners, a shadow;
+# the pointed item gets the menu items' tint and accent bar.
 static func _popups(theme: Theme, t: FOTokens) -> void:
-	var overlay := box(t, t.surface_overlay, t.border_strong, t.space_2, t.space_2)
+	var overlay := cut(
+		box(t, t.surface_overlay, t.border_strong, t.space_2, t.space_2), t, t.chamfer_small
+	)
+	overlay.shadow_color = t.shadow
+	overlay.shadow_size = t.space_2
 	theme.set_stylebox("panel", "PopupMenu", overlay)
 	theme.set_stylebox("panel", "PopupPanel", overlay)
 	theme.set_stylebox("panel", "TooltipPanel", overlay)
-	theme.set_stylebox("hover", "PopupMenu", box(t, t.accent, t.accent, t.space_2, t.space_1))
+	var lit := box(t, Color(t.accent, 0.16), t.accent, t.space_2, t.space_1)
+	lit.set_border_width_all(0)
+	lit.border_width_left = t.focus_width + 1
+	lit.set_corner_radius_all(0)
+	theme.set_stylebox("hover", "PopupMenu", lit)
+	var line := StyleBoxLine.new()
+	line.color = Color(t.border_strong, 0.6)
+	line.grow_begin = -t.space_1
+	line.grow_end = -t.space_1
+	theme.set_stylebox("separator", "PopupMenu", line)
+	theme.set_stylebox("labeled_separator_left", "PopupMenu", line)
+	theme.set_stylebox("labeled_separator_right", "PopupMenu", line)
 	theme.set_color("font_color", "PopupMenu", t.text_primary)
-	theme.set_color("font_hover_color", "PopupMenu", t.text_on_accent)
+	theme.set_color("font_hover_color", "PopupMenu", t.text_primary)
 	theme.set_color("font_disabled_color", "PopupMenu", t.text_disabled)
+	theme.set_color("font_separator_color", "PopupMenu", t.text_secondary)
+	theme.set_color("font_accelerator_color", "PopupMenu", t.text_secondary)
+	theme.set_constant("v_separation", "PopupMenu", t.space_2)
+	theme.set_constant("item_start_padding", "PopupMenu", t.space_2)
+	theme.set_constant("item_end_padding", "PopupMenu", t.space_3)
+	theme.set_constant("h_separation", "PopupMenu", t.space_3)
 	theme.set_color("font_color", "TooltipLabel", t.text_primary)
 	theme.set_font_size("font_size", "TooltipLabel", t.font_size_small)
 
@@ -398,6 +421,17 @@ static func _check_glyphs(theme: Theme, t: FOTokens) -> void:
 	theme.set_icon(
 		"unchecked_disabled", "CheckBox", _checkbox_icon(size, t.text_disabled, Color(), false)
 	)
+	var radio_on := _radio_icon(size, t.accent, t.text_on_accent, true)
+	var radio_off := _radio_icon(size, t.text_secondary, Color(), false)
+	theme.set_icon("radio_checked", "CheckBox", radio_on)
+	theme.set_icon("radio_unchecked", "CheckBox", radio_off)
+	# Menus' check and radio items look the same as the boxes.
+	for item in ["checked", "unchecked", "radio_checked", "radio_unchecked"]:
+		theme.set_icon(item, "PopupMenu", theme.get_icon(item, "CheckBox"))
+	theme.set_icon("checked_disabled", "PopupMenu", theme.get_icon("checked_disabled", "CheckBox"))
+	theme.set_icon(
+		"unchecked_disabled", "PopupMenu", theme.get_icon("unchecked_disabled", "CheckBox")
+	)
 	var switch_on := _switch_icon(size, t.accent, t.text_on_accent, true)
 	var switch_off := _switch_icon(size, t.text_secondary, t.text_secondary, false)
 	for suffix in ["", "_mirrored"]:
@@ -433,6 +467,22 @@ static func _checkbox_icon(size: int, frame: Color, mark: Color, filled: bool) -
 				Rect2i(inner.position + Vector2i(inner.size.x - 1, 0), Vector2i(1, inner.size.y)),
 				frame
 			)
+	return ImageTexture.create_from_image(image)
+
+
+## Round radio mark: a ring, or a filled disc with a dot.
+static func _radio_icon(size: int, ring: Color, dot: Color, filled: bool) -> Texture2D:
+	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	var center := Vector2(size, size) * 0.5
+	var radius := size * 0.5 - 1.0
+	for y in size:
+		for x in size:
+			var d := Vector2(x + 0.5, y + 0.5).distance_to(center)
+			if filled and d <= radius:
+				image.set_pixel(x, y, dot if d <= radius * 0.4 else ring)
+			elif not filled and d <= radius and d > radius - 2.0:
+				image.set_pixel(x, y, ring)
 	return ImageTexture.create_from_image(image)
 
 

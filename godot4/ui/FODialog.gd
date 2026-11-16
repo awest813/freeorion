@@ -44,10 +44,13 @@ func set_content(title: String, message: String, choices: Array) -> void:
 		button.pressed.connect(choose.bind(_row.get_child_count()))
 		_row.add_child(button)
 	if _row.get_child_count() > 0:
-		# Enter does the first choice, unless it destroys something: then
-		# the focus starts on the way out (the last choice), as Esc does.
-		var first: String = choices[0][1]
-		var start := _row.get_child_count() - 1 if first == "DangerButton" else 0
+		# Enter does the main choice (the primary one, else the first),
+		# unless that destroys something: then the focus starts on the way
+		# out (the last choice), as Esc does.
+		var variations: Array = choices.map(func(c): return c[1])
+		var start: int = maxi(variations.find("PrimaryButton"), 0)
+		if variations[start] == "DangerButton":
+			start = _row.get_child_count() - 1
 		_row.get_child(start).call_deferred("grab_focus")
 
 

@@ -2430,6 +2430,9 @@ Defeat
 GAME_OVER_DEFEAT
 Your empire has been eliminated.
 
+GAME_OVER_SUMMARY
+Turn %1% · %2% planets · %3% ships · population %4%
+
 GAME_OVER_KEEP_PLAYING
 Keep playing
 
@@ -6053,6 +6056,15 @@ Turn %1%
 # %1% current turn number.
 MAP_BTN_TURN_UNREADY
 Revise %1%
+
+TOPBAR_TURN_MENU_END
+End turn %1%
+
+TOPBAR_TURN_MENU_UNDO
+Undo this turn's orders (%1%)
+
+TOPBAR_TURN_MENU_UNDO_TIP
+Take back every order given this turn: moves, queue changes, policies, everything.
 
 MAP_BTN_TURN_REVOKE
 Revoke %2% Orders and Restart Turn %1%

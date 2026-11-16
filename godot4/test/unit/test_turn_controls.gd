@@ -18,8 +18,8 @@ func test_turn_menu_sends_or_revokes():
 	bar.open_turn_menu()
 	var menu: PopupMenu = bar._turn_menu
 	assert_eq(menu.item_count, 2)
-	assert_string_contains(menu.get_item_text(0), "3")
-	assert_string_contains(menu.get_item_text(0), "12")
+	assert_eq(menu.get_item_text(0), tr("TOPBAR_TURN_MENU_END").replace("%1%", "12"))
+	assert_eq(menu.get_item_text(1), tr("TOPBAR_TURN_MENU_UNDO").replace("%1%", "3"))
 	assert_false(menu.is_item_disabled(1))
 	watch_signals(bar)
 	bar._on_turn_menu(1)

@@ -599,17 +599,11 @@ func _build() -> void:
 func open_turn_menu() -> void:
 	var count: int = order_count_provider.call() if follow_game else 0
 	_turn_menu.clear()
-	_turn_menu.add_item(
-		tr("MAP_BTN_TURN_SEND_AND_START").replace("%1%", str(_turn_number)).replace(
-			"%2%", str(count)
-		),
-		0
-	)
+	_turn_menu.add_item(tr("TOPBAR_TURN_MENU_END").replace("%1%", str(_turn_number)), 0)
 	_turn_menu.set_item_disabled(0, _waiting or _turn_number < 1)
-	_turn_menu.add_item(
-		tr("MAP_BTN_TURN_REVOKE").replace("%1%", str(_turn_number)).replace("%2%", str(count)), 1
-	)
+	_turn_menu.add_item(tr("TOPBAR_TURN_MENU_UNDO").replace("%1%", str(count)), 1)
 	_turn_menu.set_item_disabled(1, _waiting or count < 1)
+	_turn_menu.set_item_tooltip(1, tr("TOPBAR_TURN_MENU_UNDO_TIP"))
 	var at := _end_turn.get_screen_position() + Vector2(0, _end_turn.size.y)
 	_turn_menu.popup(Rect2i(Vector2i(at), Vector2i.ZERO))
 

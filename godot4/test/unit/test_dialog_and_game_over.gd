@@ -86,3 +86,26 @@ func test_already_over_when_loaded_is_not_announced():
 	shell.check_game_over({"won": true}, true)
 	shell.check_game_over({"won": true})
 	assert_eq(_dialogs(shell).size(), 0)
+
+
+func test_game_over_shows_the_outcome_and_what_the_empire_came_to():
+	var dialog := GameOver.open(
+		self,
+		"won",
+		{"name": "Terran Union", "color": Color.CYAN},
+		120,
+		{"planets": 14, "ships": 52, "population": 230.5},
+		Callable()
+	)
+	var texts := []
+	var verdict: Label
+	for label: Label in dialog.find_children("*", "Label", true, false):
+		texts.push_back(label.text)
+		if label.theme_type_variation == "DisplayTitle":
+			verdict = label
+	assert_has(texts, "Terran Union")
+	var stats := {"planets": 14, "ships": 52, "population": 230.5}
+	assert_has(texts, GameOver.summary(120, stats))
+	assert_eq(verdict.text, tr("GAME_OVER_VICTORY_TITLE"))
+	assert_true(verdict.uppercase)
+	dialog.queue_free()

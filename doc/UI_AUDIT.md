@@ -104,3 +104,17 @@ The same per-control checks ran on each.
 | Load | With no saves, a grey line at the top of an empty list. | The empty state, centred. |
 | Galaxy setup | The numbers alone: what do 150 systems and 6 AIs make? | Under the preview: "150 systems · 7 empires · about 21 systems each", and whether that is crowded (early wars), balanced or spacious, as the counts change. Alone in the galaxy, it says so. |
 | Connect | "Lan game at:" over an empty box. | "Games on your network" as a section caption; the empty list says how to look, that it is looking, or that nothing answered. |
+
+# Menus, dialogs and overlays
+
+Every popup menu was opened in a real game and captured, along with each dialog and overlay:
+- **Menus:** the map, a fleet's "…", End turn's, the turn log's filters, a tech, the "+" categories, the Objects columns, rows and visibility, a hull, a part, part classes, and the build location.
+- **Dialogs and overlays:** a hint, a toast, a battle card, the end-of-turn check, victory and defeat.
+
+| Where | Before | Now |
+|-------|--------|-----|
+| Every menu and tooltip | A plain rounded box; the pointed item filled solid accent; the submenu arrow touching its text. | Cut corners and a shadow like the other floating chrome; the pointed item gets the menu items' tint and accent bar; separators as hairlines; more room between items. |
+| Menus with check items | Godot's dark grey check squares, invisible when unchecked. | The check boxes' own outline and accent fill, and round radio marks for one-of-many lists (the build location). |
+| End turn's menu | "Send 4 Orders and Start Turn 2" (during turn 2), "Revoke 4 Orders and Restart Turn 2". | "End turn 2" and "Undo this turn's orders (4)", with a tooltip saying what undo takes back. |
+| Victory and defeat | A small dialog with one line. | The empire's flag, VICTORY in green or DEFEAT in red in the display face, the empire's name, the line, and what it came to (turn, planets, ships, population). |
+| Dialogs | The focus started on the first button, even with a primary one ("Keep playing"). | It starts on the primary choice; on Cancel when the main choice destroys something. |
