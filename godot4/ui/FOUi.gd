@@ -13,6 +13,8 @@ const OPTION_THEME := "ui.theme"
 const OPTION_REDUCE_MOTION := "ui.reduce-motion"
 ## The accent follows the player's empire colour in a game.
 const OPTION_EMPIRE_ACCENT := "ui.accent.empire"
+## See-through glass panels (off: opaque, as in high contrast).
+const OPTION_GLASS := "ui.glass"
 ## Panels that get the glass shader (see glass_panel.gdshader).
 const GLASS_PANELS := ["OverlayPanel", "TopBarPanel", "BackgroundPanel"]
 const GLASS_SHADER := preload("res://ui/theme/glass_panel.gdshader")
@@ -31,6 +33,7 @@ var glass_material := ShaderMaterial.new()
 ## Accent from the empire colour while in a game (transparent: none).
 var empire_accent := Color(0, 0, 0, 0)
 var _empire_accent_enabled := true
+var _glass_enabled := true
 
 var _scale_setting := "auto"
 var _theme_name := "default"
@@ -71,6 +74,7 @@ func apply_theme(theme_name: String) -> void:
 	_theme_name = theme_name
 	# A copy: the empire accent changes it, the file stays as it is.
 	tokens = (load(THEMES[theme_name]) as FOTokens).duplicate()
+	tokens.glass_enabled = tokens.glass_enabled and _glass_enabled
 	if empire_accent.a > 0.0 and _empire_accent_enabled and tokens.glass_enabled:
 		FOThemeBuilder.accent_from(tokens, empire_accent)
 	theme = FOThemeBuilder.build(tokens)
@@ -142,6 +146,8 @@ func _read_options() -> void:
 	options.add_option(OPTION_REDUCE_MOTION, "OPTIONS_DB_UI_REDUCE_MOTION", false)
 	options.add_option(OPTION_EMPIRE_ACCENT, "OPTIONS_DB_UI_ACCENT_EMPIRE", true)
 	_empire_accent_enabled = options.get_value(OPTION_EMPIRE_ACCENT)
+	options.add_option(OPTION_GLASS, "OPTIONS_DB_UI_GLASS", true)
+	_glass_enabled = options.get_value(OPTION_GLASS)
 	reduce_motion = options.get_value(OPTION_REDUCE_MOTION)
 	_scale_setting = options.get_value(OPTION_SCALE)
 	_theme_name = options.get_value(OPTION_THEME)
@@ -150,6 +156,7 @@ func _read_options() -> void:
 	options.watch(OPTION_THEME)
 	options.watch(OPTION_REDUCE_MOTION)
 	options.watch(OPTION_EMPIRE_ACCENT)
+	options.watch(OPTION_GLASS)
 	options.option_changed.connect(_on_option_changed)
 
 
@@ -163,6 +170,9 @@ func _on_option_changed(option_name: String) -> void:
 			reduce_motion = options.get_value(OPTION_REDUCE_MOTION)
 		OPTION_EMPIRE_ACCENT:
 			_empire_accent_enabled = options.get_value(OPTION_EMPIRE_ACCENT)
+			apply_theme(_theme_name)
+		OPTION_GLASS:
+			_glass_enabled = options.get_value(OPTION_GLASS)
 			apply_theme(_theme_name)
 		OPTION_THEME:
 			var theme_name: String = options.get_value(OPTION_THEME)
