@@ -738,35 +738,23 @@ func _draw_labels(layer: CanvasItem) -> void:
 		)
 
 
-# ETA (or other route text) next to the end of the planned route, and of
-# the route previewed under the pointer (in the warning colour when it can't
-# get there).
+# ETA (or other route text) next to the end of the planned route.
 func _draw_route_chip(layer: CanvasItem, placed: LabelGrid) -> void:
-	var tokens: FOTokens = FOUi.tokens
-	_draw_end_chip(layer, placed, _route, _route_label, tokens.accent)
-	var preview := fleets.preview_points()
-	var color: Color = tokens.negative if fleets.is_preview_warning() else tokens.accent
-	_draw_end_chip(layer, placed, preview, fleets.preview_label(), color)
-
-
-func _draw_end_chip(
-	layer: CanvasItem, placed: LabelGrid, points: PackedVector2Array, text: String, color: Color
-) -> void:
-	if points.size() < 2 or text.is_empty():
+	if _route.size() < 2 or _route_label.is_empty():
 		return
 	var tokens: FOTokens = FOUi.tokens
 	var size := MapStyle.LABEL_FONT_SIZE
-	var width := _label_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var end := camera.world_to_screen(points[points.size() - 1])
+	var width := _label_font.get_string_size(_route_label, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	var end := camera.world_to_screen(_route[_route.size() - 1])
 	var pad := Vector2(tokens.space_2, tokens.space_1)
 	var top_left := (end + Vector2(MapStyle.SELECTION_RING_PX + pad.x, -size * 0.6)).round()
 	var chip := Rect2(top_left - pad, Vector2(width, size * 1.25) + pad * 2.0)
 	placed.try_place(chip)
-	layer.draw_rect(chip, Color(color, 0.9))
+	layer.draw_rect(chip, Color(tokens.accent, 0.9))
 	layer.draw_string(
 		_label_font,
 		top_left + Vector2(0, size),
-		text,
+		_route_label,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
 		size,
@@ -774,14 +762,20 @@ func _draw_end_chip(
 	)
 
 
-# ETA of the route a fleet would take, beside its end.
+# ETA of the route a fleet would take, beside its end; in the warning colour
+# when it can't get there (the label says why).
 func _draw_preview_chip(layer: CanvasItem, placed: LabelGrid) -> void:
 	var points := fleets.preview_points()
 	if points.size() < 2 or fleets.preview_label().is_empty():
 		return
 	var at := camera.world_to_screen(points[points.size() - 1])
+	var warning := fleets.is_preview_warning() and FOUi.tokens != null
 	_draw_chip(
-		layer, placed, fleets.preview_label(), at + Vector2(0, -MapStyle.LABEL_FONT_SIZE * 2.4)
+		layer,
+		placed,
+		fleets.preview_label(),
+		at + Vector2(0, -MapStyle.LABEL_FONT_SIZE * 2.4),
+		FOUi.tokens.negative if warning else Color.TRANSPARENT
 	)
 
 
@@ -825,7 +819,9 @@ func _draw_field_chip(layer: CanvasItem, placed: LabelGrid) -> void:
 
 
 # A text chip centred horizontally on \a at (its top edge).
-func _draw_chip(layer: CanvasItem, placed: LabelGrid, text: String, at: Vector2) -> void:
+func _draw_chip(
+	layer: CanvasItem, placed: LabelGrid, text: String, at: Vector2, border := Color.TRANSPARENT
+) -> void:
 	var tokens: FOTokens = FOUi.tokens
 	var size := MapStyle.LABEL_FONT_SIZE
 	var width := _label_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
@@ -835,7 +831,8 @@ func _draw_chip(layer: CanvasItem, placed: LabelGrid, text: String, at: Vector2)
 	chip.position = chip.position.round()
 	placed.try_place(chip)
 	layer.draw_rect(chip, Color(tokens.surface_overlay if tokens else Color(0.1, 0.1, 0.12), 0.92))
-	layer.draw_rect(chip, tokens.border_strong if tokens else Color.GRAY, false, 1.0)
+	var edge: Color = tokens.border_strong if tokens else Color.GRAY
+	layer.draw_rect(chip, border if border.a > 0.0 else edge, false, 2.0 if border.a > 0.0 else 1.0)
 	layer.draw_string(
 		_label_font,
 		(top_left + Vector2(0, size)).round(),
