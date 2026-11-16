@@ -101,3 +101,17 @@ func test_interface_glyphs_become_icons():
 	assert_not_null(close.icon)
 	assert_eq(close.get_meta("glyph"), "✕")
 	assert_eq(plain.text, "Add", "words stay words")
+
+
+func test_long_tooltips_wrap():
+	var label := Label.new()
+	label.theme_type_variation = "TooltipLabel"
+	label.text = "word ".repeat(200)
+	add_child_autofree(label)
+	assert_eq(label.autowrap_mode, TextServer.AUTOWRAP_WORD_SMART, "wrapped as it entered the tree")
+	assert_eq(label.custom_minimum_size.x, float(FOUi.tokens.space_8 * 13))
+	var short := Label.new()
+	short.theme_type_variation = "TooltipLabel"
+	short.text = "Close"
+	add_child_autofree(short)
+	assert_eq(short.autowrap_mode, TextServer.AUTOWRAP_OFF, "short ones keep their width")

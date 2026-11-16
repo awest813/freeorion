@@ -51,9 +51,19 @@ static func card(row: Control, band: Color) -> void:
 	end.custom_minimum_size.x = tokens.space_2
 	end.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(end)
+	# Pointed at, the card lifts: a lighter fill and a stronger edge.
+	var lit := FOThemeBuilder.cut(
+		FOThemeBuilder.box(tokens, tokens.surface_overlay, tokens.border_strong, 0, 0),
+		tokens,
+		tokens.chamfer_small
+	)
+	row.mouse_entered.connect(row.queue_redraw)
+	row.mouse_exited.connect(row.queue_redraw)
 	row.draw.connect(
 		func():
-			row.draw_style_box(style, Rect2(Vector2.ZERO, row.size))
+			var area := Rect2(Vector2.ZERO, row.size)
+			var hovered := area.has_point(row.get_local_mouse_position())
+			row.draw_style_box(lit if hovered else style, area)
 			var top := float(tokens.chamfer_small)
 			row.draw_rect(Rect2(0, top, band_width, maxf(0.0, row.size.y - top)), band)
 	)

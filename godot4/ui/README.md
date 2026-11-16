@@ -75,6 +75,10 @@ The shader blurs what is behind the panel under the fill, with a faint grain.
 
 ## Icons
 
+**Tooltips.** Long tooltips wrap at about 420 px (`FOUi.wrap_tooltip`). Esc closes a showing tooltip *and* reaches the game, so it still closes the screen. A disabled button's tooltip says why it is disabled.
+
+**Cards** lift when pointed at (`ScreenKit.card`), so a row that responds to clicks looks like it.
+
 **Key names.** Show hotkeys with `FOHotkeys.shown()` or `FOHotkeys.display()`, so symbol keys read as their symbol ("Ctrl+=" for "Ctrl+Equal").
 
 - **Interface icons** are one monochrome line set (`FOIcons`): close, info, add, remove, play, back, more, up, down, pause, menu, locate, dropdown, last.

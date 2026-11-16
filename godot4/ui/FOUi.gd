@@ -40,6 +40,9 @@ var _glass_enabled := true
 var _scale_setting := "auto"
 var _theme_name := "default"
 
+## The tooltip showing now, if any (a WeakRef).
+var _tooltip: WeakRef
+
 
 func _ready() -> void:
 	glass_material.shader = GLASS_SHADER
@@ -137,6 +140,10 @@ func _on_node_added(node: Node) -> void:
 		_when_valid.call_deferred(_glaze, node)
 	elif node is Button and not node is OptionButton:
 		_when_valid.call_deferred(adopt_glyph, node)
+	elif node is Label and node.theme_type_variation == "TooltipLabel":
+		wrap_tooltip(node)
+	elif node is PopupPanel and node.theme_type_variation == "TooltipPanel":
+		_pass_escape_on(node)
 	# A new current scene: let its _ready() run, then restore our scale and
 	# add fork features to upstream scenes.
 	if node.get_parent() == get_tree().root:
@@ -163,6 +170,45 @@ func adopt_glyph(button: Button) -> void:
 
 # Glass for \a panel if it is one of GLASS_PANELS (its variation may be set
 # in its _ready, hence deferred).
+## Make a tooltip's \a label wrap at a readable width when it is longer.
+## Godot's own tooltip never wraps; this runs as it enters the tree, before
+## the tooltip is measured.
+func wrap_tooltip(label: Label) -> void:
+	var limit := tokens.space_8 * 13
+	var font := label.get_theme_font("font")
+	var font_size := label.get_theme_font_size("font_size")
+	var widest := 0.0
+	for line in label.text.split("\n"):
+		widest = maxf(
+			widest, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		)
+	if widest > limit:
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.custom_minimum_size.x = limit
+
+
+# Esc while a tooltip shows only closes the tooltip (the viewport keeps the
+# key), so the player pointing at something and pressing Esc to close a
+# screen would have to press it twice. Esc goes on to the game once the
+# tooltip is gone.
+func _pass_escape_on(tooltip: Window) -> void:
+	_tooltip = weakref(tooltip) if tooltip else null
+
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.is_action_pressed("ui_cancel")):
+		return
+	var tooltip: Window = _tooltip.get_ref() if _tooltip else null
+	if tooltip and tooltip.visible:
+		_tooltip = null
+		# Once the tooltip has gone (it closes over the next frames).
+		for i in 5:
+			await get_tree().process_frame
+			if not is_instance_valid(tooltip) or not tooltip.is_inside_tree():
+				break
+		get_viewport().push_input(event)
+
+
 func _when_valid(action: Callable, node: Variant) -> void:
 	if is_instance_valid(node):
 		action.call(node)

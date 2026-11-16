@@ -105,3 +105,11 @@ func test_galaxy_details_and_sorting():
 	assert_eq(saves[0]["turn"], 42)
 	SaveLoadScreen.sort_saves(saves, "file")
 	assert_true(str(saves[0]["file"]).begins_with("FreeOrion"))
+
+
+func test_disabled_buttons_say_why():
+	await _make("load")
+	assert_eq(screen._action.tooltip_text, tr("SAVES_PICK_ONE"))
+	assert_eq(screen._delete.tooltip_text, tr("SAVES_PICK_ONE"))
+	screen._list.get_child(0).pressed.emit()
+	assert_eq(screen._action.tooltip_text, "", "no reason once it can be used")

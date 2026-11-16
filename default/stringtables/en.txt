@@ -3741,6 +3741,18 @@ No policy slots yet.
 GOVERNMENT_EMPTY_SLOT
 Empty slot
 
+GOVERNMENT_REVERT_NOTHING
+No policy changes this turn to undo.
+
+GOVERNMENT_REVERT_TIP
+Undo this turn's policy changes.
+
+SAVES_PICK_ONE
+Pick a saved game in the list first.
+
+SAVES_NEED_NAME
+Type a name for the save first.
+
 GOVERNMENT_EMPTY_SLOT_TIP
 Drag a policy of this category here, or use its Adopt button.
 

@@ -290,9 +290,13 @@ func _delete_save(path: String) -> void:
 func _update_action() -> void:
 	if mode == "save":
 		_action.disabled = _name.text.strip_edges().is_empty()
+		_action.tooltip_text = tr("SAVES_NEED_NAME") if _action.disabled else ""
 	else:
 		_action.disabled = _selected_path.is_empty()
+		_action.tooltip_text = tr("SAVES_PICK_ONE") if _action.disabled else ""
 	_delete.disabled = _selected_path.is_empty()
+	# A disabled button says why.
+	_delete.tooltip_text = tr("SAVES_PICK_ONE") if _delete.disabled else ""
 
 
 func _on_action() -> void:

@@ -264,7 +264,11 @@ func _refresh_queue() -> void:
 	# aren't listed: moves go to the listed neighbours' places.
 	_queue_indices = queue.map(func(e): return e.get("index", 0))
 	if queue.is_empty():
-		_queue_list.add_child(ScreenKit.label(tr("PRODUCTION_EMPTY_QUEUE"), "SecondaryLabel"))
+		_queue_list.add_child(
+			ScreenKit.empty_state(
+				ScreenKit.HEADER_ICONS["PRODUCTION_WND_TITLE"], tr("PRODUCTION_EMPTY_QUEUE")
+			)
+		)
 	for i in queue.size():
 		_queue_list.add_child(_queue_row(queue[i], i, queue.size()))
 	_refresh_removed()

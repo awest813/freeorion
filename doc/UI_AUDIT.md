@@ -33,3 +33,35 @@ The visual goldens then checked the changes at 100%, 150% and 200%, and in Germa
 
 - The turn-1 event reads `**Greetings**` with the asterisks: that is the article's real title in the game data, and the event tells players to click that word.
 - The bot's double-click on "Outpost Ship" fails only on turn 1, when it clicks as the screen first opens. Later turns queue fine, and a unit test covers the double-click.
+
+# UX audit
+
+The second pass looked at how the interface behaves rather than how it looks. A bot opened every screen, panel and menu in a real game at 1280×720, 1280×800 and 1920×1080. On each it checked every visible control for:
+- icon-only buttons without a tooltip;
+- disabled buttons that don't say why;
+- text cut off with no tooltip giving all of it;
+- controls off screen;
+- targets too small to click;
+- screens that Esc doesn't close.
+
+It also hovered cards and the top bar to see real tooltips.
+
+## Fixed
+
+| Where | Problem | Fix |
+|-------|---------|-----|
+| Everywhere | With a tooltip showing, Esc only closed the tooltip: Godot's viewport keeps the key. Pointing at something and pressing Esc to close a screen needed two presses. | FOUi sees the Esc first and sends it on once the tooltip has gone (tests for plain and custom tooltips). |
+| Everywhere | Long tooltips (policies, production items, techs) ran on one line up to 900 px wide. | Tooltips longer than about 420 px wrap (`FOUi.wrap_tooltip`). |
+| Research, Production, Government lists | Cards didn't react to the pointer. | A card lifts when pointed at: a lighter fill and a stronger edge (`ScreenKit.card`). |
+| Saves | Load and Delete were disabled with no reason. | Their tooltips say to pick a save first (or to type a name, to save). |
+| Government | Revert was disabled with no reason. | Its tooltip says there's nothing to undo, or what it undoes. |
+| Research and Production queues | When empty, a grey line at the top of a blank column. | The empty state with the screen's picture. |
+
+## Checked and fine
+
+- Every screen, the game menu and the menu screens close with Esc.
+- Deleting a save or a design asks first; scrapping ships can be cancelled until the turn ends; quitting asks first.
+- Saving says when the save is written.
+- At 1280×720 the panels scroll rather than clip, and the designer fits.
+- At 1920×1080 the research grid shows three columns.
+- No icon-only button lacks a tooltip, and no clipped text lacks a way to read it.

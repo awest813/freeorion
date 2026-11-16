@@ -74,6 +74,9 @@ func refresh() -> void:
 			_filter.add_tab(tr(category))
 		_filter.current_tab = clampi(current, 0, _filter.tab_count - 1)
 	_revert.disabled = not source.is_modified()
+	_revert.tooltip_text = tr(
+		"GOVERNMENT_REVERT_NOTHING" if _revert.disabled else "GOVERNMENT_REVERT_TIP"
+	)
 	_refresh_slots()
 	_refresh_catalog()
 

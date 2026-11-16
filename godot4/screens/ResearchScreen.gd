@@ -295,7 +295,11 @@ func _refresh_queue() -> void:
 	# The list's and tree's tooltips tell how each queued tech goes.
 	_tree.queue_entries = entries
 	if queue.is_empty():
-		_queue_list.add_child(ScreenKit.label(tr("RESEARCH_EMPTY_QUEUE"), "SecondaryLabel"))
+		_queue_list.add_child(
+			ScreenKit.empty_state(
+				ScreenKit.HEADER_ICONS["RESEARCH_WND_TITLE"], tr("RESEARCH_EMPTY_QUEUE")
+			)
+		)
 	for i in queue.size():
 		_queue_list.add_child(_queue_row(queue[i], i, queue.size()))
 
