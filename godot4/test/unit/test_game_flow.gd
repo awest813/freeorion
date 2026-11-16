@@ -162,6 +162,17 @@ func test_auto_end_turn_stops_in_danger():
 		"AUTO_TURN_STOP_SHIP_LOST"
 	)
 	assert_eq(guard.check({"planets": 3}, []), "", "calm again")
+	assert_eq(guard.check({"planets": 3}, [], [41]), "AUTO_TURN_STOP_ENEMY_SIGHTED")
+	assert_eq(guard.check({"planets": 3}, [], [41]), "", "seen already")
+	var fleets := [
+		{"id": 1, "owner_id": 2, "armed": true, "visibility": "visible", "system_id": 5},
+		{"id": 2, "owner_id": 3, "armed": true, "visibility": "visible", "system_id": 5},
+		{"id": 3, "owner_id": -1, "armed": true, "visibility": "visible", "system_id": 5},
+		{"id": 4, "owner_id": 2, "armed": false, "visibility": "visible", "system_id": 5},
+		{"id": 5, "owner_id": 2, "armed": true, "visibility": "seen", "system_id": 5},
+		{"id": 6, "owner_id": 2, "armed": true, "visibility": "visible", "system_id": 8},
+	]
+	assert_eq(AutoTurnGuard.hostile_in_supply(fleets, {5: true}, {2: true}), [1, 3])
 
 
 func test_refused_moves_say_why():

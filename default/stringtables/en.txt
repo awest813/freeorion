@@ -2680,6 +2680,9 @@ one of your ships was destroyed.
 AUTO_TURN_STOP_PLANET_LOST
 you lost a planet.
 
+AUTO_TURN_STOP_ENEMY_SIGHTED
+an armed enemy fleet is inside your supply range.
+
 AUTO_TURN_STOP_DEPOPULATED
 one of your planets lost its population.
 
