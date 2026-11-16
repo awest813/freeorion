@@ -39,7 +39,7 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
 - **S2**: blocks a goal, or a player can't tell what to do next.
 - **S3**: friction or a misleading label.
 
-**Fixed** means fixed in this branch, with a unit test: items 1, 3, 4, 9 and 10 in commit `c44827f`, items 2 and 5–8 in commit `7123a3a`. Items 2 and 5–8 were also checked in real games by a scripted player using the new controls (see "Checked after the fixes").
+**Fixed** means fixed in this branch, with a unit test: items 1, 3, 4, 9 and 10 in commit `c44827f`, items 2 and 5–8 in commit `7123a3a`, and the rest of 2, 3, 5 and 7 plus 11–13 in the commits after it (`3ad36eb` to `c106dee`). Items 2 and 5–8 were also checked in real games by a scripted player using the new controls (see "Checked after the fixes").
 
 ## Gaps
 
@@ -55,14 +55,14 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
      - Both times auto end turn kept ending turns while planets were attacked and lost.
    - GG behaves the same way.
    - Fix: auto end turn switches itself off, with a toast and a message-log line saying why, after any of: a battle or ground battle involving the empire, an own ship destroyed, a planet lost, a planet depopulated.
-   - Still open: an enemy armed fleet seen inside supply range, before any shot is fired.
+   - Also: it stops the first turn an armed fleet of an empire at war, or of monsters, is seen inside the empire's supply range, before any shot is fired. Each such fleet stops it once.
 
 ### S2
 
 3. **The starting scouts never explore unless told to.** **Fixed.**
    - Evidence: newcomer, all 4 games. The two scouts sat at the home system for 30 turns. The readiness check only named colony ships and fleets built this turn, so the newcomer was never pointed at them. All four newcomer games ended with 1 planet.
    - Fix: the readiness check now names unarmed fleets that are idle and not exploring, with a link to the fleet. Its text says "set it to explore (fleet menu)".
-   - Still open: GG starts the initial scouts exploring on its own. Consider the same, or a one-time tip on the fleet panel's Explore entry.
+   - Also: a new option, on by default, sends the starting scouts exploring on turn 1, and each scout as it is built. In a game where the player never touched them, the empire knew 26 systems by turn 8 instead of 3.
 4. **Influence piles up unused.** **Fixed.**
    - Evidence: newcomer, warlord and explorer ended with 95–140 IP unspent. The power user's run 2 ended with 1,501 IP.
    - Nothing pointed a player who doesn't open Government at their free policy slots.
@@ -74,7 +74,7 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
      - Planets that another of your settler fleets is already heading for are left out.
      - With no place in reach, the list says to explore further or research growth techs.
      - The readiness item now points at the list.
-   - Still open: showing settle targets on the map while a colony ship is selected, as GG does.
+   - Also: while such a fleet is selected, its places to settle are ringed on the map with what they'd be and how far. Pointing at a place in the list previews the route there.
 6. **No way to find the enemy.** **Fixed.**
    - Evidence: warlord, all 4 games. Empires lists every AI as "At war", but in 25–30 turns the warlord never located an enemy planet. Neither the Empires screen nor the map shows where an empire is.
    - Fix: each other empire on the Empires screen has "Show on map". It goes to the empire's capital if known, else its known planet nearest your capital, else where one of its fleets was seen. The tooltip says which. While nothing of the empire has been seen, the button is disabled and its tooltip says so.
@@ -84,7 +84,7 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
    - Fix: such moves, and moves for fleets with speed 0, are now refused. The notice says why: "No known starlanes lead there" or "its speed is 0".
    - A move too far outside supply for the fleet's fuel is still given, with a warning that the fleet will stop where its fuel runs out.
    - The same reasons appear in the banner for box-selected fleets.
-   - Still open: colouring the route preview before the click.
+   - Also: the route preview under the pointer turns red, with the reason ("No known route", "Out of fuel range", "Can't move"), before the click. With no route at all it is a straight red line to the target.
    - Caveat: some of these clicks needed a map pan first (see 14), so not all 15 are game refusals.
 8. **The Ships list was empty at the default location.** **Fixed.**
    - Evidence: explorer runs 3 and 4, turns 15 and 22. The Ships tab showed "nothing buildable" for the selected location. The next turn it listed ships again.
@@ -100,15 +100,16 @@ Average turn processing was 0.4–1.2 s; power-user run 1 averaged 25 s over
 10. **"Stockpile Transfer" was first in the production "All" list.** **Fixed.**
     - Evidence: newcomer. The project is for experienced players, and a newcomer queuing the first item got nothing visible from it.
     - Fix: it now comes last.
-11. **The readiness check nags about partly used PP.**
+11. **The readiness check nags about partly used PP.** **Fixed.**
     - Evidence: newcomer, 15 times. Items were queued but couldn't take all PP because of minimum build times, and the dialog came up every turn.
-    - Suggested: when the unspent share is small, or the only cause is minimum build times, say so once ("N PP can't be spent this turn: add another item to use it") and don't repeat it every turn.
-12. **The message log grows to 40+ unread.**
+    - Fix: an issue the player ended a turn anyway on isn't raised again until it is resolved. If it comes back after that, it is raised again.
+12. **The message log grows to 40+ unread.** **Fixed.**
     - Evidence: the message badge read 41 on turn 20 (explorer run 2, screenshot). Nothing marks messages read unless the log is opened, and the badge only grows.
-    - Suggested: mark a turn's messages read when the next turn starts with the log closed, or add a "mark all read" button.
-13. **New designs can leave slots empty without a word.**
+    - Cause: a "Begin turn N" marker every turn, plus an autosave note every turn.
+    - Fix: turn markers stay in the log but don't count as unread. Autosaves aren't logged; saves the player makes still are.
+13. **New designs can leave slots empty without a word.** **Fixed.**
     - Evidence: warlord. Designs were created with empty external slots.
-    - Suggested: warn on Create when slots are left empty. The duplicate-design refusal is already clear: "This design is a duplicate of …".
+    - Fix: once a part is placed, a note under the name says how many slots are empty. It doesn't block Create.
 14. **Map targets can be off screen.**
     - Evidence: explorer runs 1, 2 and 4. The nearest free system was off screen and the map had to be panned.
     - Suggested: let a readiness or "nearest target" link centre the map on the target. The minimap already allows a quick jump.
@@ -121,6 +122,12 @@ The scripted player was rerun on galaxies 1 (150 systems, 6 Maniacal AIs) and 2 
 - **Show on map.** In galaxy 1 by turn 10, two of the six AIs were located: one by a planet, one by a fleet. The button returned to the map at that system. In galaxy 2 nothing of either AI had been seen by turn 20, so the buttons were disabled.
 - **Move reasons.** Of 5 to 37 known systems, a scout got "no known starlanes" for 2–4 and the fuel warning for 3. The rest were fine.
 - **Auto end turn.** Switched on at turn 1 against 6 Maniacal AIs, it stopped itself at turns 17 and 67, saying "your forces were in a battle". Before the fixes the same setup ran unattended to defeat at turn 102.
+
+### Found later, in a mid-game tour of every screen (fixed)
+
+- Government policy rows still said "N IP/turn"; they now say "N IP to adopt".
+- Empires showed 0.0 industry, research and influence for an empire whose ships were seen but none of its planets; these now show "?" (unknown).
+- The production screen opened at an outpost when the selected system's last planet was one. It now prefers a populated planet, and an empty Ships list explains why and offers to build at the capital.
 
 ## Not confirmed as game gaps
 
