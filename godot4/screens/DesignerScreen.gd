@@ -827,7 +827,7 @@ func _update_create() -> void:
 		notes.push_back(tr("DESIGNER_NOT_YET_AVAILABLE").replace("%1%", names))
 	# Not a reason to refuse it, but easy to miss: slots left empty.
 	var empty := Array(parts).count("")
-	if not hull_name.is_empty() and empty > 0:
+	if not hull_name.is_empty() and empty > 0 and empty < parts.size():
 		notes.push_back(
 			tr("DESIGNER_EMPTY_SLOT" if empty == 1 else "DESIGNER_EMPTY_SLOTS").replace(
 				"%1%", str(empty)

@@ -180,6 +180,12 @@ func test_add_all_saved_and_unbuildable_marks():
 func test_empty_slots_are_pointed_out_but_allowed():
 	screen._name.text = "Raider"
 	screen._name.text_changed.emit("Raider")
+	assert_false(
+		screen._validity.text.contains(tr("DESIGNER_EMPTY_SLOTS").get_slice("%1%", 1)),
+		"not on a blank hull"
+	)
+	screen.place_part("SR_WEAPON_1_1")
+	screen._name.text_changed.emit("Raider")
 	var empty := Array(screen.parts).count("")
 	assert_gt(empty, 0)
 	assert_string_contains(

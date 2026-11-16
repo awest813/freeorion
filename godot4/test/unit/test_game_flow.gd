@@ -250,3 +250,10 @@ func test_ships_need_a_shipyard_location():
 	var plain := screen._nothing_here("building", 101)
 	add_child_autofree(plain)
 	assert_eq(plain.find_children("*", "Button", true, false).size(), 0)
+
+
+func test_autosaves_stay_out_of_the_log():
+	assert_true(MessageLog.is_autosave("/home/a/.local/share/freeorion/save/auto/x_0014.sav"))
+	assert_true(MessageLog.is_autosave("C:\\Users\\a\\save\\auto\\x.sav"))
+	assert_false(MessageLog.is_autosave("/home/a/.local/share/freeorion/save/mine.sav"))
+	assert_true(MessageLog.is_autosave("/s/de6fbad8-86fd-41b2-9498-09fd97f4790f/g_0003.mps"))

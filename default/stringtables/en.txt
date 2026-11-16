@@ -3681,7 +3681,7 @@ GOVERNMENT_REVOKE
 Revoke this policy
 
 GOVERNMENT_POLICY_DETAIL
-%1% IP/turn · %2%
+%1% IP to adopt · %2%
 
 GOVERNMENT_ADOPT
 Adopt

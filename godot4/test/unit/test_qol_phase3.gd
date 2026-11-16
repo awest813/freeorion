@@ -13,6 +13,14 @@ func test_nothing_seen_of_an_empire_is_unknown():
 	assert_eq(values.map(func(v): return v[1]).slice(0, 5), ["?", "?", "?", "?", "?"])
 	var own := EmpiresScreen.summary_values({"own": true, "ships": 0, "planets": 0})
 	assert_eq(own[0][1], "0", "Your own empire's zero is zero")
+	var ships_only := EmpiresScreen.summary_values(
+		{"own": false, "ships": 2, "planets": 0, "industry": 0.0}
+	)
+	assert_eq(
+		ships_only.map(func(v): return v[1]).slice(0, 5),
+		["2", "?", "?", "?", "?"],
+		"ships seen, but none of its planets"
+	)
 
 
 func test_spectators_have_no_resource_chips():

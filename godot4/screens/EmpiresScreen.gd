@@ -42,6 +42,8 @@ const SUMMARY := [
 	["detection", "icons/meter/detection.png", "EMPIRES_SUMMARY_DETECTION"],
 ]
 
+## Summary values that come from the empire's known planets.
+const PLANET_VALUES := ["planets", "industry", "research", "influence"]
 ## Tabs: label key.
 const TABS := ["EMPIRES_TAB_DIPLOMACY", "EMPIRES_TAB_STATISTICS"]
 
@@ -310,16 +312,15 @@ static func player_marks(empire: Dictionary) -> Array:
 ## The numbers on an empire's card: [[key, text]] (output to 1 decimal).
 static func summary_values(empire: Dictionary) -> Array:
 	var values := []
-	# Nothing seen of another empire is unknown, not zero ("?").
-	var unknown: bool = (
-		not empire.get("own", false)
-		and empire.get("ships", 0) == 0
-		and empire.get("planets", 0) == 0
-	)
+	# What isn't seen of another empire is unknown, not zero ("?"): its ships
+	# while none is known, and its planets and their output while none is.
+	var other: bool = not empire.get("own", false)
+	var no_ships: bool = other and empire.get("ships", 0) == 0
+	var no_planets: bool = other and empire.get("planets", 0) == 0
 	for entry: Array in SUMMARY:
 		var value: float = empire.get(entry[0], 0.0)
 		var text := str(int(value)) if entry[0] in ["ships", "planets"] else "%.1f" % value
-		if unknown and entry[0] != "detection":
+		if (entry[0] == "ships" and no_ships) or (entry[0] in PLANET_VALUES and no_planets):
 			text = "?"
 		values.push_back([entry[0], text])
 	return values

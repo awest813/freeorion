@@ -86,11 +86,22 @@ func turn_begun(turn: int) -> void:
 	_shell.chat_window.add_event(tr("TURN_BEGIN").replace("%1%", str(turn)), true)
 
 
+## Note a save in the log; not autosaves (one a turn would bury the rest).
 func saved(filename: String, bytes: int) -> void:
+	if is_autosave(filename):
+		return
 	_shell.chat_window.add_event(
 		tr("SERVER_SAVE_COMPLETE").replace("%1%", filename.get_file()).replace("%2%", str(bytes)),
 		true
 	)
+
+
+## Whether \a filename is an autosave: in "auto", or (multiplayer) in the
+## directory named by the game's UID.
+static func is_autosave(filename: String) -> bool:
+	var folder := filename.replace("\\", "/").get_base_dir().get_file()
+	var uid := RegEx.create_from_string("^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$")
+	return folder == "auto" or uid.search(folder) != null
 
 
 ## Log the changes in \a empires' (FODiplomacy.get_empires()) statuses.
