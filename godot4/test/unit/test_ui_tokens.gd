@@ -85,3 +85,19 @@ func test_floating_panels_get_the_glass():
 	await wait_process_frames(1)
 	assert_eq(panel.material, FOUi.glass_material)
 	assert_null(plain.material, "nested cards stay as they are")
+
+
+func test_interface_glyphs_become_icons():
+	for glyph: String in FOIcons.GLYPHS:
+		assert_not_null(FOIcons.for_glyph(glyph, 16), "icon for %s" % glyph)
+	var close := Button.new()
+	close.text = "✕"
+	var plain := Button.new()
+	plain.text = "Add"
+	add_child_autofree(close)
+	add_child_autofree(plain)
+	await wait_process_frames(1)
+	assert_eq(close.text, "")
+	assert_not_null(close.icon)
+	assert_eq(close.get_meta("glyph"), "✕")
+	assert_eq(plain.text, "Add", "words stay words")

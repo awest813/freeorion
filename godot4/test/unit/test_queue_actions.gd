@@ -106,7 +106,7 @@ func test_research_can_be_paused():
 	var row: Control = research._queue_list.get_child(0)
 	var pause: Button = null
 	for button: Button in row.find_children("*", "Button", true, false):
-		if button.text == "Ⅱ":
+		if button.get_meta("glyph", button.text) == "Ⅱ":
 			pause = button
 	assert_not_null(pause)
 	pause.pressed.emit()

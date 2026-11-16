@@ -151,6 +151,7 @@ func _setup_options() -> RefCounted:
 
 func _button(node: Node, text: String) -> Button:
 	for button: Button in node.find_children("*", "Button", true, false):
-		if button.text == text:
+		# Interface glyphs move to the "glyph" meta (FOUi.adopt_glyph()).
+		if button.get_meta("glyph", button.text) == text:
 			return button
 	return null

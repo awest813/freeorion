@@ -114,11 +114,29 @@ func _apply_scale() -> void:
 func _on_node_added(node: Node) -> void:
 	if node is PanelContainer:
 		_glaze.call_deferred(node)
+	elif node is Button and not node is OptionButton:
+		adopt_glyph.call_deferred(node)
 	# A new current scene: let its _ready() run, then restore our scale and
 	# add fork features to upstream scenes.
 	if node.get_parent() == get_tree().root:
 		_apply_scale.call_deferred()
 		_adapt_scene.call_deferred(node)
+
+
+## Give \a button the interface icon for its text, if that is one of
+## FOIcons.GLYPHS (the glyph moves to its "glyph" meta).
+func adopt_glyph(button: Button) -> void:
+	if not is_instance_valid(button) or button.icon != null:
+		return
+	var texture := FOIcons.for_glyph(
+		button.text, tokens.icon_small + tokens.space_1 if tokens else 20
+	)
+	if texture == null:
+		return
+	button.set_meta("glyph", button.text)
+	button.text = ""
+	button.icon = texture
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
 # Glass for \a panel if it is one of GLASS_PANELS (its variation may be set

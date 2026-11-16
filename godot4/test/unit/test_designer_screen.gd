@@ -115,7 +115,7 @@ func test_design_kinds_and_actions():
 	(
 		_design_rows()[0]
 		. find_children("*", "Button", true, false)
-		. filter(func(b): return b.text == "+")[0]
+		. filter(func(b): return b.get_meta("glyph", b.text) == "+")[0]
 		. pressed
 		. emit()
 	)
@@ -152,7 +152,8 @@ func test_compares_with_the_design_started_from():
 
 
 func _row_button(row: Control, text: String) -> Button:
-	return row.find_children("*", "Button", true, false).filter(func(b): return b.text == text)[0]
+	var buttons := row.find_children("*", "Button", true, false)
+	return buttons.filter(func(b): return b.get_meta("glyph", b.text) == text)[0]
 
 
 func test_save_and_rename_own_designs():
