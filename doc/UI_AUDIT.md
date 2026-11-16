@@ -131,3 +131,6 @@ The bot captured each of these in a real game:
 | Map modes | What a mode's colours mean was only in the picker's tooltip. | A small glass caption above the picker explains the mode while it is on (not in the standard map), as wide as the picker. |
 | Pedia search | Names shared by two kinds of article showed twice, alike ("Armor Plating", "Armor Plating"). | Such names say their kind ("Armor Plating · Ship part", "Armor Plating · Technology"). |
 | Lobby | "Players" and "Chat" in large title type; nothing said what the galaxy size meant. | Section captions as elsewhere; under the preview, the same room line as single-player setup, counting the players and AIs. |
+| Hints | "Tip" in plain grey. | A section caption, like the other cards. |
+
+Also captured and found fine: the About tabs (credits, vision, licence, Godot), hints anchored to their control, the turn log, a scout sent across the galaxy.

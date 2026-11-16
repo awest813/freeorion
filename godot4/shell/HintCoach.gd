@@ -58,7 +58,7 @@ func _init() -> void:
 	add_child(_card)
 	var box := VBoxContainer.new()
 	_card.add_child(box)
-	box.add_child(ScreenKit.label(tr("HINT_TITLE"), "SecondaryLabel"))
+	box.add_child(ScreenKit.section(tr("HINT_TITLE")))
 	_text = ScreenKit.label("")
 	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_text)
