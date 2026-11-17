@@ -30,6 +30,7 @@ signal map_context_requested(screen_pos: Vector2)
 ## A field (no system under the cursor) was clicked: its type, for the Pedia.
 signal field_activated(field_type: String)
 
+const FIELD_SHADER := preload("res://map/shaders/field.gdshader")
 const PICK_RADIUS_PX := 14.0
 const GRID_CELL := 64.0
 const NO_SYSTEM := -1
@@ -139,6 +140,8 @@ var _starfield_texture: ImageTexture
 var _route := PackedVector2Array()
 var _route_label := ""
 var _supply_area: MapLayer
+# Gaps between supply disks inside a range: [[triangle, colour], ...].
+var _supply_holes: Array = []
 var _field_layer: MapLayer
 var _field_positions := PackedVector2Array()
 var _field_radii := PackedFloat32Array()
@@ -199,6 +202,10 @@ func _ready() -> void:
 	_field_layer = MapLayer.new()
 	_field_layer.name = "Fields"
 	_field_layer.draw_callback = _draw_fields
+	# Detail and a fade as fields are magnified (their art is soft).
+	var field_material := ShaderMaterial.new()
+	field_material.shader = FIELD_SHADER
+	_field_layer.material = field_material
 	add_child(_field_layer)
 	move_child(_field_layer, supply_group.get_index())
 	# Map modes draw above the lanes, under fleets and selection.
@@ -280,6 +287,12 @@ func set_snapshot(
 
 	_rebuild_bounds()
 	ambience.layout(bounds)
+	_supply_holes = MapDetails.supply_holes(
+		_positions,
+		_supply_systems,
+		_supply_system_colors,
+		_typical_spacing() * MapStyle.SUPPLY_SYSTEM_RADIUS
+	)
 	_rebuild_grid()
 	_rebuild_stars()
 	_rebuild_labels()
@@ -622,6 +635,8 @@ func _draw_supply_area(layer: CanvasItem) -> void:
 				_supply_system_colors[i] if i < _supply_system_colors.size() else Color.WHITE
 			)
 			layer.draw_circle(center, radius, color)
+	for hole: Array in _supply_holes:
+		layer.draw_colored_polygon(hole[0], hole[1])
 
 
 # Supplied lanes under the lanes: a band in the supplying empire's colour.

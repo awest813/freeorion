@@ -10,6 +10,9 @@ const SCANLINE_PX := 4.0
 const SCANLINE_COLOR := Color(0, 0, 0, 0.16)
 ## The most scanlines over one field (big fields when zoomed out).
 const SCANLINES_MAX := 80
+## Holes in a supply range larger than this (circumradius, in disk radii)
+## stay open: a real unsupplied space, not a gap between disks.
+const MAX_HOLE := 2.5
 ## Snapshot owner id lists and the colour lists made from them.
 const COLOR_KEYS := [
 	["fleet_owner_ids", "fleet_colors"],
@@ -179,3 +182,130 @@ func draw_flow(
 				layer.draw_line(a + direction * from, a + direction * to, color, width, true)
 			d += period
 		walked += length
+
+
+## Holes inside an empire's supply range to fill: [[triangle, colour], ...].
+## The range is a disk of \a radius round each supplied system (\a systems:
+## indices into \a positions, \a colors: the supplier's colour of each).
+## Where disks ring an area they don't cover, it showed as a hole inside the
+## range's outline. Each empire's systems are triangulated; a gap wider than
+## two radii lets open space in, and the triangles open space reaches through
+## such gaps, from outside, stay empty, as do large holes and any where a
+## system the empire doesn't supply would show in the hole (they really are
+## outside the range).
+static func supply_holes(
+	positions: PackedVector2Array,
+	systems: PackedInt32Array,
+	colors: PackedColorArray,
+	radius: float
+) -> Array:
+	if not is_finite(radius) or radius <= 0.0:
+		return []
+	var by_color := {}
+	for i in systems.size():
+		var color := colors[i] if i < colors.size() else Color.WHITE
+		if not by_color.has(color):
+			by_color[color] = PackedInt32Array()
+		by_color[color].push_back(systems[i])
+	var holes := []
+	for color: Color in by_color:
+		var own: PackedInt32Array = by_color[color]
+		if own.size() < 3:
+			continue
+		var others := {}
+		for i in positions.size():
+			others[i] = true
+		for index in own:
+			others.erase(index)
+		for triangle in _enclosed_triangles(positions, own, others.keys(), radius):
+			holes.push_back([triangle, color])
+	return holes
+
+
+static func _enclosed_triangles(
+	positions: PackedVector2Array, own: PackedInt32Array, others: Array, radius: float
+) -> Array:
+	var points := PackedVector2Array()
+	for index in own:
+		points.push_back(positions[index])
+	var tris := Geometry2D.triangulate_delaunay(points)
+	var count := tris.size() / 3
+	# Which triangles share each edge.
+	var edges := {}
+	for t in count:
+		for k in 3:
+			var key := _edge_key(tris[t * 3 + k], tris[t * 3 + (k + 1) % 3])
+			if not edges.has(key):
+				edges[key] = []
+			edges[key].push_back(t)
+	var open := {}
+	var queue := []
+	for t in count:
+		var a := points[tris[t * 3]]
+		var b := points[tris[t * 3 + 1]]
+		var c := points[tris[t * 3 + 2]]
+		var outside := _circumradius(a, b, c) > MAX_HOLE * radius
+		if not outside:
+			for k in 3:
+				var key := _edge_key(tris[t * 3 + k], tris[t * 3 + (k + 1) % 3])
+				if edges[key].size() == 1 and _is_gap(points, key, radius):
+					outside = true
+		if not outside:
+			for index in others:
+				if (
+					Geometry2D.point_is_inside_triangle(positions[index], a, b, c)
+					and not _covered(positions[index], points, radius)
+				):
+					outside = true
+					break
+		if outside:
+			open[t] = true
+			queue.push_back(t)
+	# Open space spreads through the gaps.
+	while not queue.is_empty():
+		var t: int = queue.pop_back()
+		for k in 3:
+			var key := _edge_key(tris[t * 3 + k], tris[t * 3 + (k + 1) % 3])
+			if not _is_gap(points, key, radius):
+				continue
+			for neighbour: int in edges[key]:
+				if not open.has(neighbour):
+					open[neighbour] = true
+					queue.push_back(neighbour)
+	var result := []
+	for t in count:
+		if not open.has(t):
+			result.push_back(
+				PackedVector2Array(
+					[points[tris[t * 3]], points[tris[t * 3 + 1]], points[tris[t * 3 + 2]]]
+				)
+			)
+	return result
+
+
+# Whether \a point is under one of the disks (it shows as inside the range
+# already, so filling the gap round it changes nothing about it).
+static func _covered(point: Vector2, centres: PackedVector2Array, radius: float) -> bool:
+	for centre in centres:
+		if centre.distance_to(point) < radius:
+			return true
+	return false
+
+
+static func _edge_key(a: int, b: int) -> Vector2i:
+	return Vector2i(mini(a, b), maxi(a, b))
+
+
+# Two disks that don't touch leave a gap between them, unless another disk
+# covers it.
+static func _is_gap(points: PackedVector2Array, key: Vector2i, radius: float) -> bool:
+	var a := points[key.x]
+	var b := points[key.y]
+	return a.distance_to(b) > 2.0 * radius and not _covered((a + b) / 2.0, points, radius)
+
+
+static func _circumradius(a: Vector2, b: Vector2, c: Vector2) -> float:
+	var area := absf((b - a).cross(c - a)) / 2.0
+	if area < 1e-6:
+		return INF
+	return a.distance_to(b) * b.distance_to(c) * c.distance_to(a) / (4.0 * area)
