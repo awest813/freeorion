@@ -174,6 +174,9 @@ func _combat_card(combat: Dictionary) -> Button:
 		tr("COMBAT_REPORT_LOSSES").replace("%1%", str(lost.x)).replace("%2%", str(lost.y)),
 		"SecondaryLabel"
 	)
+	# The card's text is in its labels; the tooltip says it whole, since a
+	# long system name is cut short.
+	card.tooltip_text = "%s · %s\n%s" % [title.text, top.get_child(1).text, outcome.text]
 	if lost.x > 0:
 		outcome.add_theme_color_override("font_color", FOUi.tokens.negative)
 	box.add_child(outcome)
@@ -335,6 +338,7 @@ func show_bout(at_bout: int) -> void:
 		else tr("COMBAT_REPLAY_AFTER").replace("%1%", str(bout)).replace("%2%", str(_bouts))
 	)
 	_whole_log.disabled = false
+	_whole_log.tooltip_text = ""
 
 
 ## Back to the whole report: final health and the full log.
@@ -344,6 +348,7 @@ func show_whole_combat() -> void:
 		entry[0].visible = true
 	_bout_label.text = tr("COMBAT_REPLAY_ALL").replace("%1%", str(_bouts))
 	_whole_log.disabled = true
+	_whole_log.tooltip_text = tr("COMBAT_REPLAY_WHOLE_SHOWN")
 
 
 # Each side's health before the combat and after each bout.
@@ -397,6 +402,7 @@ func _replay_bar() -> Control:
 	_whole_log.text = tr("COMBAT_REPLAY_WHOLE")
 	_whole_log.theme_type_variation = "GhostButton"
 	_whole_log.disabled = true
+	_whole_log.tooltip_text = tr("COMBAT_REPLAY_WHOLE_SHOWN")
 	_whole_log.pressed.connect(show_whole_combat)
 	row.add_child(_whole_log)
 	return row

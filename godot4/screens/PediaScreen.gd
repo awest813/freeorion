@@ -50,6 +50,8 @@ const KIND_ICONS := {
 ## Kinds of universe objects: their articles can show them on the map.
 const OBJECT_KINDS := ["planet", "system", "fleet", "ship", "building"]
 const MAX_RESULTS := 80
+## Link lists longer than this say how many there are in their caption.
+const COUNTED_LINKS := 3
 ## Start page tiles' size.
 const TILE_WIDTH := 150
 const TILE_HEIGHT := 112
@@ -278,7 +280,10 @@ func _show_article(article: Dictionary) -> void:
 		if group_links.is_empty():
 			continue
 		# In the facts' grid, so names and values line up with the facts.
-		var caption := ScreenKit.label(tr("PEDIA_LINKS_" + group.to_upper()), "SecondaryLabel")
+		var caption_text := tr("PEDIA_LINKS_" + group.to_upper())
+		if group_links.size() > COUNTED_LINKS:  # how many, without counting them by eye
+			caption_text += " (%d)" % group_links.size()
+		var caption := ScreenKit.label(caption_text, "SecondaryLabel")
 		# At the top of a long list of links, not halfway down it.
 		caption.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		_facts.add_child(caption)

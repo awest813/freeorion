@@ -219,3 +219,27 @@ The suite now runs with no errors in its log, beyond the engine's usual leak rep
 The bot played its tour at 1366×768, 2560×1440, 3840×2160 and 2560×1080 (ultrawide): no errors and no controls off screen. At 4K automatic scale picks 200%, giving the same layout as 1080p; the ultrawide's research grid takes five columns. Along the way:
 - The bot sent its clicks in logical coordinates where Godot expects window pixels, so it missed at any scale but 100%.
 - The visual tests now hide GUT's own panel while capturing, since it can show at the edges after a scale change.
+
+## Battles, the Pedia's kinds, designing, government, objects and the feed
+
+The bot played until its first battle (turn 16, a scout lost at Thrax). It then went through:
+- the combat report: the whole battle, bout 1, and scrolled to the log;
+- one Pedia article of each of the 13 kinds;
+- designing a ship from a hull and a weapon, then creating it;
+- adopting a policy by drag and drop;
+- the objects list under each of its four groupings;
+- the feed's filter menu and an entry's menu.
+
+It then loaded a turn-40 save to check the fixes.
+
+| Found | Fix |
+|-------|-----|
+| After Create design, the designer was 1388 px wide in a 1280 px window: the header's status ("Created Deep Lancer. It can be built from the production screen.") would not wrap, so the parts column was pushed off screen. The same header is on 13 screens; Government's was 20 px too wide in its golden image. | A header's info line takes the spare width and wraps, right-aligned. |
+| A combat in the list cut a long system name short, and the full name was not available. | The card's tooltip gives the system, the turn and the losses. |
+| "Whole combat" was greyed out with no reason when the whole combat was already shown. | Its tooltip says so. |
+| Government listed policies by name, so a greyed "no free slot" policy could come before ones you could adopt. | Policies you can adopt now come first, then the others, each group by name. |
+| An empire's Pedia article had two rows called "Planets": a count, then the list. Slot counts read "1.00". All 50 species were listed with their opinion, most of them 0. | The planet list's caption counts it ("Planets (6)"), as any list of more than three links does. Whole numbers show without decimals. Only species with an opinion are listed, fondest first. |
+
+Checked and left alone:
+- Opening the Pedia puts keyboard focus on its first kind ("Technology"), as every screen focuses its first control. Starting in the search field instead would make Esc leave the field rather than close the screen.
+- The bot's own policy drop asked for a slot that didn't exist: it chose "adoptable" without checking for a free slot. The screen showed "no free slot" and kept Adopt greyed out.

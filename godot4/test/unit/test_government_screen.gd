@@ -29,6 +29,11 @@ func test_catalog_lists_unadopted_policies():
 	assert_does_not_have(_catalog_names(), tr("PLC_PROPAGANDA"), "Adopted not listed")
 
 
+func test_catalog_lists_what_can_be_adopted_now_first():
+	# Algorithmic Research sorts first by name, but its slots are full.
+	assert_eq(_catalog_names()[0], tr("PLC_CENTRALIZATION"))
+
+
 func test_adopt_blocked_with_reason():
 	var social := _row(tr("PLC_ALGORITHMIC_RESEARCH"))
 	assert_true(_button(social, tr("GOVERNMENT_ADOPT")).disabled, "Social slots are full")

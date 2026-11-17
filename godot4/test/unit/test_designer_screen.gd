@@ -183,3 +183,9 @@ func test_saved_designs_tab():
 	var dialog: FODialog = screen.get_children().filter(func(c): return c is FODialog).back()
 	dialog.choose(0)
 	assert_eq(fake.calls.back(), ["delete_saved", "aaaa-1"])
+
+
+func test_a_long_status_wraps_instead_of_widening_the_screen():
+	screen._status.text = "Created a design with a very long name indeed. ".repeat(4)
+	await wait_process_frames(2)
+	assert_lte(screen.get_combined_minimum_size().x, 1280.0, "Still fits the window")

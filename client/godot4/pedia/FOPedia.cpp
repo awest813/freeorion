@@ -641,23 +641,33 @@ namespace {
             else
                 text += UserString("NO_CAPITAL");
             text += "\n" + UserString("EMPIRE_ID") + ": " + name + "\n" + UserString("PEDIA_PLAYER") + ": " + empire->PlayerName();
+            // Whole numbers (slot counts) without decimals.
+            const auto plain = [](double value) {
+                return value == static_cast<int>(value) ? std::to_string(static_cast<int>(value))
+                                                        : DoubleToString(value, 3, false);
+            };
             const auto& meters = empire->GetMeters();
             if (!meters.empty()) {
                 text += "\n";
                 for (const auto& [meter_name, meter] : meters)
-                    text += "\n" + UserString(meter_name) + ": " + DoubleToString(meter.Initial(), 3, false);
+                    text += "\n" + UserString(meter_name) + ": " + plain(meter.Initial());
             }
-            // Species' opinions of this empire.
-            std::string opinions;
+            // Species' opinions of this empire: those that have one, the
+            // fondest first (a list of every species at 0 says nothing).
+            std::vector<std::pair<double, std::string>> opinions;
             for (const auto& [species_name, empire_opinions] : context.species.GetSpeciesEmpireOpinionsMap()) {
                 const auto it = empire_opinions.find(id);
-                if (it == empire_opinions.end())
-                    continue;
-                opinions += "\n<species " + species_name + ">" + UserString(species_name) + "</species>: " +
-                    DoubleToString(it->second.first.Initial(), 3, false);
+                if (it != empire_opinions.end() && it->second.first.Initial() != 0.0)
+                    opinions.emplace_back(it->second.first.Initial(), species_name);
             }
-            if (!opinions.empty())
-                text += "\n\n<b>" + UserString("SPECIES_OPINIONS") + "</b>" + opinions;
+            std::stable_sort(opinions.begin(), opinions.end(),
+                             [](const auto& a, const auto& b) { return a.first > b.first; });
+            if (!opinions.empty()) {
+                text += "\n\n<b>" + UserString("SPECIES_OPINIONS") + "</b>";
+                for (const auto& [opinion, species_name] : opinions)
+                    text += "\n<species " + species_name + ">" + UserString(species_name) + "</species>: " +
+                        plain(opinion);
+            }
             a["text"] = ToGodot(text);
             for (const auto& policy : empire->AdoptedPolicies())
                 Link(links, "policy", policy, "policies");
@@ -671,7 +681,9 @@ namespace {
                 link["group"] = "planets";
                 links.push_back(link);
             }
-            Fact(facts, "PEDIA_FACT_PLANETS", godot::String::num_int64(static_cast<int64_t>(owned.size())));
+            // The planets' links say how many (their caption counts them).
+            if (owned.empty())
+                Fact(facts, "PEDIA_FACT_PLANETS", "0");
             Fact(facts, "PEDIA_FACT_TECHS", godot::String::num_int64(static_cast<int64_t>(empire->ResearchedTechs().size())));
             return true;
         }

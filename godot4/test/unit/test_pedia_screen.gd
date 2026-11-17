@@ -195,3 +195,15 @@ func test_search_results_with_the_same_name_say_their_kind():
 	assert_eq(matches[0][0], "Armor Plating  ·  " + tr("PEDIA_KIND_SHIPPART"))
 	assert_eq(matches[1][0], "Armor Plating  ·  " + tr("PEDIA_KIND_TECH"))
 	assert_eq(matches[2][0], "Zortrium", "unique names stay as they are")
+
+
+func test_a_long_link_list_counts_itself_in_its_caption():
+	var links: Array = screen.source.articles["shipdesign/7"]["links"]
+	for part in ["AR_STD_PLATE", "DT_DETECTOR_1", "SH_DEFENSE_GRID"]:
+		links.push_back({"kind": "shippart", "name": part, "group": "parts"})
+	screen.open("shipdesign", "7")
+	var captions := screen._facts.find_children("*", "Label", true, false).map(
+		func(l): return l.text
+	)
+	assert_has(captions, tr("PEDIA_LINKS_PARTS") + " (4)")
+	assert_has(captions, tr("PEDIA_LINKS_HULL"), "A short list is not counted")

@@ -156,10 +156,15 @@ static func header(parent: Control, title_key: String, on_close: Callable) -> La
 		heading_icon.name = "HeaderIcon"
 		row.add_child(heading_icon)
 	var title := label(TranslationServer.translate(title_key), "HeadingLabel")
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
+	# The info line takes the spare width and wraps: a long status (such as
+	# "Created ... It can be built from the production screen.") must not
+	# widen the whole screen past the window.
 	var info := label("", "SecondaryLabel")
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.size_flags_vertical = Control.SIZE_SHRINK_END
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(info)
 	var close := small_button("✕", "PANEL_CLOSE")
 	close.pressed.connect(on_close)

@@ -287,7 +287,19 @@ func _refresh_catalog() -> void:
 		if not needle.is_empty() and not tr(policy["name"]).to_lower().contains(needle):
 			continue
 		listed.push_back(policy)
-	listed.sort_custom(func(a, b): return tr(a["name"]).naturalnocasecmp_to(tr(b["name"])) < 0)
+	# What can be adopted right now comes first; greyed rows (no free slot,
+	# too dear, locked) follow, each group in name order.
+	var now := {}
+	for policy: Dictionary in listed:
+		now[policy["name"]] = (
+			availability(policy) == "adoptable" and free_slot(policy.get("category", "")) >= 0
+		)
+	listed.sort_custom(
+		func(a, b):
+			if now[a["name"]] != now[b["name"]]:
+				return now[a["name"]]
+			return tr(a["name"]).naturalnocasecmp_to(tr(b["name"])) < 0
+	)
 	for policy in listed:
 		_catalog.add_child(_policy_row(policy))
 	if listed.is_empty():

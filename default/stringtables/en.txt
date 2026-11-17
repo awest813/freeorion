@@ -8799,6 +8799,9 @@ After bout %1%
 COMBAT_REPLAY_WHOLE
 Whole combat
 
+COMBAT_REPLAY_WHOLE_SHOWN
+The whole combat is already shown.
+
 # %1% number of bouts
 COMBAT_REPLAY_ALL
 All %1% bouts

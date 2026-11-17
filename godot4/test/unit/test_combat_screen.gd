@@ -41,6 +41,7 @@ func test_card_shows_losses():
 	var text := _texts(_cards()[0])
 	assert_string_contains(text, "Iszm α")
 	assert_string_contains(text, tr("COMBAT_REPORT_LOSSES").replace("%1%", "1").replace("%2%", "1"))
+	assert_string_contains(_cards()[0].tooltip_text, "Iszm α", "Says it whole in the tooltip")
 
 
 func test_detail_shows_sides_units_and_log():
@@ -167,9 +168,11 @@ func test_replay_steps_through_the_bouts():
 	assert_true(screen._log_rows.any(func(e): return e[0].visible), "Bout 1's log")
 	screen.show_bout(9)
 	assert_eq(screen.bout, 3, "Kept within the combat")
+	assert_eq(screen._whole_log.tooltip_text, "", "No reason while it can be pressed")
 	screen.show_whole_combat()
 	assert_true(screen._log_rows.all(func(e): return e[0].visible))
 	assert_true(screen._whole_log.disabled)
+	assert_eq(screen._whole_log.tooltip_text, tr("COMBAT_REPLAY_WHOLE_SHOWN"))
 
 
 func test_reports_say_what_the_battle_came_to():
