@@ -92,9 +92,23 @@ func test_view_pan_and_zoom_around_the_cursor():
 	assert_almost_eq((anchor - view.offset) / view.zoom, before, Vector2.ONE * 0.01)
 	view.zoom_at(anchor, 10.0)
 	assert_eq(view.zoom, TechTreeView.MAX_ZOOM, "Zoom is bounded")
+	# A tree wider and taller than the view: the card is centred unless that
+	# would leave the view's side empty.
+	view.techs = [_tech("A"), _tech("B", ["A"]), _tech("C", ["B"]), _tech("D", ["C"])]
+	view.zoom = 1.0
+	view.size = Vector2(TechTreeView.NODE_SIZE.x * 2.0, TechTreeView.NODE_SIZE.y / 2.0)
 	view.center_on("B")
 	var center := view.offset + (view.cell_position("B") + TechTreeView.NODE_SIZE / 2.0) * view.zoom
-	assert_almost_eq(center, view.size / 2.0, Vector2.ONE * 0.01)
+	assert_almost_eq(center.x, view.size.x / 2.0, 0.01)
+	view.center_on("A")
+	assert_eq(view.offset.x, TechTreeView.EDGE, "The first column: the tree starts at the left")
+	view.center_on("D")
+	assert_almost_eq(
+		view.offset.x + view.content_size().x,
+		view.size.x - TechTreeView.EDGE,
+		0.01,
+		"The last column: the tree ends at the right"
+	)
 
 
 func test_queued_path_glows():
@@ -107,3 +121,20 @@ func test_queued_path_glows():
 	assert_true(view.queued_path("A", "B"), "from a researched tech to a queued one")
 	assert_true(view.queued_path("B", "C"), "between queued techs")
 	assert_false(view.queued_path("B", "D"), "not to a tech that isn't queued")
+
+
+func test_short_columns_are_centred_on_the_tallest():
+	var cells: Dictionary = (
+		TechTreeLayout
+		. layout(
+			[
+				_tech("Root"),
+				_tech("A", ["Root"]),
+				_tech("B", ["Root"]),
+				_tech("C", ["Root"]),
+				_tech("D", ["Root"]),
+				_tech("E", ["Root"]),
+			]
+		)["cells"]
+	)
+	assert_eq(cells["Root"], Vector2i(0, 2), "Beside the middle of its five dependents")

@@ -153,3 +153,15 @@ func test_known_strength_is_weighed_against_yours():
 func test_counts_tick_on_whole_numbers():
 	assert_eq(LineChart.nice_ticks(0.0, 2.0, 5, true), PackedFloat64Array([0, 1, 2]))
 	assert_eq(LineChart.nice_ticks(0.0, 2.0, 5), PackedFloat64Array([0, 0.5, 1, 1.5, 2]))
+
+
+func test_sent_is_cleared_once_the_turn_has_passed():
+	var turn := [5]
+	screen.current_turn = func() -> int: return turn[0]
+	_buttons(screen._list.get_child(1))[0].pressed.emit()
+	assert_eq(screen._info.text, tr("DIPLOMACY_SENT"))
+	screen.refresh()
+	assert_eq(screen._info.text, tr("DIPLOMACY_SENT"), "Still this turn")
+	turn[0] = 6
+	screen.refresh()
+	assert_eq(screen._info.text, "", "The others have answered by now")

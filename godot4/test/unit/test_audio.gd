@@ -115,3 +115,13 @@ func test_master_volume_sets_the_master_bus():
 	FOAudio._take(FOAudio.OPTION_MASTER_VOLUME, 255)
 	FOAudio._apply_music()
 	assert_almost_eq(AudioServer.get_bus_volume_db(0), 0.0, 0.01)
+
+
+func test_a_new_focus_has_its_sound():
+	assert_eq(FOAudio.focus_sound("FOCUS_INDUSTRY"), "focus_industry")
+	assert_eq(FOAudio.focus_sound("FOCUS_RESEARCH"), "focus_research")
+	assert_eq(FOAudio.focus_sound("FOCUS_INFLUENCE"), "focus", "A general one for the rest")
+	var panel := SystemPanel.new()
+	add_child_autofree(panel)
+	panel.focus_requested.emit(12, "FOCUS_RESEARCH")
+	assert_eq(FOAudio.last_sound, "focus_research")

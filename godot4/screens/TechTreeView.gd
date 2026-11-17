@@ -22,6 +22,8 @@ const TEXT_ZOOM := 0.55
 ## The overview in the corner when the tree is bigger than the view.
 const OVERVIEW := Vector2(180, 112)
 
+## Room left between the tree and the view's edge.
+const EDGE := 24.0
 ## Techs as FOResearch.get_techs() lists them.
 var techs: Array = []:
 	set(value):
@@ -96,7 +98,16 @@ func tech_at(point: Vector2) -> String:
 func center_on(tech_name: String) -> void:
 	if not _layout["cells"].has(tech_name):
 		return
-	offset = size / 2.0 - (cell_position(tech_name) + NODE_SIZE / 2.0) * zoom
+	var centred := size / 2.0 - (cell_position(tech_name) + NODE_SIZE / 2.0) * zoom
+	# A tech near the tree's edge isn't centred at the cost of a view half
+	# empty: the tree's edge stays at the view's.
+	var content := content_size()
+	for axis in 2:
+		if content[axis] > size[axis]:
+			centred[axis] = clampf(centred[axis], size[axis] - content[axis] - EDGE, EDGE)
+		else:
+			centred[axis] = (size[axis] - content[axis]) / 2.0
+	offset = centred
 
 
 ## Size of the whole tree at the current zoom.

@@ -61,12 +61,17 @@ static func layout(techs: Array) -> Dictionary:
 				_order_by(columns[i], dependents, row)
 				_number(columns[i], row)
 
-	var cells := {}
+	# Each column centred on the tallest: a short one (the few root techs)
+	# sits beside the middle of the next, where its arcs go, not at the top
+	# with nothing beside the rest of the tree.
 	var rows := 0
+	for column: Array in columns:
+		rows = maxi(rows, column.size())
+	var cells := {}
 	for c in columns.size():
+		var top: int = (rows - columns[c].size()) / 2
 		for r in columns[c].size():
-			cells[columns[c][r]] = Vector2i(c, r)
-		rows = maxi(rows, columns[c].size())
+			cells[columns[c][r]] = Vector2i(c, top + r)
 	return {"cells": cells, "columns": columns.size(), "rows": rows, "arcs": arcs}
 
 

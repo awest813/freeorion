@@ -48,8 +48,16 @@ const PLANET_VALUES := ["planets", "industry", "research", "influence"]
 const TABS := ["EMPIRES_TAB_DIPLOMACY", "EMPIRES_TAB_STATISTICS"]
 
 var source: Variant = DiplomacySource.new()
+## The game's turn: () -> int (tests set their own).
+var current_turn := func() -> int:
+	var node: Node = (Engine.get_main_loop() as SceneTree).root.get_node_or_null(
+		"GlobalFreeOrionNode"
+	)
+	return node.get_current_turn() if node else 0
 
 var _info: Label
+# The turn _info's "sent" was said on: a later turn has answered it.
+var _info_turn := -1
 var _list: VBoxContainer
 ## The player's own strength (strength()), for the balance bars.
 var _own_strength := 0.0
@@ -78,6 +86,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 
 func refresh() -> void:
+	# "Sent: others answer as their turn is processed" is old news a turn on.
+	if _info_turn != current_turn.call():
+		_info.text = ""
 	ScreenKit.clear(_list)
 	var empires: Array = source.get_empires()
 	_own_strength = 0.0
@@ -422,6 +433,7 @@ func _locate_button(empire: Dictionary) -> Button:
 
 func _on_action(empire_id: int, action: String) -> void:
 	_info.text = tr("DIPLOMACY_SENT" if source.act(empire_id, action) else "DIPLOMACY_REFUSED")
+	_info_turn = current_turn.call()
 	refresh()
 
 

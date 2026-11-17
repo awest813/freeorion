@@ -344,3 +344,28 @@ Checked and fine at both sizes: production, research (list and tree), government
 - **An 80-turn warlord game at 1024 × 640** (now drawn at 80%, with fleets fighting from turn 20 on): memory went from 125 to 128 MB and objects stayed around 9,500, nodes around 3,000, with no stray nodes. There were no script errors or warnings beyond the headless machine's audio and vsync. The only "bug" the bot reported was its own turn-1 double click while the research screen was still opening, as before.
 - **Leaks at exit:** the bot's logs end with "ObjectDB instances leaked at exit". A verbose run that loads a game and leaves with the game menu's Exit, as a player does, leaks nothing; the warning comes from the bot stopping the engine mid-game, which no player can do.
 - **Frame time at turn arrival:** the frame a turn arrives on took 300–640 ms, growing as the galaxy fills. Timing each turn listener on a turn-40 save, all of them together take under 15 ms. The frame after them is about 65 ms longer than a quiet one, and a map refresh adds nothing measurable. The rest is the client unpacking the server's turn update (C++), which grows with what the empire knows. No UI change helps there.
+
+## Combat, research, diplomacy, settings and sound, with an 80-turn war
+
+The bot loaded the warlord's turn-81 game (21 ships, at war with all five AIs) and went through:
+- **combat:** reports with real battles, a bout, the shots, the log scrolled to its end, the oldest battle, and the summary options;
+- **research:** each list filter and category, search with and without matches, each sort, the category and status menus, and the tree;
+- **diplomacy:** proposing peace, then a turn later;
+- **settings:** every options page, and the Advanced search with and without a match;
+- **sound:** clicks, music and the new-turn chime.
+
+| Found | Fix |
+|-------|-----|
+| The tech tree opened with a third of the view empty. It centred the first queued tech even when that left the view's left side beyond the tree's edge. And every column was stacked from the top, so beside research that is under way (row 18 or so) the 14 root techs' column had nothing. | Centring keeps the tree's edge at the view's edge. Each column is centred on the tallest, so a short column sits beside the middle of the next, where its links go. The tree now fills the view, the researched roots beside the frontier. |
+| "Sent. Other empires answer as their turn is processed." still stood over the empires a turn later, when they had answered. | It clears once the turn has passed. |
+| Gameplay and Advanced options were checkboxes while Display, Interface and Sound used switches. | Switches throughout. |
+| The Advanced page's search, finding nothing, said "No articles found.", the Pedia's words. Searching "volume" there finds nothing because sound has its own page. | "No advanced setting matches "volume". Display, interface, sound and gameplay settings are on their own pages." |
+| The master volume had no line saying what it does, unlike Music and Sounds below it. | "Everything the game plays, music and sounds together." |
+| The game ships focus sounds (industry, research, farm, mining, balanced) that nothing played. | Changing a planet's focus plays its sound; foci without one get the balanced one. |
+
+Checked and fine:
+- **Combat:** battle cards, the hero line ("DEFEAT", "NO LOSSES"), the forces, the bars and line chart, the replay and the shot detail. A ship the player can't identify is called "Ship", in the forces and in the log alike: that is the game's own name for it (the original client shows the same).
+- **Research:** the list's filters, search, sorting and menus.
+- **Diplomacy:** a proposal turns its button into "Withdraw proposal" and the line into "You proposed peace". The AIs here left the proposals unanswered, which is theirs to do.
+- **Settings:** every page lays out cleanly.
+- **Sound:** clicks, opening and closing screens, and the new-turn chime all play; the music plays throughout.

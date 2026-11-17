@@ -2022,6 +2022,12 @@ Saved.
 OPTIONS_MASTER_VOLUME
 Volume
 
+OPTIONS_MASTER_VOLUME_DESC
+Everything the game plays, music and sounds together.
+
+OPTIONS_NO_MATCH
+No advanced setting matches “%1%”. Display, interface, sound and gameplay settings are on their own pages.
+
 OPTIONS_MUSIC_DESC
 The soundtrack; it grows tense in turns with battles.
 

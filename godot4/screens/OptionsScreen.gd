@@ -405,7 +405,7 @@ func _build_interface(list: VBoxContainer) -> void:
 # saved when it is let go.
 func _build_sound(list: VBoxContainer) -> void:
 	_master = _volume_slider(FOAudio.OPTION_MASTER_VOLUME, "")
-	_setting(list, "OPTIONS_MASTER_VOLUME", "", _master.get_parent())
+	_setting(list, "OPTIONS_MASTER_VOLUME", "OPTIONS_MASTER_VOLUME_DESC", _master.get_parent())
 	for entry in AUDIO:
 		var box := HBoxContainer.new()
 		box.add_theme_constant_override("separation", FOUi.tokens.space_3)
@@ -555,7 +555,11 @@ func _refresh_list() -> void:
 		_list.add_child(_option_row(option, description))
 		shown += 1
 	if shown == 0:
-		_list.add_child(ScreenKit.label(tr("PEDIA_NO_RESULTS"), "SecondaryLabel"))
+		var none := ScreenKit.label(
+			tr("OPTIONS_NO_MATCH").replace("%1%", _search.text.strip_edges()), "SecondaryLabel"
+		)
+		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_list.add_child(none)
 
 
 ## A readable title for \a option: its name after the section, without
@@ -619,7 +623,8 @@ func _editor(option: String) -> Control:
 		return _stance_editor(option, str(value))
 	match typeof(value):
 		TYPE_BOOL:
-			var check := CheckBox.new()
+			# A switch, as on the other pages.
+			var check := CheckButton.new()
 			check.button_pressed = value
 			check.toggled.connect(func(on): _apply(option, on))
 			return check

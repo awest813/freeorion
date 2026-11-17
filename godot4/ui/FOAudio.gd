@@ -36,6 +36,12 @@ const SOUNDS := {
 	"fleet_click": "fleet_button_click.ogg",
 	"fleet_rollover": "fleet_button_rollover.ogg",
 	"system_rollover": "fleet_button_rollover.ogg",
+	# A planet's new focus (sounds the game ships for them, GG left unused).
+	"focus_industry": "industry_select.ogg",
+	"focus_research": "research_select.ogg",
+	"focus_growth": "farm_select.ogg",
+	"focus_stockpile": "mining_select.ogg",
+	"focus": "balanced_select.ogg",
 }
 ## Panels and screens that sound as they open ("open") and close ("close").
 const PANELS := [
@@ -252,6 +258,8 @@ func _on_node_added(node: Node) -> void:
 		node.system_hovered.connect(_on_map_hover.bind("system_rollover"))
 		node.fleet_hovered.connect(_on_map_hover.bind("fleet_rollover"))
 		node.fleet_clicked.connect(func(_id): play("fleet_click"))
+	if node.has_signal("focus_requested"):
+		node.focus_requested.connect(func(_planet_id: int, focus: String): play(focus_sound(focus)))
 	if not node is BaseButton:
 		return
 	var button := node as BaseButton
@@ -259,6 +267,13 @@ func _on_node_added(node: Node) -> void:
 		button.set_meta("sound", "pulldown")
 	button.pressed.connect(_on_button_pressed.bind(button))
 	button.mouse_entered.connect(_on_button_hovered.bind(button))
+
+
+## The sound of a planet taking \a focus ("FOCUS_INDUSTRY"): its own where
+## the game has one, else a general one.
+static func focus_sound(focus: String) -> String:
+	var own := "focus_" + focus.trim_prefix("FOCUS_").to_lower()
+	return own if SOUNDS.has(own) else "focus"
 
 
 func _on_map_hover(id: int, sound_name: String) -> void:

@@ -43,7 +43,7 @@ func test_list_and_search():
 
 func test_bool_editor():
 	var row := _row("ui.detection.legend.shown")
-	row.find_children("*", "CheckBox", true, false)[0].button_pressed = true
+	row.find_children("*", "CheckButton", true, false)[0].button_pressed = true
 	assert_eq(fake.get_value("ui.detection.legend.shown"), true)
 
 
