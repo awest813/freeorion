@@ -166,3 +166,58 @@ func test_loaded_game_lists_free_empires():
 	var players: Array = get_signal_parameters(list, "players_edited")[0]
 	assert_eq(players[1]["save_empire_id"], 8)
 	assert_eq(players[1]["empire_name"], "Old Bob")
+
+
+func test_quick_edits_build_on_each_other_until_the_server_answers():
+	var list := LobbyPlayerList.new()
+	list.colors = source.empire_colors()
+	list.species = source.playable_species()
+	add_child_autofree(list)
+	list.show_lobby(source.lobby_data, 1, true, true)
+	watch_signals(list)
+	list.add_ai_player()
+	list.add_ai_player()
+	var players: Array = get_signal_parameters(list, "players_edited", 1)[0]
+	assert_eq(players.size(), 5, "Both new AIs, not just the second")
+	assert_ne(players[3]["color"], players[4]["color"], "Each its own free colour")
+	list.show_lobby(source.lobby_data, 1, true, true)
+	list.add_ai_player()
+	players = get_signal_parameters(list, "players_edited", 2)[0]
+	assert_eq(players.size(), 4, "Once the server answers, its lobby counts")
+
+
+func test_start_conditions_name_the_problem():
+	assert_eq(LobbyPlayerList.data_problem(source.lobby_data), "")
+	var lobby: Dictionary = source.lobby_data.duplicate(true)
+	lobby["players"][1]["color"] = lobby["players"][0]["color"]
+	assert_eq(
+		LobbyPlayerList.data_problem(lobby),
+		tr("MP_EMPIRE_COLOR_TWICE").replace("%1%", "Alice Empire").replace("%2%", "Bob Empire")
+	)
+	lobby = source.lobby_data.duplicate(true)
+	lobby["players"][2]["empire_name"] = "Alice Empire"
+	assert_eq(
+		LobbyPlayerList.data_problem(lobby),
+		tr("MP_EMPIRE_NAME_TWICE").replace("%1%", "Alice Empire")
+	)
+	lobby = source.lobby_data.duplicate(true)
+	lobby["players"][1]["empire_name"] = " "
+	assert_eq(LobbyPlayerList.data_problem(lobby), tr("MP_EMPIRE_UNNAMED").replace("%1%", "Bob"))
+
+
+func test_lobby_fits_the_smallest_window():
+	var screen := LobbyScreen.new()
+	screen.source = source
+	add_child_autofree(screen)
+	screen.refresh()
+	await wait_process_frames(1)
+	assert_lte(screen.get_combined_minimum_size().x, float(FOWindow.MIN_SIZE.x))
+	source.lobby_data["new_game"] = false
+	source.lobby_data["save_game"] = "auto/FreeOrion_Human_Player_Aristocracy_0002_20261115_234335.mps"
+	screen.refresh()
+	await wait_process_frames(1)
+	assert_lte(
+		screen.get_combined_minimum_size().x,
+		float(FOWindow.MIN_SIZE.x),
+		"A long save name is cut short"
+	)

@@ -19,7 +19,7 @@ const SHAPES := [
 ]
 ## Stars drawn per system of the galaxy, within limits.
 const STARS_PER_SYSTEM := 4
-const STARS_MIN := 240
+const STARS_MIN := 40
 const STARS_MAX := 1100
 
 static var _glow: Texture2D

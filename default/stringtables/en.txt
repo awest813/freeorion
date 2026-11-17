@@ -3815,6 +3815,12 @@ Language
 OPTIONS_LANGUAGE_CHANGED
 Language changed. Screens opened from now on use it; restart the game to see it everywhere.
 
+GSETUP_UNNAMED
+Unnamed empire
+
+GSETUP_NEEDS_NAMES
+Type a player name and an empire name first (Empire step).
+
 GSETUP_SEED_TIP
 The same seed and settings make the same galaxy. Leave it empty for a random one.
 
@@ -5085,6 +5091,27 @@ Multiplayer Setup
 
 MULTIPLAYER_GAME_START_CONDITIONS
 Unique names and colors required
+
+MP_ALL_SET
+All set: the game starts once every player is ready.
+
+MP_NO_SAVE_PICKED
+Pick a saved game first: its empires are listed here.
+
+MP_NOT_YOURS
+Only the host and the player themselves can change this.
+
+MP_PICK_EMPIRE
+Pick the saved empire you will play, next to your name.
+
+MP_EMPIRE_UNNAMED
+%1%'s empire needs a name.
+
+MP_EMPIRE_NAME_TWICE
+Two empires are called %1%: each needs its own name.
+
+MP_EMPIRE_COLOR_TWICE
+%1% and %2% have the same colour: each needs its own.
 
 MULTIPLAYER_PLAYER_LIST_TYPES
 Type

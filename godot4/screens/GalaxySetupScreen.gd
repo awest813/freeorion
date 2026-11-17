@@ -113,6 +113,7 @@ var _portrait: TextureRect
 var _room: Label
 var _species_name: Label
 var _status: Label
+var _start: Button
 
 
 func _init() -> void:
@@ -120,6 +121,27 @@ func _init() -> void:
 	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	theme_type_variation = "BackgroundPanel"
 	_build()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_THEME_CHANGED or what == NOTIFICATION_READY:
+		_align_labels()
+
+
+# The Empire and Galaxy steps' fields start at one x: each step's labels
+# as wide as the widest of both.
+func _align_labels() -> void:
+	var labels: Array[Control] = []
+	for page in _pages:
+		if page is GridContainer:
+			for i in range(0, page.get_child_count(), 2):
+				labels.push_back(page.get_child(i))
+	var widest := 0.0
+	for label in labels:
+		label.custom_minimum_size.x = 0
+		widest = maxf(widest, label.get_combined_minimum_size().x)
+	for label in labels:
+		label.custom_minimum_size.x = widest
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -235,6 +257,7 @@ func _build() -> void:
 			_editors[field[0]] = edit
 			continue
 		_add_row(empire_grid, field[1], edit, field[0])
+		edit.text_changed.connect(func(_t): _update_start())
 		if field[0] == "setup.empire.name":
 			edit.text_changed.connect(func(_t): _update_identity())
 			_species = OptionButton.new()
@@ -310,11 +333,11 @@ func _build() -> void:
 	_next.text = tr("GSETUP_NEXT")
 	_next.pressed.connect(func(): _steps.current_tab = mini(_steps.current_tab + 1, 2))
 	buttons.add_child(_next)
-	var start := Button.new()
-	start.text = tr("TITLE_START_GAME")
-	start.theme_type_variation = "PrimaryButton"
-	start.pressed.connect(_on_start_pressed)
-	buttons.add_child(start)
+	_start = Button.new()
+	_start.text = tr("TITLE_START_GAME")
+	_start.theme_type_variation = "PrimaryButton"
+	_start.pressed.connect(_on_start_pressed)
+	buttons.add_child(_start)
 
 
 func _add_row(grid: GridContainer, label_key: String, editor: Control, option: String) -> void:
@@ -557,8 +580,13 @@ func _update_identity() -> void:
 	var empire_name := name_edit.text if name_edit else ""
 	var colors: PackedColorArray = source.empire_colors() if source else PackedColorArray()
 	var color := colors[_color_index] if _color_index < colors.size() else Color.WHITE
-	_identity.text = empire_name
+	# Unnamed: say so, faintly, rather than show nothing.
+	_identity.text = (
+		empire_name if not empire_name.strip_edges().is_empty() else tr("GSETUP_UNNAMED")
+	)
+	_identity.modulate.a = 1.0 if not empire_name.strip_edges().is_empty() else 0.5
 	_flag.texture = EmpireArt.flag(empire_name, color, FOUi.tokens.icon_large)
+	_update_start()
 	var species: String = (
 		_species.get_item_metadata(_species.selected) if _species and _species.selected >= 0 else ""
 	)
@@ -568,6 +596,19 @@ func _update_identity() -> void:
 	_species_name.text = (
 		_species.get_item_text(_species.selected) if _species and _species.selected >= 0 else ""
 	)
+
+
+## Start needs a player name and an empire name; greyed out, it says so.
+func _update_start() -> void:
+	if _start == null:
+		return
+	var missing := []
+	for option in ["setup.player.name", "setup.empire.name"]:
+		var edit: LineEdit = _editors.get(option)
+		if edit and source.exists(option) and edit.text.strip_edges().is_empty():
+			missing.push_back(option)
+	_start.disabled = not missing.is_empty()
+	_start.tooltip_text = tr("GSETUP_NEEDS_NAMES") if _start.disabled else ""
 
 
 func _on_start_pressed() -> void:

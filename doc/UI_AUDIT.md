@@ -300,3 +300,29 @@ A separate script loaded a save from inside a game twice (turn 40 to 25, and tur
 Checked and fine:
 - Saving closes the screen with "Saved Audit save.sav.".
 - The game menu's buttons, sort orders, the delete confirmation, the empty Load state and the multiplayer server listing were already in order.
+
+## Galaxy setup and the multiplayer lobby
+
+The bot went through galaxy setup:
+- each step;
+- three of the rule categories;
+- the largest and smallest galaxies (5,000 systems with 40 AIs; 10 systems alone);
+- blank names and a 70-character empire name;
+- Tab from the player name.
+
+Then it hosted a multiplayer game and in the lobby:
+- added AI players, once and then three times quickly;
+- chatted and changed the galaxy size;
+- switched to a loaded game and picked a save;
+- switched back, and shrank the window to 1024×640, the smallest it can be.
+
+| Found | Fix |
+|-------|-----|
+| With both names blank, Start game was ready to go, and the identity card showed a flag with no name. | Start is greyed out with "Type a player name and an empire name first (Empire step)"; the card says "Unnamed empire", faintly. |
+| The Empire and Galaxy steps' fields started at different x (each grid sized its own labels), so the form jumped sideways between steps. | Both steps' labels take the width of the widest. |
+| A 10-system galaxy's preview drew 240 stars, as many as a 60-system one. | Four stars a system, at least 40. |
+| Three quick clicks on "+ Add AI" added one AI (named AI_4: the server had numbered the lost ones). Each edit started from the lobby the server last sent, so an edit made before it answered dropped the one before. | Edits build on the last one sent until the server sends the lobby back. |
+| "Unique names and colors required" stood under the players even when every name and colour was unique, in the same grey as everything else. | "All set: the game starts once every player is ready." When something is wrong it says what, in the warning colour: "Two empires are called Peace: each needs its own name.", "Unity and Region have the same colour: each needs its own.", "Bob's empire needs a name." |
+| In a loaded game the condition read "Not enough human players" (the server's words) when the player had simply not picked their empire. | "Pick the saved empire you will play, next to your name." A greyed-out Start says the same in its tooltip, and greyed-out empire pickers say why. |
+| Picking a save in the lobby widened it to 1376 px in a 1280 px window: the picker sized itself to the save's path ("auto/FreeOrion_Human_Player_Aristocracy_0002_20261115_234335.mps"). | The picker and the label above it cut the name short; the tooltip has it. |
+| At 1024×640 the lobby needed 1114 px: player rows had fixed widths (name 140, species 170). | Narrower minimums. The spare width on bigger windows goes to names and species as well as empire names, so at 1280 every name shows in full, and at 1024 the longest are cut short with a tooltip. A test checks the lobby fits the smallest window, with a long save name too. |

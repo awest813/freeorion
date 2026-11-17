@@ -190,3 +190,40 @@ func test_setup_says_how_much_room_each_empire_gets():
 	stars.value = 40
 	ais.value = 9
 	assert_eq(setup._room.text, GalaxySetupScreen.room_text(40, 10), "follows the numbers")
+
+
+func test_start_needs_both_names():
+	var setup := GalaxySetupScreen.new()
+	setup.source = _setup_options()
+	add_child_autofree(setup)
+	setup.refresh()
+	var empire: LineEdit = setup._editors["setup.empire.name"]
+	assert_false(setup._start.disabled, "Named: ready to start")
+	empire.text = "  "
+	empire.text_changed.emit(empire.text)
+	assert_true(setup._start.disabled)
+	assert_eq(setup._start.tooltip_text, tr("GSETUP_NEEDS_NAMES"))
+	assert_eq(setup._identity.text, tr("GSETUP_UNNAMED"), "The card says it has no name")
+	empire.text = "Free Worlds"
+	empire.text_changed.emit(empire.text)
+	assert_false(setup._start.disabled)
+	assert_eq(setup._identity.text, "Free Worlds")
+
+
+func test_empire_and_galaxy_fields_line_up():
+	var setup := GalaxySetupScreen.new()
+	setup.source = _setup_options()
+	add_child_autofree(setup)
+	setup.refresh()
+	await wait_process_frames(1)
+	var empire_label: Control = setup._pages[0].get_child(0)
+	var galaxy_label: Control = setup._pages[1].get_child(0)
+	assert_eq(empire_label.custom_minimum_size.x, galaxy_label.custom_minimum_size.x)
+	assert_gt(empire_label.custom_minimum_size.x, 0.0)
+
+
+func test_a_tiny_galaxy_looks_tiny():
+	var preview := GalaxyPreview.new()
+	preview.systems = 10
+	assert_eq(preview._points.size(), 40, "Four stars a system")
+	preview.free()

@@ -215,3 +215,24 @@ func test_server_saves_are_listed_anew_when_they_arrive():
 	lobby._saves = [{"file": "stale.mps"}]
 	lobby.saves_changed()
 	assert_ne(lobby._saves, [{"file": "stale.mps"}], "The old list is dropped")
+
+
+func test_conditions_say_all_is_set_and_the_start_button_why_not():
+	var screen := _lobby_screen()
+	assert_eq(screen.conditions_text(), tr("MP_ALL_SET"))
+	assert_eq(screen.ready_button.tooltip_text, "", "Enabled: nothing to explain")
+	source.lobby_data["start_locked"] = true
+	source.lobby_data["start_lock_cause"] = "ERROR_NOT_ENOUGH_AI_PLAYERS"
+	screen.refresh()
+	assert_eq(screen.ready_button.tooltip_text, tr("ERROR_NOT_ENOUGH_AI_PLAYERS"))
+
+
+func test_loaded_game_asks_me_to_pick_my_empire():
+	source.lobby_data["new_game"] = false
+	source.lobby_data["start_locked"] = true
+	source.lobby_data["start_lock_cause"] = "ERROR_NOT_ENOUGH_HUMAN_PLAYERS"
+	var screen := _lobby_screen()
+	assert_eq(screen.conditions_text(), tr("MP_PICK_EMPIRE"))
+	source.lobby_data["players"][0]["save_empire_id"] = 3
+	screen.refresh()
+	assert_ne(screen.conditions_text(), tr("MP_PICK_EMPIRE"), "Picked: the server's word")

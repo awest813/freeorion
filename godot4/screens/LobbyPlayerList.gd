@@ -19,6 +19,12 @@ const TYPE_LABELS := {
 ## Types a human player's row can be switched to, then "drop".
 const HUMAN_TYPES := ["player", "observer", "moderator"]
 const DROP := "drop"
+## Cell widths, small enough that the lobby fits a 1024 px window; longer
+## names and species are cut short, with the whole in the tooltip.
+const TYPE_WIDTH := 88
+const NAME_WIDTH := 72
+const SPECIES_WIDTH := 112
+const STATUS_WIDTH := 72
 
 ## Species for the species pickers: [{name, icon}].
 var species: Array = []
@@ -30,6 +36,8 @@ var _my_id := -1
 var _is_host := false
 var _can_setup := false
 var _rows: VBoxContainer
+# The players last sent to the server, until it sends the lobby back.
+var _sent: Array = []
 
 
 func _init() -> void:
@@ -43,6 +51,7 @@ func _init() -> void:
 ## Show \a lobby's players as player \a my_id sees them: \a is_host edits
 ## every row, \a can_setup also AI rows (and adds AIs).
 func show_lobby(lobby: Dictionary, my_id: int, is_host: bool, can_setup: bool) -> void:
+	_sent = []
 	# Keep what is being typed into an empire name across the rebuild.
 	var typing := {}
 	var focused := get_viewport().gui_get_focus_owner() if is_inside_tree() else null
@@ -116,7 +125,7 @@ func add_ai_player() -> void:
 			}
 		)
 	)
-	players_edited.emit(players)
+	_emit_players(players)
 
 
 ## Saved empires nobody has taken over yet (loaded game).
@@ -147,14 +156,47 @@ static func player_data_acceptable(lobby: Dictionary) -> bool:
 	return count > 0 and names.size() == count and colours.size() == count
 
 
+## What keeps \a lobby from starting as far as names and colours go, in
+## words ("" when nothing does): an empire without a name, two with one
+## name, two of one colour.
+static func data_problem(lobby: Dictionary) -> String:
+	var t := TranslationServer.translate
+	var names := {}
+	var colours := {}
+	for player: Dictionary in lobby.get("players", []):
+		if not player.get("client_type", "") in ["player", "ai"]:
+			continue
+		var empire_name: String = str(player.get("empire_name", "")).strip_edges()
+		if empire_name.is_empty():
+			return t.call("MP_EMPIRE_UNNAMED").replace("%1%", player.get("player_name", ""))
+		if names.has(empire_name):
+			return t.call("MP_EMPIRE_NAME_TWICE").replace("%1%", empire_name)
+		names[empire_name] = true
+		var colour := Color(player.get("color", Color.WHITE)).to_rgba32()
+		if colours.has(colour):
+			return t.call("MP_EMPIRE_COLOR_TWICE").replace("%1%", colours[colour]).replace(
+				"%2%", empire_name
+			)
+		colours[colour] = empire_name
+	return ""
+
+
 # Edits ---------------------------------------------------------------
 
 
+# The players as last sent, while the server hasn't answered yet (so a
+# second edit, a second AI added quickly, keeps the first), else as the
+# server last sent them.
 func _players_copy() -> Array:
 	var players := []
-	for player: Dictionary in _lobby.get("players", []):
+	for player: Dictionary in _sent if not _sent.is_empty() else _lobby.get("players", []):
 		players.push_back(player.duplicate())
 	return players
+
+
+func _emit_players(players: Array) -> void:
+	_sent = players
+	players_edited.emit(players)
 
 
 func _edit(player_id: int, changes: Dictionary) -> void:
@@ -162,11 +204,11 @@ func _edit(player_id: int, changes: Dictionary) -> void:
 	for player: Dictionary in players:
 		if player.get("player_id", -1) == player_id:
 			player.merge(changes, true)
-	players_edited.emit(players)
+	_emit_players(players)
 
 
 func _drop(player_id: int) -> void:
-	players_edited.emit(_players_copy().filter(func(p): return p.get("player_id", -1) != player_id))
+	_emit_players(_players_copy().filter(func(p): return p.get("player_id", -1) != player_id))
 
 
 func _on_type_picked(index: int, picker: OptionButton, player_id: int) -> void:
@@ -202,7 +244,7 @@ func _add_ai_for(empire: Dictionary) -> void:
 			}
 		)
 	)
-	players_edited.emit(players)
+	_emit_players(players)
 
 
 # Rows ----------------------------------------------------------------
@@ -216,8 +258,11 @@ func _player_row(player: Dictionary, new_game: bool) -> HBoxContainer:
 	var type: String = player.get("client_type", "")
 	row.add_child(_type_cell(type, player_id, editable and (_is_host or type == "ai")))
 	var name_label := ScreenKit.label(player.get("player_name", ""))
-	name_label.custom_minimum_size.x = 140
+	name_label.custom_minimum_size.x = NAME_WIDTH
 	name_label.clip_text = true
+	# The spare width goes to names and species, not only empire names.
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.size_flags_stretch_ratio = 0.6
 	name_label.tooltip_text = name_label.text
 	if player_id == _my_id:
 		name_label.add_theme_color_override("font_color", FOUi.tokens.accent)
@@ -237,13 +282,13 @@ func _player_row(player: Dictionary, new_game: bool) -> HBoxContainer:
 			"✔ " + tr("MP_PLAYER_READY") if ready else tr("MP_PLAYER_NOT_READY"),
 			"" if ready else "SecondaryLabel"
 		)
-		mark.custom_minimum_size.x = 90
+		mark.custom_minimum_size.x = STATUS_WIDTH
 		if ready:
 			mark.add_theme_color_override("font_color", FOUi.tokens.positive)
 		row.add_child(mark)
 	else:
 		var spacer := Control.new()
-		spacer.custom_minimum_size.x = 90
+		spacer.custom_minimum_size.x = STATUS_WIDTH
 		row.add_child(spacer)
 	return row
 
@@ -251,10 +296,10 @@ func _player_row(player: Dictionary, new_game: bool) -> HBoxContainer:
 func _type_cell(type: String, player_id: int, editable: bool) -> Control:
 	if not editable:
 		var label := ScreenKit.label(tr(TYPE_LABELS.get(type, "PLAYER")), "SecondaryLabel")
-		label.custom_minimum_size.x = 110
+		label.custom_minimum_size.x = TYPE_WIDTH
 		return label
 	var picker := OptionButton.new()
-	picker.custom_minimum_size.x = 110
+	picker.custom_minimum_size.x = TYPE_WIDTH
 	picker.fit_to_longest_item = false
 	for option in ["ai"] if type == "ai" else HUMAN_TYPES:
 		picker.add_item(tr(TYPE_LABELS[option]))
@@ -309,8 +354,12 @@ func _color_picker(player: Dictionary, editable: bool) -> OptionButton:
 
 func _species_picker(player: Dictionary, editable: bool) -> OptionButton:
 	var picker := OptionButton.new()
-	picker.custom_minimum_size.x = 170
+	picker.custom_minimum_size.x = SPECIES_WIDTH
+	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	picker.size_flags_stretch_ratio = 0.7
 	picker.fit_to_longest_item = false
+	picker.clip_text = true
+	picker.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	picker.disabled = not editable
 	picker.add_theme_constant_override("icon_max_width", FOUi.tokens.icon)
 	var current: String = player.get("species", "")
@@ -327,6 +376,7 @@ func _species_picker(player: Dictionary, editable: bool) -> OptionButton:
 			picker.set_item_icon(index, icon)
 		if entry["name"] == current:
 			picker.select(index)
+	picker.tooltip_text = picker.text
 	picker.item_selected.connect(
 		func(i): _edit(player.get("player_id", -1), {"species": picker.get_item_metadata(i)})
 	)
@@ -340,6 +390,11 @@ func _add_load_game_cells(row: HBoxContainer, player: Dictionary, editable: bool
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	picker.fit_to_longest_item = false
 	picker.disabled = not editable or _lobby.get("save_empires", []).is_empty()
+	# Greyed out: why.
+	if picker.disabled:
+		picker.tooltip_text = tr(
+			"MP_NO_SAVE_PICKED" if _lobby.get("save_empires", []).is_empty() else "MP_NOT_YOURS"
+		)
 	picker.add_item(tr("NO_EMPIRE"))
 	picker.set_item_metadata(0, -1)
 	var original := ""
@@ -362,8 +417,9 @@ func _add_load_game_cells(row: HBoxContainer, player: Dictionary, editable: bool
 		tr("MP_ORIGINAL_PLAYER").replace("%1%", original) if not original.is_empty() else "",
 		"SecondaryLabel"
 	)
-	was.custom_minimum_size.x = 170
+	was.custom_minimum_size.x = SPECIES_WIDTH
 	was.clip_text = true
+	was.tooltip_text = was.text
 	row.add_child(was)
 
 

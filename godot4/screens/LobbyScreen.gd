@@ -179,13 +179,26 @@ func _update_ready() -> void:
 		# Alone, the game is won as soon as it starts.
 		_conditions.text = tr("MP_ALONE")
 		_conditions.add_theme_color_override("font_color", FOUi.tokens.warning)
+	elif not _lobby.get("new_game", true) and _picks_no_empire(me):
+		# A loaded game: the server's "not enough human players" means this.
+		_conditions.text = tr("MP_PICK_EMPIRE")
+		_conditions.add_theme_color_override("font_color", FOUi.tokens.warning)
 	elif _lobby.get("start_locked", false):
 		_conditions.text = ScreenKit.tr_or_name(_lobby.get("start_lock_cause", ""))
 		_conditions.add_theme_color_override("font_color", FOUi.tokens.warning)
 	else:
-		_conditions.text = tr("MULTIPLAYER_GAME_START_CONDITIONS")
-		if not LobbyPlayerList.player_data_acceptable(_lobby):
+		# What stands in the way, by name; else that all is set.
+		var problem := LobbyPlayerList.data_problem(_lobby)
+		_conditions.text = problem if not problem.is_empty() else tr("MP_ALL_SET")
+		if not problem.is_empty():
 			_conditions.add_theme_color_override("font_color", FOUi.tokens.warning)
+	# A disabled start button says why, as the line above it does.
+	ready_button.tooltip_text = _conditions.text if ready_button.disabled else ""
+
+
+# Whether \a me plays (not observes) without having picked a saved empire.
+static func _picks_no_empire(me: Dictionary) -> bool:
+	return me.get("client_type", "") == "player" and me.get("save_empire_id", -1) < 0
 
 
 func _fill_galaxy(galaxy: Dictionary, editable: bool) -> void:
@@ -216,6 +229,7 @@ func _fill_galaxy(galaxy: Dictionary, editable: bool) -> void:
 func _fill_save(editable: bool) -> void:
 	var file: String = _lobby.get("save_game", "")
 	_save_label.text = file if not file.is_empty() else tr("MP_SAVE_NONE")
+	_save_label.tooltip_text = file
 	save_picker.visible = editable
 	if not editable or _lobby.get("new_game", true):
 		return
@@ -233,6 +247,7 @@ func _fill_save(editable: bool) -> void:
 		save_picker.set_item_metadata(save_picker.item_count - 1, save.get("file", ""))
 		if save.get("file", "") == file:
 			save_picker.select(save_picker.item_count - 1)
+	save_picker.tooltip_text = file
 
 
 func _send_galaxy(key: String, value: Variant) -> void:
@@ -266,7 +281,7 @@ func _build() -> void:
 	left.add_child(chat)
 
 	var right := VBoxContainer.new()
-	right.custom_minimum_size.x = 400
+	right.custom_minimum_size.x = 360
 	right.add_theme_constant_override("separation", FOUi.tokens.space_3)
 	columns.add_child(right)
 	_build_game_kind(right)
@@ -331,6 +346,9 @@ func _build_game_kind(parent: VBoxContainer) -> void:
 	save_box.add_child(_save_label)
 	save_picker = OptionButton.new()
 	save_picker.fit_to_longest_item = false
+	# A long save name is cut short, not the lobby widened past the window.
+	save_picker.clip_text = true
+	save_picker.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	save_picker.item_selected.connect(
 		func(i):
 			var file: String = save_picker.get_item_metadata(i)
@@ -342,7 +360,7 @@ func _build_game_kind(parent: VBoxContainer) -> void:
 
 func _build_galaxy(parent: VBoxContainer) -> void:
 	_preview = GalaxyPreview.new()
-	_preview.custom_minimum_size = Vector2(380, 140)
+	_preview.custom_minimum_size = Vector2(300, 140)
 	parent.add_child(_preview)
 	_room = ScreenKit.label("", "SmallLabel")
 	_room.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
