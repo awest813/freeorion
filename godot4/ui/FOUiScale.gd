@@ -43,13 +43,15 @@ static func resolution_scale(window_size: Vector2i) -> float:
 	return clampf(snappedf(fit, STEP), 1.0, MAX_SCALE)
 
 
-## Largest scale that keeps the logical window at least MIN_LOGICAL_SIZE.
+## Largest scale that keeps the logical window at least MIN_LOGICAL_SIZE:
+## below 100% in a window smaller than that (80% at 1024 × 640, where the
+## top bar alone needs 1200 px), down to MIN_SCALE.
 static func max_scale_for_window(window_size: Vector2i) -> float:
 	var fit := minf(
 		float(window_size.x) / MIN_LOGICAL_SIZE.x, float(window_size.y) / MIN_LOGICAL_SIZE.y
 	)
 	# (A little slack: 2.0 / 0.05 is 39.999... in floating point.)
-	return maxf(1.0, floorf(fit / STEP + 0.001) * STEP)
+	return maxf(MIN_SCALE, floorf(fit / STEP + 0.001) * STEP)
 
 
 ## Final factor for a window: the manual setting if given, else the auto value

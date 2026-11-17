@@ -326,3 +326,15 @@ Then it hosted a multiplayer game and in the lobby:
 | In a loaded game the condition read "Not enough human players" (the server's words) when the player had simply not picked their empire. | "Pick the saved empire you will play, next to your name." A greyed-out Start says the same in its tooltip, and greyed-out empire pickers say why. |
 | Picking a save in the lobby widened it to 1376 px in a 1280 px window: the picker sized itself to the save's path ("auto/FreeOrion_Human_Player_Aristocracy_0002_20261115_234335.mps"). | The picker and the label above it cut the name short; the tooltip has it. |
 | At 1024×640 the lobby needed 1114 px: player rows had fixed widths (name 140, species 170). | Narrower minimums. The spare width on bigger windows goes to names and species as well as empire names, so at 1280 every name shows in full, and at 1024 the longest are cut short with a tooltip. A test checks the lobby fits the smallest window, with a long save name too. |
+
+## In-game screens at 1280 × 800 and at 1024 × 640
+
+The bot loaded a turn-40 game and went through every in-game screen, panel and window at 1280 × 800 and at 1024 × 640, the smallest the window can be.
+
+| Found | Fix |
+|-------|-----|
+| At 1024 × 640 the game drew at 100% on a 1024-px-wide screen, though its layouts need at least 1280 (the top bar alone 1200). Everything ran off the right edge: End turn and Menu were out of reach, and the minimap was cut in half. The bot's turn never ended. The automatic scale had a floor of 100%, so it never shrank below it. | A window smaller than the layouts draws them smaller, down to 75%: 80% at 1024 × 640, a logical 1280 × 800. The same cap applies to a chosen scale. Every screen then lays out as at 1280; the tour found nothing off screen. |
+| A planet's Pedia article listed every meter, "Population: 0.00" through "Troops: 0.00": eight lines of zeros for an unowned planet. It had no picture, though every other kind of article has one. | Meters at 0 are left out, numbers have no needless decimals, and the article shows the planet as the map's panels draw it: its surface, atmosphere and star light. |
+| A fleet between systems with no next stop had a blank Location in the objects list. | "Deep space". |
+
+Checked and fine at both sizes: production, research (list and tree), government, design, objects (each tab), combat, empires (both tabs), the Pedia's tech, species, planet and empire articles, the map with the system, planet, fleet and ship panels, the Messages window, the game menu and dialogs.

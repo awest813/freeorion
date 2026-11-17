@@ -484,12 +484,21 @@ namespace {
             obj->PublicName(empire_id, universe) + "</" + tag + ">";
     }
 
-    std::string MeterLine(const UniverseObject& obj, MeterType type) {
+    // Whole numbers (slot counts, troops) without decimals.
+    std::string PlainNumber(double value) {
+        return value == static_cast<int>(value) ? std::to_string(static_cast<int>(value))
+                                                : DoubleToString(value, 3, false);
+    }
+
+    // "Industry: 12.5", linked to the meter's article; nothing for a meter
+    // the object hasn't, or (with skip_zero) one at 0, which an unowned or
+    // unexplored planet has for all of them.
+    std::string MeterLine(const UniverseObject& obj, MeterType type, bool skip_zero = false) {
         const auto* meter = obj.GetMeter(type);
-        if (!meter)
+        if (!meter || (skip_zero && meter->Initial() == 0.0f))
             return {};
         return "<metertype " + std::string{to_string(type)} + ">" + UserString(std::string{to_string(type)}) +
-            "</metertype>: " + DoubleToString(meter->Initial(), 3, false) + "\n";
+            "</metertype>: " + PlainNumber(meter->Initial()) + "\n";
     }
 
     // Planets, systems, fleets, ships and buildings, as GG's object pages:
@@ -519,7 +528,12 @@ namespace {
             for (const auto type : {MeterType::METER_POPULATION, MeterType::METER_INDUSTRY, MeterType::METER_RESEARCH,
                                     MeterType::METER_INFLUENCE, MeterType::METER_HAPPINESS, MeterType::METER_SUPPLY,
                                     MeterType::METER_DEFENSE, MeterType::METER_SHIELD, MeterType::METER_TROOPS})
-                text += MeterLine(*planet, type);
+                text += MeterLine(*planet, type, true);
+            // For the article's picture: the planet as the map's panels draw it.
+            a["planet_type"] = ToGodot(std::string{to_string(planet->Type())});
+            a["planet_size"] = ToGodot(std::string{to_string(planet->Size())});
+            if (system)
+                a["star_type"] = ToGodot(std::string{to_string(system->GetStarType())});
             for (const auto* building : objects.findRaw<const Building>(planet->BuildingIDs()))
                 text += "\n" + ObjectLink("building", building, viewer, universe);
         } else if (kind == "system") {
@@ -641,11 +655,7 @@ namespace {
             else
                 text += UserString("NO_CAPITAL");
             text += "\n" + UserString("EMPIRE_ID") + ": " + name + "\n" + UserString("PEDIA_PLAYER") + ": " + empire->PlayerName();
-            // Whole numbers (slot counts) without decimals.
-            const auto plain = [](double value) {
-                return value == static_cast<int>(value) ? std::to_string(static_cast<int>(value))
-                                                        : DoubleToString(value, 3, false);
-            };
+            const auto plain = PlainNumber;
             const auto& meters = empire->GetMeters();
             if (!meters.empty()) {
                 text += "\n";

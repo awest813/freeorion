@@ -211,6 +211,9 @@ EMPTY_SPACE
 UNEXPLORED_REGION
 ''' (unexplored)'''
 
+OBJECTS_DEEP_SPACE
+Deep space
+
 UNEXPLORED_SYSTEM
 ''' (unexplored)'''
 

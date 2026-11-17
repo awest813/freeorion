@@ -48,3 +48,13 @@ func test_auto_follows_the_resolution_when_the_dpi_says_nothing():
 func test_an_exact_fit_is_not_rounded_down():
 	assert_almost_eq(FOUiScale.max_scale_for_window(Vector2i(2560, 1600)), 2.0, 0.001)
 	assert_almost_eq(FOUiScale.resolve("2.0", 1.0, 96, Vector2i(2560, 1600)), 2.0, 0.001)
+
+
+func test_a_window_smaller_than_the_layouts_scales_them_down():
+	# The top bar alone needs 1200 px: at 1024 × 640 the UI draws at 80%,
+	# keeping the logical window 1280 wide.
+	assert_almost_eq(FOUiScale.resolve("auto", 1.0, 96, Vector2i(1024, 640)), 0.8, 0.001)
+	assert_almost_eq(FOUiScale.resolve("1.0", 1.0, 96, Vector2i(1024, 640)), 0.8, 0.001)
+	assert_almost_eq(
+		FOUiScale.max_scale_for_window(Vector2i(800, 500)), FOUiScale.MIN_SCALE, 0.001, "No smaller"
+	)

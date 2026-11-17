@@ -207,3 +207,13 @@ func test_a_long_link_list_counts_itself_in_its_caption():
 	)
 	assert_has(captions, tr("PEDIA_LINKS_PARTS") + " (4)")
 	assert_has(captions, tr("PEDIA_LINKS_HULL"), "A short list is not counted")
+
+
+func test_a_planet_article_shows_the_planet():
+	screen.source.articles["planet/12"]["planet_type"] = "PT_TERRAN"
+	screen.source.articles["planet/12"]["star_type"] = "STAR_WHITE"
+	screen.open("planet", "12")
+	assert_true(screen._planet.visible)
+	assert_false(screen._icon.visible, "The planet stands in for an icon")
+	screen.open("shipdesign", "7")
+	assert_false(screen._planet.visible, "Only planets")

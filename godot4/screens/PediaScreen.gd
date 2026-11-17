@@ -86,6 +86,7 @@ var _on_map: Button
 ## The shown article's universe object: [kind, id] or [].
 var _object := []
 var _icon: TextureRect
+var _planet: PlanetView
 var _facts: GridContainer
 var _text: RichTextLabel
 var _tiles: HFlowContainer
@@ -201,6 +202,11 @@ func _build() -> void:
 	_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	summary.add_child(_icon)
+	# A planet's article shows the planet, as the map's panels do.
+	_planet = PlanetView.new("", 0, FOUi.tokens.icon_large * 2)
+	_planet.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_planet.visible = false
+	summary.add_child(_planet)
 	var side := VBoxContainer.new()
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary.add_child(side)
@@ -244,6 +250,7 @@ func _show_article(article: Dictionary) -> void:
 		_title.text = tr("MAP_BTN_PEDIA")
 		_icon.texture = null
 		_icon.visible = false
+		_planet.visible = false
 		_text.text = tr("PEDIA_EMPTY")
 		fill_start_tiles()
 		ScreenKit.clear(_facts)
@@ -262,6 +269,15 @@ func _show_article(article: Dictionary) -> void:
 			str(article.get("name", "")), article.get("icon", "")
 		)
 	_icon.visible = _icon.texture != null
+	var planet_type: String = article.get("planet_type", "")
+	_planet.visible = not planet_type.is_empty()
+	if _planet.visible:
+		_planet.show_planet(
+			planet_type,
+			int(str(article.get("name", "0"))),
+			article.get("star_type", "STAR_YELLOW"),
+			article.get("planet_size", "")
+		)
 	var text: String = article.get("text", "")
 	var requirements: String = article.get("requirements", "")
 	if not requirements.is_empty():

@@ -167,3 +167,9 @@ func test_row_actions():
 	assert_signal_emitted_with_parameters(screen, "production_requested", [704])
 	menu = screen.open_row_menu(fake.rows["planets"][3])
 	assert_eq(menu.item_count, 2, "No building on other empires' planets")
+
+
+func test_a_fleet_between_systems_is_in_deep_space():
+	fake.rows["fleets"][1]["system_name"] = ""
+	screen.show_kind("fleets")
+	assert_eq(_column("system_name")[1], tr("OBJECTS_DEEP_SPACE"), "Not a blank")

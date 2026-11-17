@@ -303,11 +303,11 @@ func _check_options() -> void:
 	_test.add_child_autofree(screen)
 	screen.refresh()
 	_test.assert_gt(screen._list.get_child_count(), 20, "Options listed")
-	# (0.9 fits any window; larger steps are capped to the window's size.)
-	var index := OptionsScreen.SCALE_STEPS.find(0.9) + 1
+	# (The smallest fits any window; larger steps are capped to its size.)
+	var index := OptionsScreen.SCALE_STEPS.find(FOUiScale.MIN_SCALE) + 1
 	screen._scale.item_selected.emit(index)
 	await _test.wait_process_frames(2)
-	_test.assert_almost_eq(FOUi.scale, 0.9, 0.001, "Scale applied live")
+	_test.assert_almost_eq(FOUi.scale, FOUiScale.MIN_SCALE, 0.001, "Scale applied live")
 	screen._scale.item_selected.emit(0)
 	await _test.wait_process_frames(2)
 	var options := Engine.get_singleton("FOOptions")

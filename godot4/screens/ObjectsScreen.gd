@@ -714,6 +714,9 @@ func _display(row: Dictionary, key: String) -> String:
 		"location":
 			if row.get("moving", false) and not text.is_empty():
 				text = tr("SYSTEM_PANEL_FLEET_DESTINATION").replace("%1%", text)
+			elif text.is_empty():
+				# Between systems with no next stop: say so, not a blank.
+				text = tr("OBJECTS_DEEP_SPACE")
 	return text
 
 
