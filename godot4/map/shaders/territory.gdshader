@@ -8,6 +8,8 @@ render_mode unshaded;
 uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_nearest;
 uniform float border_px = 1.5;
 uniform float border_boost = 5.0;
+// Colours brighter than this are filled more faintly, in proportion.
+uniform float fill_luminance = 0.45;
 
 vec4 at(vec2 uv) {
 	vec4 c = textureLod(screen_texture, uv, 0.0);
@@ -29,7 +31,12 @@ void fragment() {
 			vec4 n = at(SCREEN_UV + vec2(cos(a), sin(a)) * o);
 			edge = edge || n.a < 0.5 || distance(n.rgb, c.rgb) > 0.08;
 		}
-		float alpha = COLOR.a * (edge ? border_boost : 1.0);
+		// The fill as strong to the eye whatever the empire's colour: a bright
+		// one (yellow, orange) at the same opacity as a dark blue washed the
+		// whole map. The border keeps its strength.
+		float luminance = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+		float fill = clamp(fill_luminance / max(luminance, 0.01), 0.5, 1.0);
+		float alpha = COLOR.a * (edge ? border_boost : fill);
 		COLOR = vec4(c.rgb, clamp(alpha, 0.0, 0.85));
 	}
 }

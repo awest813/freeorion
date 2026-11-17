@@ -2385,6 +2385,15 @@ READINESS_IDLE_SCOUT
 READINESS_POLICY_SLOT
 A free %1% policy slot: there is enough influence to adopt a policy into it.
 
+READINESS_UNHAPPY_ONE
+%1% is very unhappy (stability 5 or less): its industry and research won't grow, and it can't send settlers.
+
+READINESS_UNHAPPY_MANY
+%1% planets are very unhappy (stability 5 or less), among them %2%: their industry and research won't grow.
+
+READINESS_INFLUENCE
+Influence falls by %1% a turn and runs out in %2% turns; then every planet's stability drops. Put a planet on influence focus or drop a policy.
+
 PANEL_CLOSE
 Close
 

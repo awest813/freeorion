@@ -406,3 +406,25 @@ Checked and left as they are:
 | The minimap showed lanes, stars and the view, but not who holds what or which system is selected. Nothing said what it does. | Supplied systems get a halo in the supplying empire's colour, the selected system a ring in the accent, and the minimap a tooltip ("The whole galaxy: click or drag to move the map there. Halos show each empire's supply."). |
 | The research queue's timeline line ran through each card's turn number ("4│5"). | The line breaks around the number. |
 | Production queue cards had no category band, though the same items in the catalogue beside them do (yellow buildings, blue ships). | They carry the catalogue's band. |
+
+## Mechanics, systems and gameplay, through play
+
+Four games were played through the UI by the bot:
+- a warlord, 80 turns at 1024 × 640;
+- an economist, 100 turns;
+- a newcomer who follows the game's own prompts, 40 turns;
+- an explorer, 30 turns.
+
+Each notes what it can't do or finds awkward. Every note was then checked on its own with a script against a real save.
+
+| Found | Fix |
+|-------|-----|
+| The newcomer ended 40 turns with empty production and research queues and heard about it twice: once a player ended a turn past a reminder, it stayed silent until the problem was solved, however long that took. | A reminder ended past comes back after five turns (`TurnReadiness.REMIND_TURNS`) if the problem still stands. The top bar's unspent-points warning was already there all along. |
+| A planet too unhappy to grow (stability 5 or less: no industry or research growth, no settlers) said so only in its own planet panel. One of these was the capital of a 40-turn game. | The end-of-turn check names it ("Saurak γ I is very unhappy …", or "3 planets are very unhappy, among them …") and opens its system. |
+| Influence could fall towards zero, where every planet's stability drops, with nothing but the top bar's figure to show it. | When it will run out within ten turns: "Influence falls by 3.0 a turn and runs out in 4 turns; then every planet's stability drops. Put a planet on influence focus or drop a policy." It opens Government. |
+| A bright empire colour washed the whole map: orange or yellow territory at the same opacity as a dark blue one, so near home everything sat in a brown-orange haze. | The territory fill is scaled by the colour's brightness (the border is not), so every empire's range reads about as strongly. |
+
+Checked and not bugs:
+- **Research double-click on turn 1:** the bot reported "double-clicking a research row didn't queue it" in every game. A script double-clicking a real card, 12 frames after the screen opened and again later, queued it both times: the bot had picked a card already queued (its filter compared the wrong label). The bot now picks a card whose button says Add.
+- **Production double-click:** the same check queues an item. Evacuate Planet asks for confirmation first, as it should.
+- **Fleet moves:** "right-click didn't set the destination" happened where the bot had to pan to an off-screen target, and its click then went nowhere. Ordering every one of the explorer's fleets to its nearest free system on the final save raised no problem; refused moves say why (`MoveOrders.move_refusal_text`).

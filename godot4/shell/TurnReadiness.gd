@@ -2,10 +2,13 @@ class_name TurnReadiness
 extends RefCounted
 ## What may be forgotten before ending a turn: unspent production or research
 ## points, colony ships without orders, newly built fleets without orders,
-## unarmed fleets (scouts) idle and not exploring, and a free policy slot
-## while a policy could be adopted into it.
-## An issue the player ended a turn anyway on isn't raised again until it is
-## resolved (unacknowledged()), so the same reminder doesn't come every turn.
+## unarmed fleets (scouts) idle and not exploring, a free policy slot
+## while a policy could be adopted into it, planets too unhappy to grow
+## (stability 5 or less: their industry and research stop increasing), and
+## influence about to run out (then every planet's stability falls).
+## An issue the player ended a turn anyway on isn't raised again for
+## REMIND_TURNS turns or until it is resolved (unacknowledged()), so the same
+## reminder doesn't come every turn, nor never again.
 ## check() works on plain data (gather() reads it from the game), so tests
 ## can feed it directly.
 
@@ -13,6 +16,15 @@ extends RefCounted
 const OPTION := "ui.turn.readiness.check"
 ## Unspent PP or RP above this is worth a warning.
 const EPSILON := 0.05
+## Stability at or below which a populated planet's output stops growing
+## (the game's own planet status, OPTIONS_DB_UI_PLANET_STATUS_UNHAPPY).
+const UNHAPPY_STABILITY := 5.0
+## Influence running out within this many turns is worth a warning.
+const INFLUENCE_WARN_TURNS := 10
+## Unhappy planets named in the warning; the rest are counted.
+const UNHAPPY_NAMED := 3
+## Turns after which an issue ended anyway on is raised again.
+const REMIND_TURNS := 5
 
 
 ## Warnings for \a data ({resources, production_queue, research_queue,
@@ -70,19 +82,71 @@ static func check(data: Dictionary) -> Array:
 	for category: String in data.get("free_policy_slots", []):
 		var text := tr_s("READINESS_POLICY_SLOT").replace("%1%", tr_s(category))
 		issues.push_back({"text": text, "screen": "government", "key": "policy:" + category})
+	var unhappy := unhappy_issue(data.get("planets", []))
+	if not unhappy.is_empty():
+		issues.push_back(unhappy)
+	var influence := influence_issue(resources)
+	if not influence.is_empty():
+		issues.push_back(influence)
 	return issues
 
 
+## The warning for own \a planets (FOObjects' planet rows) too unhappy to
+## grow, naming the first few; it opens the first one's system. {} if none.
+static func unhappy_issue(planets: Array) -> Dictionary:
+	var unhappy := planets.filter(
+		func(p: Dictionary):
+			return (
+				p.get("population", 0.0) > 0.0
+				and p.get("stability", UNHAPPY_STABILITY + 1.0) <= UNHAPPY_STABILITY
+			)
+	)
+	if unhappy.is_empty():
+		return {}
+	var names: Array = unhappy.slice(0, UNHAPPY_NAMED).map(func(p): return str(p.get("name", "")))
+	var text := (
+		tr_s("READINESS_UNHAPPY_ONE").replace("%1%", names[0])
+		if unhappy.size() == 1
+		else (tr_s("READINESS_UNHAPPY_MANY").replace("%1%", str(unhappy.size())).replace(
+			"%2%", ", ".join(names)
+		))
+	)
+	return {
+		"text": text,
+		"key": "unhappy",
+		"target": {"system_id": unhappy[0].get("system_id", -1)},
+	}
+
+
+## The warning when influence (\a resources: influence, influence_change)
+## falls fast enough to run out within INFLUENCE_WARN_TURNS. {} if not.
+static func influence_issue(resources: Dictionary) -> Dictionary:
+	var change: float = resources.get("influence_change", 0.0)
+	var stock: float = resources.get("influence", 0.0)
+	if change >= -EPSILON or stock + change * INFLUENCE_WARN_TURNS > 0.0:
+		return {}
+	var turns := maxi(int(floor(maxf(stock, 0.0) / -change)), 0)
+	return {
+		"text":
+		tr_s("READINESS_INFLUENCE").replace("%1%", "%.1f" % -change).replace("%2%", str(turns)),
+		"screen": "government",
+		"key": "influence",
+	}
+
+
 ## \a issues (check()) without those whose key is in \a acknowledged (the
-## player ended a turn anyway while they stood). Acknowledged keys no longer
-## among \a issues are dropped from it: once resolved, an issue counts again
-## when it comes back.
-static func unacknowledged(issues: Array, acknowledged: Dictionary) -> Array:
+## player ended a turn anyway while they stood: key -> the turn they did).
+## Acknowledged keys no longer among \a issues are dropped from it: once
+## resolved, an issue counts again when it comes back. One still standing
+## REMIND_TURNS after it was acknowledged (on \a turn) is raised again: an
+## empty research queue ignored once shouldn't go unmentioned all game.
+static func unacknowledged(issues: Array, acknowledged: Dictionary, turn := -1) -> Array:
 	var keys := {}
 	for issue: Dictionary in issues:
 		keys[issue.get("key", "")] = true
 	for key in acknowledged.keys():
-		if not keys.has(key):
+		var since: int = acknowledged[key] if acknowledged[key] is int else -1
+		if not keys.has(key) or (turn >= 0 and since >= 0 and turn - since >= REMIND_TURNS):
 			acknowledged.erase(key)
 	return issues.filter(func(i): return not acknowledged.has(i.get("key", "")))
 
@@ -103,6 +167,7 @@ static func gather() -> Dictionary:
 		"fleets": fleets,
 		"free_policy_slots":
 		free_policy_slots(FOGovernment.get_slots(), FOGovernment.get_policies()),
+		"planets": FOObjects.list_objects("planets", true),
 	}
 
 

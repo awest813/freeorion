@@ -644,12 +644,22 @@ func _on_end_turn_pressed() -> void:
 		if follow_game and is_instance_valid(GlobalFreeOrionNode):
 			GlobalFreeOrionNode.revise_turn()
 		return
-	var issues := TurnReadiness.unacknowledged(readiness_provider.call(), _acknowledged)
+	var issues := TurnReadiness.unacknowledged(
+		readiness_provider.call(), _acknowledged, _current_turn()
+	)
 	_shown_issues = issues
 	if not issues.is_empty():
 		readiness_issues.emit(issues)
 		return
 	end_turn()
+
+
+func _current_turn() -> int:
+	return (
+		GlobalFreeOrionNode.get_current_turn()
+		if follow_game and is_instance_valid(GlobalFreeOrionNode)
+		else -1
+	)
 
 
 func _game_readiness() -> Array:
@@ -664,7 +674,7 @@ func end_turn() -> void:
 		return
 	# Ended anyway: the issues just shown are not raised again until resolved.
 	for issue: Dictionary in _shown_issues:
-		_acknowledged[issue.get("key", "")] = true
+		_acknowledged[issue.get("key", "")] = _current_turn()
 	_shown_issues = []
 	_waiting = true
 	_refresh_from_game()
