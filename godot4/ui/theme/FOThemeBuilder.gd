@@ -8,10 +8,16 @@ extends RefCounted
 
 const DISPLAY_FONT := "res://assets/fonts/Exo2-Variable.ttf"
 const BODY_FONT := "res://assets/fonts/Roboto-Regular.ttf"
+## Arrows, ticks, crosses and other symbols the UI writes as text (✕ ▲ ↺ ⋯
+## ✓ ☰ ...), which neither face has. Without it Godot searches the system's
+## fonts for each one every time a label is shaped: about 2 ms a button,
+## most of the time it took to open a screen with a list of rows.
+const SYMBOL_FONT := "res://assets/fonts/DejaVuSans.ttf"
 
 
 static func build(tokens: FOTokens) -> Theme:
 	var theme := Theme.new()
+	theme.default_font = body_font()
 	theme.default_font_size = tokens.font_size_body
 	_labels(theme, tokens)
 	_buttons(theme, tokens)
@@ -65,12 +71,21 @@ static func glass(t: FOTokens, padding: int, alpha: float, edged := true) -> Sty
 	return style
 
 
+## The body face, falling back to the symbol face (the display face falls
+## back to this, so it gets the symbols too).
+static func body_font() -> Font:
+	var body: FontFile = load(BODY_FONT)
+	if body.fallbacks.is_empty():
+		body.fallbacks = [load(SYMBOL_FONT)]
+	return body
+
+
 ## The display face (titles, headings, captions): \a t's weight and \a spacing
 ## (extra px between letters), falling back to the body face for missing
 ## glyphs (Greek letters in star names).
 static func display_font(t: FOTokens, spacing: int) -> Font:
 	var base: FontFile = load(DISPLAY_FONT)
-	base.fallbacks = [load(BODY_FONT)]
+	base.fallbacks = [body_font()]
 	var font := FontVariation.new()
 	font.base_font = base
 	font.variation_opentype = {

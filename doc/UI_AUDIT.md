@@ -243,3 +243,34 @@ It then loaded a turn-40 save to check the fixes.
 Checked and left alone:
 - Opening the Pedia puts keyboard focus on its first kind ("Technology"), as every screen focuses its first control. Starting in the search field instead would make Esc leave the field rather than close the screen.
 - The bot's own policy drop asked for a slot that didn't exist: it chose "adoptable" without checking for a free slot. The screen showed "no free slot" and kept Adopt greyed out.
+
+## Debug round: a long game, frame times, screen times and leaks
+
+The bot can now report each turn's frame count, average and worst frame time, memory, object and node counts, stray (orphan) nodes, and any frame over 250 ms with the screen it was on (`PERF=1`). It played 100 turns as the economist. An AI took its capital at turn 100: the Defeat screen came up with the right summary ("Turn 100 · 0 planets · 0 ships · population 0.0") and Keep watching worked.
+
+Over the 100 turns (software rendering under Xvfb, so absolute times are slow; the trend is what counts):
+- Memory went from 107 MB at turn 2 to 117 MB, nodes from 1,666 to 2,371 and objects from 5,887 to 7,767, in step with what the empire knew of the galaxy.
+- The average frame time held flat at 90–118 ms.
+- The only frame spikes were turn arrival (250–480 ms) and opening production (260–390 ms).
+- No stray nodes.
+- No script errors or warnings, apart from the headless machine's lack of audio and vsync.
+
+The bot then timed each screen's open and refresh three times on a turn-40 save:
+
+| Screen | Before | After | Cause |
+|--------|--------|-------|-------|
+| Design | 170 ms every time | 60 ms | Symbols on buttons that neither UI font has ("⋯", "✕", "▲", "↺", "✓") made Godot search the system's fonts every time a button with one was shaped: about 2 ms a button, 40 rows × 2 buttons. DejaVu Sans (already shipped) is now the fonts' last fallback, so these never reach the system search. |
+| Production | 57 ms | 25 ms | Each queue row's locate button ("⌖", which no shipped font has) did the same before it became an icon. `ScreenKit.small_button` now swaps a glyph for its icon before the button enters the tree. |
+| Research | 55 ms | 35 ms | The same symbols. |
+| Government | 22 ms | 17 ms | The same symbols. |
+| Objects, Combat, Empires, Pedia | 1–15 ms | unchanged | |
+
+Design rows' "⋯" menus are also filled only when opened, like production's.
+
+Leaks:
+- **Fixed:** selecting a system left one or two stray nodes per planet behind on every refresh: each planet row built a box for its output chips and one for its actions, and dropped them unfreed when they had nothing in them. Nine strays per refresh of the capital's panel, all game long. A new test refreshes a system with such planets and checks that nothing is left behind.
+- **Not a leak:** the test suite's remaining orphans (three, in the audio and tooltip tests) are the tests' own nodes. FleetPanel and the map view, built and freed alone, leave nothing.
+
+Not bugs:
+- The bot's "Evacuate Planet didn't queue" was the confirmation the game asks for before a destructive item.
+- "A research row didn't queue" was a double-click while the screen was still opening, as before.

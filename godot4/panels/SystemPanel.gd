@@ -565,9 +565,13 @@ func _planet_row(planet: Dictionary) -> Control:
 				chips.add_child(_meter_chip(entry, "%.1f" % value, tr(entry[2])))
 		if chips.get_child_count() > 0:
 			text.add_child(chips)
+		else:
+			chips.free()  # never in the tree: nothing else would free it
 	var actions := _planet_actions(planet)
 	if actions.get_child_count() > 0:
 		text.add_child(actions)
+	else:
+		actions.free()
 	return row
 
 

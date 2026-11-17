@@ -121,6 +121,9 @@ static func small_button(text: String, tooltip_key: String, enabled := true) -> 
 	button.theme_type_variation = "GhostButton"
 	button.tooltip_text = TranslationServer.translate(tooltip_key)
 	button.disabled = not enabled
+	# Its icon now, not once in the tree: a glyph no font has (⌖) would be
+	# shaped first, searching the system's fonts, on every queue row.
+	FOUi.adopt_glyph(button)
 	return button
 
 

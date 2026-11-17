@@ -248,3 +248,24 @@ func test_system_list_opens_wide_enough_to_read():
 	if DisplayServer.get_name() != "headless":
 		assert_gt(popup.size.x, 60, "shown wide enough to read")
 	popup.hide()
+
+
+func test_refreshing_leaves_no_stray_nodes():
+	# A planet with nothing to do, and an own one that makes nothing: their
+	# rows have no actions and no chips.
+	var data := SAMPLE.duplicate(true)
+	data["planets"].push_back({"id": 12, "name": "Hegira β III", "type": "PT_BARREN"})
+	data["planets"].push_back(
+		{"id": 13, "name": "Hegira β IV", "own": true, "meters": {"industry": 0.0}}
+	)
+	panel.show_data(data)
+	await wait_process_frames(1)
+	var before := Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)
+	for i in 3:
+		panel.show_data(data)
+		await wait_process_frames(1)
+	assert_eq(
+		Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT),
+		before,
+		"Planet rows' empty chip and action rows are freed"
+	)

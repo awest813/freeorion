@@ -127,6 +127,7 @@ func test_design_kinds_and_actions():
 
 func _menu(row: Control) -> PopupMenu:
 	var button: MenuButton = row.find_children("*", "MenuButton", true, false)[0]
+	button.about_to_popup.emit()  # filled as it opens
 	return button.get_popup()
 
 
@@ -183,6 +184,18 @@ func test_saved_designs_tab():
 	var dialog: FODialog = screen.get_children().filter(func(c): return c is FODialog).back()
 	dialog.choose(0)
 	assert_eq(fake.calls.back(), ["delete_saved", "aaaa-1"])
+
+
+func test_design_menus_are_filled_as_they_open():
+	var button: MenuButton = _design_rows()[0].find_children("*", "MenuButton", true, false)[0]
+	assert_eq(button.get_popup().item_count, 0, "Nothing to shape until it opens")
+	button.about_to_popup.emit()
+	button.about_to_popup.emit()
+	assert_eq(
+		button.get_popup().get_item_index(DesignerScreen.DesignAction.DELETE),
+		button.get_popup().item_count - 1,
+		"Filled once, Delete last"
+	)
 
 
 func test_a_long_status_wraps_instead_of_widening_the_screen():

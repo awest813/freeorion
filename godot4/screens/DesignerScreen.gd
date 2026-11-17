@@ -526,15 +526,9 @@ func _design_menu(design: Dictionary) -> MenuButton:
 	menu.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var popup := menu.get_popup()
 	popup.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	if design.get("renamable", false):
-		popup.add_item(tr("DESIGNER_RENAME"), DesignAction.RENAME)
-	popup.add_item(tr("PEDIA_OPEN"), DesignAction.PEDIA)
-	popup.add_item(tr("PRODUCTION_MOVE_TOP"), DesignAction.TOP)
-	popup.add_item(tr("PRODUCTION_MOVE_BOTTOM"), DesignAction.BOTTOM)
-	popup.add_item(tr("DESIGNER_SAVE_TO_DISK"), DesignAction.KEEP)
-	popup.add_item(tr("DESIGNER_OBSOLETE"), DesignAction.ASIDE)
-	popup.add_separator()
-	popup.add_item(tr("DESIGNER_DELETE"), DesignAction.DELETE)
+	# Filled as it opens: a menu shapes all its items' text as it enters the
+	# tree, which for every row cost most of the time to open the screen.
+	menu.about_to_popup.connect(_fill_design_menu.bind(popup, design))
 	popup.id_pressed.connect(
 		func(action: int):
 			match action:
@@ -559,6 +553,19 @@ func _design_menu(design: Dictionary) -> MenuButton:
 					_design_order(source.move_design(id, -1))
 	)
 	return menu
+
+
+func _fill_design_menu(popup: PopupMenu, design: Dictionary) -> void:
+	popup.clear()
+	if design.get("renamable", false):
+		popup.add_item(tr("DESIGNER_RENAME"), DesignAction.RENAME)
+	popup.add_item(tr("PEDIA_OPEN"), DesignAction.PEDIA)
+	popup.add_item(tr("PRODUCTION_MOVE_TOP"), DesignAction.TOP)
+	popup.add_item(tr("PRODUCTION_MOVE_BOTTOM"), DesignAction.BOTTOM)
+	popup.add_item(tr("DESIGNER_SAVE_TO_DISK"), DesignAction.KEEP)
+	popup.add_item(tr("DESIGNER_OBSOLETE"), DesignAction.ASIDE)
+	popup.add_separator()
+	popup.add_item(tr("DESIGNER_DELETE"), DesignAction.DELETE)
 
 
 # A design: click to start from it; actions for the list it's in.
