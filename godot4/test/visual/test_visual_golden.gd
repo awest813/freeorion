@@ -111,7 +111,7 @@ func test_options_hotkeys():
 		"options_hotkeys",
 		func(s):
 			s.refresh()
-			s._right_tabs.current_tab = 1
+			s._right_tabs.current_tab = OptionsScreen.Page.HOTKEYS
 			s._capturing = "home"
 			s._refresh_hotkeys()
 	)

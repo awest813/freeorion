@@ -63,7 +63,7 @@ func _options_screen() -> OptionsScreen:
 	screen.source = preload("res://test/unit/fake_options_source.gd").new()
 	add_child_autofree(screen)
 	screen.refresh()
-	screen._right_tabs.current_tab = 1
+	screen._right_tabs.current_tab = OptionsScreen.Page.HOTKEYS
 	return screen
 
 

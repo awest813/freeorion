@@ -52,7 +52,13 @@ func set_content(title: String, message: String, choices: Array) -> void:
 		var start: int = maxi(variations.find("PrimaryButton"), 0)
 		if variations[start] == "DangerButton":
 			start = _row.get_child_count() - 1
-		_row.get_child(start).call_deferred("grab_focus")
+		_focus_choice.call_deferred(start)
+
+
+# Focus button \a index, if the dialog is still up by then.
+func _focus_choice(index: int) -> void:
+	if is_inside_tree() and index < _row.get_child_count():
+		_row.get_child(index).grab_focus()
 
 
 ## Put \a control between the message and the buttons (a list, a check box).

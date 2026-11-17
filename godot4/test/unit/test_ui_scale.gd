@@ -32,4 +32,19 @@ func test_auto_scale_keeps_minimum_logical_size():
 
 
 func test_manual_setting_overrides_auto():
-	assert_almost_eq(FOUiScale.resolve("1.75", 1.0, 96, Vector2i(1366, 768)), 1.75, 0.001)
+	assert_almost_eq(FOUiScale.resolve("1.75", 1.0, 96, Vector2i(3840, 2160)), 1.75, 0.001)
+	assert_almost_eq(FOUiScale.resolve("0.75", 1.0, 192, Vector2i(3840, 2160)), 0.75, 0.001)
+	# Too large for the window: the largest that fits instead.
+	assert_almost_eq(FOUiScale.resolve("1.75", 1.0, 96, Vector2i(1366, 768)), 1.05, 0.001)
+
+
+func test_auto_follows_the_resolution_when_the_dpi_says_nothing():
+	assert_almost_eq(FOUiScale.resolve("auto", 1.0, 96, Vector2i(1920, 1080)), 1.0, 0.001)
+	assert_almost_eq(FOUiScale.resolve("auto", 1.0, 96, Vector2i(2560, 1440)), 1.35, 0.001)
+	assert_almost_eq(FOUiScale.resolve("auto", 1.0, 96, Vector2i(3840, 2160)), 2.0, 0.001)
+	assert_almost_eq(FOUiScale.resolve("auto", 1.0, 96, Vector2i(1280, 800)), 1.0, 0.001)
+
+
+func test_an_exact_fit_is_not_rounded_down():
+	assert_almost_eq(FOUiScale.max_scale_for_window(Vector2i(2560, 1600)), 2.0, 0.001)
+	assert_almost_eq(FOUiScale.resolve("2.0", 1.0, 96, Vector2i(2560, 1600)), 2.0, 0.001)

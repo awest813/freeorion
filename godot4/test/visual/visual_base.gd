@@ -85,7 +85,13 @@ func _check_variant(make_scene: Callable, golden_name: String, setup := Callable
 			)
 		)
 		return
-	_compare_to_golden(await _render_scaled(make_scene.call(), setup, config["scale"]), name)
+	# The scene is made at the variant's scale: "auto" differs by window.
+	var previous := FOUi.get_scale_setting()
+	FOUi.set_scale_setting(str(config["scale"]))
+	await wait_process_frames(2)
+	var image := await _render_scaled(make_scene.call(), setup, config["scale"])
+	FOUi.set_scale_setting(previous)
+	_compare_to_golden(image, name)
 
 
 # In the window itself at UI scale \a ui_scale, as players see it (a
@@ -107,9 +113,19 @@ func _render_scaled(scene: Control, setup: Callable, ui_scale: float) -> Image:
 	if setup.is_valid():
 		setup.call(scene)
 	await wait_process_frames(10)
+	# GUT's own panel is laid out for the scale the run started at, and can
+	# show at the edges: hide it for the shot.
+	var hidden: Array[CanvasLayer] = []
+	for other: CanvasLayer in get_tree().root.find_children("*", "CanvasLayer", true, false):
+		if other != layer and other.visible and not layer.is_ancestor_of(other):
+			other.visible = false
+			hidden.push_back(other)
+	await wait_process_frames(2)
 	await RenderingServer.frame_post_draw
 	var image := get_viewport().get_texture().get_image()
 	image.convert(Image.FORMAT_RGB8)
+	for other in hidden:
+		other.visible = true
 	FOUi.set_scale_setting(previous)
 	return image
 

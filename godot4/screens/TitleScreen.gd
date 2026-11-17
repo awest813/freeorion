@@ -35,6 +35,8 @@ var _spinner: FOSpinner
 var _tip: Label
 var _new_game: Button
 var _hint: Label
+var _load: Button
+var _ready_for_content := false
 ## What hides while another menu screen shows over the splash.
 var _chrome: Array[Control] = []
 
@@ -48,6 +50,7 @@ func _init() -> void:
 
 ## Enable the entries that need parsed content (new game, quick start).
 func set_content_ready(ready: bool) -> void:
+	_ready_for_content = ready
 	for button in _content_buttons:
 		button.disabled = not ready
 	_status.text = "" if ready else tr("TITLE_LOADING")
@@ -58,6 +61,9 @@ func set_content_ready(ready: bool) -> void:
 ## leads the menu, else New Game does.
 ## \a detail names what Continue would load ("Terran Imperium · Turn 15").
 func set_can_continue(can: bool, detail := "") -> void:
+	# Load Game too: with no saves there is nothing to load.
+	_load.disabled = not can or not _ready_for_content
+	_load.tooltip_text = "" if can else tr("SAVES_EMPTY")
 	_continue.visible = can
 	_continue_detail.text = detail
 	_continue_detail.visible = can and not detail.is_empty()
@@ -223,7 +229,8 @@ func _build() -> void:
 	_content_buttons.push_back(new_game)
 	_content_buttons.push_back(_menu_button("TITLE_QUICK_START", quick_start_requested))
 	_content_buttons.push_back(_menu_button("INTRO_BTN_MULTI_PLAYER", multiplayer_requested))
-	_content_buttons.push_back(_menu_button("GAME_MENU_LOAD", load_requested))
+	_load = _menu_button("GAME_MENU_LOAD", load_requested)
+	_content_buttons.push_back(_load)
 	_content_buttons.push_back(_menu_button("MAP_BTN_PEDIA", pedia_requested))
 	_menu_button("OPTIONS_TITLE", options_requested)
 	_menu_button("TITLE_ABOUT", credits_requested)
@@ -261,10 +268,14 @@ func _menu_button(key: String, pressed: Signal, variation := "MenuItem") -> Butt
 	button.theme_type_variation = variation
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.pressed.connect(func(): pressed.emit())
-	# What it does, under the menu, while pointed at or focused.
-	var explain := func(): _hint.text = tr(key + "_HINT")
-	button.focus_entered.connect(explain)
-	button.mouse_entered.connect(explain)
+	# What it does, under the menu, while focused. Pointing at an entry
+	# focuses it, so the mouse and the keys never light two entries.
+	button.focus_entered.connect(func(): _hint.text = tr(key + "_HINT"))
+	button.mouse_entered.connect(
+		func():
+			if not button.disabled:
+				button.grab_focus()
+	)
 	_menu.add_child(button)
 	return button
 

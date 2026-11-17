@@ -338,3 +338,16 @@ func test_title_menu_explains_the_pointed_entry():
 	assert_eq(title._hint.text, tr("TITLE_NEW_GAME_HINT"))
 	title._continue.focus_entered.emit()
 	assert_eq(title._hint.text, tr("INTRO_BTN_CONTINUE_HINT"))
+
+
+func test_title_load_waits_for_a_save_and_pointing_focuses():
+	var title := TitleScreen.new()
+	add_child_autofree(title)
+	title.set_content_ready(true)
+	title.set_can_continue(false)
+	assert_true(title._load.disabled, "nothing to load yet")
+	assert_eq(title._load.tooltip_text, tr("SAVES_EMPTY"))
+	title.set_can_continue(true, "Terran Imperium · Turn 3")
+	assert_false(title._load.disabled)
+	title._load.mouse_entered.emit()
+	assert_true(title._load.has_focus(), "the pointed entry is the focused one")

@@ -46,6 +46,9 @@ var _glass_enabled := true
 var _scale_setting := "auto"
 var _theme_name := "default"
 
+## The FPS counter (video.fps.shown), made when first shown.
+var _fps: Label
+
 ## The tooltip showing now, if any (a WeakRef).
 var _tooltip: WeakRef
 
@@ -322,6 +325,13 @@ func _read_options() -> void:
 	options.watch(OPTION_REDUCE_MOTION)
 	options.watch(OPTION_EMPIRE_ACCENT)
 	options.watch(OPTION_GLASS)
+	FOWindow.add_options(options)
+	for video in [FOWindow.OPTION_VSYNC, FOWindow.OPTION_FPS_LIMITED, FOWindow.OPTION_FPS_MAX]:
+		options.watch(video)
+	for video in [FOWindow.OPTION_FPS_BACKGROUND, FOWindow.OPTION_FPS_SHOWN]:
+		options.watch(video)
+	FOWindow.apply_frame_rate(options)
+	_show_fps(options.get_value(FOWindow.OPTION_FPS_SHOWN))
 	options.option_changed.connect(_on_option_changed)
 
 
@@ -343,6 +353,44 @@ func _on_option_changed(option_name: String) -> void:
 			var theme_name: String = options.get_value(OPTION_THEME)
 			if theme_name != _theme_name:
 				apply_theme(theme_name)
+		FOWindow.OPTION_FPS_SHOWN:
+			_show_fps(options.get_value(FOWindow.OPTION_FPS_SHOWN))
+		_:
+			if option_name.begins_with("video."):
+				FOWindow.apply_frame_rate(options)
+
+
+# The window in the background runs at the lower frame rate (if set), and
+# back at the full one in front.
+func _notification(what: int) -> void:
+	if not _options_available():
+		return
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		FOWindow.apply_frame_rate(Engine.get_singleton("FOOptions"), false)
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		FOWindow.apply_frame_rate(Engine.get_singleton("FOOptions"), true)
+
+
+# The frames per second in the top-right corner, over everything.
+func _show_fps(shown: bool) -> void:
+	if shown and _fps == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 128
+		add_child(layer)
+		_fps = Label.new()
+		_fps.theme_type_variation = "SmallLabel"
+		_fps.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+		_fps.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_fps.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_fps.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(_fps)
+	if _fps:
+		_fps.get_parent().visible = shown
+
+
+func _process(_delta: float) -> void:
+	if _fps and _fps.is_visible_in_tree() and Engine.get_process_frames() % 30 == 0:
+		_fps.text = "%d FPS" % Engine.get_frames_per_second()
 
 
 func _options_available() -> bool:

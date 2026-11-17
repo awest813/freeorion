@@ -76,10 +76,11 @@ func test_readable_titles_under_sections():
 	assert_gt(headings.size(), 0, "Sections have headings")
 
 
-func test_save_commits():
-	_button(screen, tr("SAVE")).pressed.emit()
-	assert_true(fake.committed)
-	assert_eq(screen._status.text, tr("OPTIONS_SAVED"))
+func test_every_change_is_saved_at_once():
+	assert_false(fake.committed)
+	screen._motion.button_pressed = true
+	assert_true(fake.committed, "no Save button to forget")
+	assert_eq(screen._status.text, tr("OPTIONS_SAVED_AUTO"))
 
 
 func _row_names() -> Array:
@@ -114,7 +115,9 @@ func test_launch_flags_and_other_screens_options_hidden():
 
 
 func test_pages_gameplay_first_and_advanced_apart():
-	assert_true(screen._gameplay.visible, "Gameplay shows first")
+	assert_true(screen._pages[OptionsScreen.Page.DISPLAY].visible, "Display shows first")
+	screen.show_page(OptionsScreen.Page.GAMEPLAY)
+	assert_true(screen._gameplay.visible)
 	assert_false(screen._all_options.visible)
 	var gameplay := _row("save.auto.file.limit")
 	assert_not_null(gameplay, "the autosave limit is a gameplay option")
@@ -125,3 +128,21 @@ func test_pages_gameplay_first_and_advanced_apart():
 	assert_true(screen._all_options.visible)
 	assert_false(screen._gameplay.visible)
 	assert_eq(screen._right_tabs.current_tab, OptionsScreen.Page.ADVANCED)
+
+
+func test_display_page_offers_what_fits():
+	assert_gt(screen._window_size.item_count, 0, "window sizes listed")
+	assert_eq(screen._fps_cap.item_count, FOWindow.FPS_STEPS.size())
+	screen._fps_cap.item_selected.emit(FOWindow.FPS_STEPS.find(60))
+	assert_eq(fake.get_value(FOWindow.OPTION_FPS_LIMITED), true)
+	assert_eq(fake.get_value(FOWindow.OPTION_FPS_MAX), 60)
+	screen._fps_cap.item_selected.emit(FOWindow.FPS_STEPS.find(0))
+	assert_eq(fake.get_value(FOWindow.OPTION_FPS_LIMITED), false, "no limit")
+
+
+func test_volumes_show_their_percentage_and_apply_while_dragged():
+	var music: HSlider = screen._audio[0][1]
+	music.value = 255
+	var percent: Label = music.get_parent().get_child(1)
+	assert_eq(percent.text, "100%")
+	assert_eq(fake.get_value("audio.music.volume"), 255, "applied as it moves")

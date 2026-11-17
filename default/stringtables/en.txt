@@ -1950,6 +1950,87 @@ Volume
 OPTIONS_SAVE_DESC
 Changes apply at once; Save keeps them for the next start.
 
+OPTIONS_REDUCE_MOTION_DESC
+Show changes at once, without sliding, fading or counting.
+
+OPTIONS_PAGE_DISPLAY
+Display
+
+OPTIONS_GROUP_WINDOW
+Window
+
+OPTIONS_FULLSCREEN_DESC
+Fill the screen. Alt+Enter switches at any time.
+
+OPTIONS_WINDOW_SIZE
+Window size
+
+OPTIONS_WINDOW_SIZE_DESC
+Sizes that fit this screen; you can also drag the window's edges.
+
+OPTIONS_WINDOW_SIZE_FULLSCREEN
+Fullscreen uses the whole screen; switch it off to pick a size.
+
+OPTIONS_MONITOR
+Screen
+
+OPTIONS_MONITOR_N
+Screen %1%
+
+OPTIONS_UI_SCALE_DESC
+How large text and controls are. Automatic follows your screen's resolution and display settings.
+
+OPTIONS_UI_SCALE_TOO_BIG
+Too large for this window: the screens wouldn't fit.
+
+OPTIONS_UI_SCALE_AUTO_NOW
+Automatic (%1%%)
+
+OPTIONS_GROUP_FRAME_RATE
+Frame rate
+
+OPTIONS_VSYNC
+Vertical sync
+
+OPTIONS_VSYNC_DESC
+Match the screen's refresh rate: no tearing, a little less power.
+
+OPTIONS_FPS_CAP
+Frame rate limit
+
+OPTIONS_FPS_CAP_DESC
+A lower limit saves power and keeps laptops cool.
+
+OPTIONS_FPS_UNLIMITED
+No limit
+
+OPTIONS_FPS_BACKGROUND
+Slow down in the background
+
+OPTIONS_FPS_BACKGROUND_DESC
+Draw only a few frames a second while another window is in front.
+
+OPTIONS_FPS_SHOWN
+Show frames per second
+
+OPTIONS_SAVED_AUTO
+Saved.
+
+OPTIONS_MASTER_VOLUME
+Volume
+
+OPTIONS_MUSIC_DESC
+The soundtrack; it grows tense in turns with battles.
+
+OPTIONS_SOUNDS_DESC
+Clicks, alerts and the new-turn chime.
+
+OPTIONS_DB_VSYNC
+Synchronise drawing with the screen's refresh rate.
+
+OPTIONS_DB_MASTER_VOLUME
+Volume of everything, 0 to 255.
+
 OPTIONS_PAGE_GAMEPLAY
 Gameplay
 

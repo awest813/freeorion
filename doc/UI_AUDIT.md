@@ -178,3 +178,44 @@ The suite now runs with no errors in its log, beyond the engine's usual leak rep
 - "Right-click didn't send the colony ship": the bot right-clicked systems that sat under the side panels. With the target in clear map, the order goes through, as a dedicated check showed.
 - "Double-clicking a research row didn't queue it" (turn 1 only): the bot clicks while the screen is still opening. A real double-click on a tech card queues it.
 - The 18 anchor warnings in the tests come from tests sizing the game before adding it to the tree.
+
+# Resolutions, settings, audio and the start menu
+
+## Resolutions and UI scale
+
+| Found | Fix |
+|-------|-----|
+| "Automatic" UI scale came only from the display's DPI. Linux and many monitors report 96, so a 4K screen got a tiny 100% interface. | Automatic also follows the window's resolution: 100% at 1920×1080, 135% at 2560×1440, 200% at 4K. It still never leaves less than 1280×720 of room. |
+| A manual scale too large for the window (200% at 1280×800) left a 640×400 layout. | A manual scale is capped to what fits; the Options list greys out steps too large for the window and says why. |
+| The window could be dragged smaller than the layouts support. | It can't go below 1024×640. |
+| A window that fits a scale exactly (2560×1600 at 200%) got 195%: 2.0 / 0.05 is 39.999… in floating point. | The cap allows for the rounding (test added). |
+| There was no way to pick a window size, frame-rate limit or vsync, and nothing slowed the game in the background. The original client has several of these options. | A Display page (below), using the original client's option names where they exist. |
+
+## Settings
+
+| Found | Fix |
+|-------|-----|
+| Changes applied at once but reached the config file only on Save, so leaving Options without Save lost them at the next start. | Every change is saved as it is made; the Save button is gone, and the header says "Saved.". |
+| Interface and Sound sat in a fixed left column beside three tabs. On short or wide windows the column was cramped or stretched. | One column of six pages: **Display**, **Interface**, **Sound**, **Gameplay**, **Keyboard shortcuts**, **Advanced**. Each setting has its name, a line saying what it does, and its control. Content is capped at 960 px and centred on wide windows. |
+| The **Display** page didn't exist. | Fullscreen; window size (the sizes that fit the screen, greyed out in fullscreen); screen (with more than one); UI scale (showing the automatic value, e.g. "Automatic (135%)"); vertical sync; a frame-rate limit (30, 60, 120, 144 or none); slowing down in the background; an FPS counter. |
+| "Reduce motion" was described as "Turn off UI animations in the Godot client." | "Show changes at once, without sliding, fading or counting." |
+
+## Audio
+
+| Found | Fix |
+|-------|-----|
+| Volumes changed only when the slider was let go, and showed no value. | Volumes change as the slider moves and show a percentage; they are saved when it is let go. |
+| The Sounds slider gave no idea of how loud the sounds would be. | Letting go plays a click at the new volume. |
+| There was no overall volume. | A master volume (`audio.master.volume`), on the Master bus. |
+| Music started at full volume and stopped dead. | It fades in and out over a second and a half. |
+
+## Start menu
+
+| Found | Fix |
+|-------|-----|
+| The mouse and the keyboard could light two entries at once. | Pointing at an entry focuses it, so one entry is lit and its description shows. |
+| Load Game opened an empty list when there were no saves. | It is greyed out, with "No saved games yet" as its tooltip, until there is a save. |
+
+The bot played its tour at 1366×768, 2560×1440, 3840×2160 and 2560×1080 (ultrawide): no errors and no controls off screen. At 4K automatic scale picks 200%, giving the same layout as 1080p; the ultrawide's research grid takes five columns. Along the way:
+- The bot sent its clicks in logical coordinates where Godot expects window pixels, so it missed at any scale but 100%.
+- The visual tests now hide GUT's own panel while capturing, since it can show at the edges after a scale change.

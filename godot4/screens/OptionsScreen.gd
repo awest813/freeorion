@@ -1,15 +1,14 @@
 class_name OptionsScreen
 extends PanelContainer
-## Options: the interface and sound on the left, as proper controls that
-## apply at once; on the right, the options players change (Gameplay) in
-## plain words, keyboard shortcuts, and every other option (Advanced) as a
-## searchable list with a typed editor, validation feedback and reset.
-## Save writes them to config.xml; changes apply immediately either way.
+## Options, in pages: Display (window, UI scale, frame rate), Interface,
+## Sound, Gameplay (what players change, in plain words), Keyboard shortcuts,
+## and Advanced (every other option, searchable, with a typed editor,
+## validation feedback and reset). Every change applies and is saved at once.
 
 signal close_requested
 
 ## The pages on the right.
-enum Page { GAMEPLAY, HOTKEYS, ADVANCED }
+enum Page { DISPLAY, INTERFACE, SOUND, GAMEPLAY, HOTKEYS, ADVANCED }
 
 const SCALE_STEPS := [0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
 const THEMES := ["default", "high_contrast"]
@@ -26,15 +25,11 @@ const HIDDEN_PREFIXES := [
 	"ui.scale",
 	"ui.theme",
 	"ui.reduce-motion",
-	"audio.music.enabled",
-	"audio.music.volume",
-	"audio.effects.enabled",
-	"audio.effects.volume",
+	"audio.",
 	"ui.hotkey.godot.",
 	"ui.hints.",
 	"resource.stringtable.path",
-	"video.fullscreen.enabled",
-	"video.windowed.",
+	"video.",
 	# Command-line flags for one launch.
 	"continue",
 	"load",
@@ -80,6 +75,17 @@ const GAMEPLAY := [
 const LOOK := [["ui.glass", "OPTIONS_GLASS"], ["ui.accent.empire", "OPTIONS_EMPIRE_ACCENT"]]
 ## Words written in capitals in option titles.
 const ACRONYMS := ["ui", "ai", "fps", "id", "xml", "gl", "uri", "ip", "mp"]
+## The widest the pages get, centred in wider windows.
+const CONTENT_WIDTH := 960.0
+## The pages' tab labels, in Page order.
+const PAGE_KEYS := [
+	"OPTIONS_PAGE_DISPLAY",
+	"OPTIONS_INTERFACE",
+	"OPTIONS_AUDIO",
+	"OPTIONS_PAGE_GAMEPLAY",
+	"OPTIONS_PAGE_HOTKEYS",
+	"OPTIONS_PAGE_ADVANCED",
+]
 ## Sound controls: on/off option, volume option, label key.
 const AUDIO := [
 	["audio.music.enabled", "audio.music.volume", "OPTIONS_MUSIC"],
@@ -94,6 +100,14 @@ var _theme: OptionButton
 var _motion: CheckButton
 var _language: OptionButton
 var _fullscreen: CheckButton
+var _window_size: OptionButton
+var _monitor: OptionButton
+var _vsync: CheckButton
+var _fps_cap: OptionButton
+var _fps_background: CheckButton
+var _fps_shown: CheckButton
+var _master: HSlider
+var _pages: Array[Control] = []
 ## Per AUDIO row: [switch, volume slider].
 var _audio: Array = []
 var _search: LineEdit
@@ -168,17 +182,23 @@ func refresh() -> void:
 	_theme.select(maxi(0, THEMES.find(str(source.get_value(FOUi.OPTION_THEME)))))
 	_motion.set_pressed_no_signal(bool(source.get_value(FOUi.OPTION_REDUCE_MOTION)))
 	_fill_languages()
-	FOWindow.add_options(source)
-	_fullscreen.set_pressed_no_signal(bool(source.get_value(FOWindow.OPTION_FULLSCREEN)))
+	_refresh_display()
 	for i in AUDIO.size():
 		if source.exists(AUDIO[i][0]):
 			_audio[i][0].set_pressed_no_signal(bool(source.get_value(AUDIO[i][0])))
 			_audio[i][1].set_value_no_signal(float(source.get_value(AUDIO[i][1])))
 			_audio[i][1].editable = _audio[i][0].button_pressed
+	var master: Variant = (
+		source.get_value(FOAudio.OPTION_MASTER_VOLUME)
+		if source.exists(FOAudio.OPTION_MASTER_VOLUME)
+		else 255
+	)
+	_master.set_value_no_signal(float(master))
+	for slider: HSlider in [_master] + _audio.map(func(pair): return pair[1]):
+		slider.changed.emit()  # the percentage follows
 	for i in LOOK.size():
-		_look[i].visible = source.exists(LOOK[i][0])
-		_look[i].get_parent().get_child(_look[i].get_index() - 1).visible = _look[i].visible
-		if _look[i].visible:
+		_look[i].get_parent().visible = source.exists(LOOK[i][0])
+		if source.exists(LOOK[i][0]):
 			_look[i].set_pressed_no_signal(bool(source.get_value(LOOK[i][0])))
 	_status.text = ""
 	_capturing = ""
@@ -190,120 +210,32 @@ func refresh() -> void:
 func _build() -> void:
 	var margin := MarginContainer.new()
 	add_child(margin)
-	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", FOUi.tokens.space_8)
-	margin.add_child(columns)
-
-	var interface := VBoxContainer.new()
-	interface.custom_minimum_size.x = 360
-	columns.add_child(interface)
-	_status = ScreenKit.header(interface, "OPTIONS_TITLE", close_requested.emit)
-	interface.add_child(ScreenKit.section(tr("OPTIONS_INTERFACE")))
-	var grid := GridContainer.new()
-	grid.columns = 2
-	interface.add_child(grid)
-
-	grid.add_child(ScreenKit.label(tr("OPTIONS_UI_SCALE"), "SecondaryLabel"))
-	_scale = OptionButton.new()
-	_scale.add_item(tr("OPTIONS_UI_SCALE_AUTO"))
-	for step in SCALE_STEPS:
-		_scale.add_item("%d%%" % roundi(step * 100.0))
-	_scale.item_selected.connect(_on_scale_selected)
-	grid.add_child(_scale)
-
-	grid.add_child(ScreenKit.label(tr("OPTIONS_UI_THEME"), "SecondaryLabel"))
-	_theme = OptionButton.new()
-	for theme_name in THEMES:
-		_theme.add_item(tr("OPTIONS_THEME_" + theme_name.to_upper()))
-	_theme.item_selected.connect(func(i): _apply(FOUi.OPTION_THEME, THEMES[i]))
-	grid.add_child(_theme)
-
-	grid.add_child(ScreenKit.label(tr("OPTIONS_REDUCE_MOTION"), "SecondaryLabel"))
-	_motion = CheckButton.new()
-	_motion.tooltip_text = tr("OPTIONS_DB_UI_REDUCE_MOTION")
-	_motion.toggled.connect(func(on): _apply(FOUi.OPTION_REDUCE_MOTION, on))
-	grid.add_child(_motion)
-
-	grid.add_child(ScreenKit.label(tr("OPTIONS_LANGUAGE_NAME"), "SecondaryLabel"))
-	_language = OptionButton.new()
-	_language.item_selected.connect(_on_language_selected)
-	grid.add_child(_language)
-
-	grid.add_child(ScreenKit.label(tr("OPTIONS_FULLSCREEN"), "SecondaryLabel"))
-	_fullscreen = CheckButton.new()
-	_fullscreen.tooltip_text = FOHotkeys.shown("fullscreen")
-	_fullscreen.toggled.connect(func(on): FOWindow.set_fullscreen(on, source))
-	grid.add_child(_fullscreen)
-
-	for entry in LOOK:
-		grid.add_child(ScreenKit.label(tr(entry[1]), "SecondaryLabel"))
-		var look := CheckButton.new()
-		look.tooltip_text = tr(entry[1] + "_DESC")
-		look.toggled.connect(func(on): _apply(entry[0], on))
-		grid.add_child(look)
-		_look.push_back(look)
-
-	grid.add_child(ScreenKit.label(tr("OPTIONS_HINTS"), "SecondaryLabel"))
-	var hints := Button.new()
-	hints.text = tr("HINT_RESET")
-	hints.pressed.connect(reset_hints)
-	grid.add_child(hints)
-
-	# Music and sounds: a switch and a volume slider each.
-	interface.add_child(ScreenKit.section(tr("OPTIONS_AUDIO")))
-	var audio_grid := GridContainer.new()
-	audio_grid.columns = 3
-	interface.add_child(audio_grid)
-	for entry in AUDIO:
-		audio_grid.add_child(ScreenKit.label(tr(entry[2]), "SecondaryLabel"))
-		var on := CheckButton.new()
-		audio_grid.add_child(on)
-		var volume := HSlider.new()
-		volume.min_value = 0
-		volume.max_value = 255
-		volume.step = 1
-		volume.custom_minimum_size.x = 140
-		volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		volume.tooltip_text = tr("OPTIONS_VOLUME")
-		audio_grid.add_child(volume)
-		on.toggled.connect(
-			func(pressed: bool):
-				volume.editable = pressed
-				_apply(entry[0], pressed)
-		)
-		volume.drag_ended.connect(func(_changed): _apply(entry[1], int(volume.value)))
-		_audio.push_back([on, volume])
-
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	interface.add_child(spacer)
-	var save := Button.new()
-	save.text = tr("SAVE")
-	save.theme_type_variation = "PrimaryButton"
-	save.tooltip_text = tr("OPTIONS_SAVE_DESC")
-	save.pressed.connect(_on_save_pressed)
-	interface.add_child(save)
-
-	var right := VBoxContainer.new()
-	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	columns.add_child(right)
+	# A readable column in wide windows: rows not stretched across the screen.
+	resized.connect(
+		func():
+			var side := maxf(0.0, (size.x - CONTENT_WIDTH) / 2.0)
+			margin.add_theme_constant_override("margin_left", int(side))
+			margin.add_theme_constant_override("margin_right", int(side))
+	)
+	var column := VBoxContainer.new()
+	margin.add_child(column)
+	_status = ScreenKit.header(column, "OPTIONS_TITLE", close_requested.emit)
 	_right_tabs = TabBar.new()
-	for key in ["OPTIONS_PAGE_GAMEPLAY", "OPTIONS_PAGE_HOTKEYS", "OPTIONS_PAGE_ADVANCED"]:
+	for key in PAGE_KEYS:
 		_right_tabs.add_tab(tr(key))
-	right.add_child(_right_tabs)
-	_gameplay_list = ScreenKit.list()
-	_gameplay = ScreenKit.scrolling(_gameplay_list)
-	right.add_child(_gameplay)
-	_hotkey_list = ScreenKit.list()
-	_hotkeys = ScreenKit.scrolling(_hotkey_list)
-	_hotkeys.visible = false
-	right.add_child(_hotkeys)
+	column.add_child(_right_tabs)
+	_build_display(_page(column))
+	_build_interface(_page(column))
+	_build_sound(_page(column))
+	_gameplay_list = _page(column)
+	_gameplay = _pages.back()
+	_hotkey_list = _page(column)
+	_hotkeys = _pages.back()
 	var all := VBoxContainer.new()
 	all.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	all.visible = false
-	right.add_child(all)
+	column.add_child(all)
 	_all_options = all
-	_right_tabs.tab_changed.connect(show_page)
+	_pages.push_back(all)
 	var note := ScreenKit.label(tr("OPTIONS_ADVANCED_NOTE"), "SecondaryLabel")
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	all.add_child(note)
@@ -314,16 +246,219 @@ func _build() -> void:
 	all.add_child(_search)
 	_list = ScreenKit.list()
 	all.add_child(ScreenKit.scrolling(_list))
+	_right_tabs.tab_changed.connect(show_page)
+	show_page(Page.DISPLAY)
 
 
-## Show \a page (a Page) on the right.
+# The Display page as things are: fullscreen, the window sizes that fit
+# the screen (the current one marked), monitors, the UI scale steps that fit
+# the window, vsync and frame rate.
+func _refresh_display() -> void:
+	FOWindow.add_options(source)
+	var fullscreen := bool(source.get_value(FOWindow.OPTION_FULLSCREEN))
+	_fullscreen.set_pressed_no_signal(fullscreen)
+	var screen := DisplayServer.window_get_current_screen()
+	var window := get_window().size if is_inside_tree() else Vector2i(1280, 800)
+	_window_size.clear()
+	var sizes := FOWindow.window_sizes(DisplayServer.screen_get_usable_rect(screen).size)
+	if not sizes.has(window):
+		sizes.push_back(window)
+	for size: Vector2i in sizes:
+		_window_size.add_item("%d × %d" % [size.x, size.y])
+		_window_size.set_item_metadata(_window_size.item_count - 1, size)
+		if size == window:
+			_window_size.select(_window_size.item_count - 1)
+	_window_size.disabled = fullscreen or not FOWindow.has_window()
+	_window_size.tooltip_text = tr("OPTIONS_WINDOW_SIZE_FULLSCREEN") if fullscreen else ""
+	_monitor.clear()
+	for i in DisplayServer.get_screen_count():
+		var area := DisplayServer.screen_get_size(i)
+		_monitor.add_item(
+			tr("OPTIONS_MONITOR_N").replace("%1%", str(i + 1)) + "  ·  %d × %d" % [area.x, area.y]
+		)
+	_monitor.select(screen)
+	_monitor.get_parent().visible = _monitor.item_count > 1
+	var fits := FOUiScale.max_scale_for_window(window)
+	for i in SCALE_STEPS.size():
+		var too_big: bool = SCALE_STEPS[i] > fits + 0.001
+		_scale.set_item_disabled(i + 1, too_big)
+		_scale.set_item_tooltip(i + 1, tr("OPTIONS_UI_SCALE_TOO_BIG") if too_big else "")
+	_scale.set_item_text(
+		0, tr("OPTIONS_UI_SCALE_AUTO_NOW").replace("%1%", str(roundi(FOUi.scale * 100)))
+	)
+	_vsync.set_pressed_no_signal(bool(source.get_value(FOWindow.OPTION_VSYNC)))
+	var cap := int(source.get_value(FOWindow.OPTION_FPS_MAX))
+	var limited := bool(source.get_value(FOWindow.OPTION_FPS_LIMITED))
+	var at: int = FOWindow.FPS_STEPS.find(cap if limited else 0)
+	_fps_cap.select(at if at >= 0 else FOWindow.FPS_STEPS.size() - 1)
+	_fps_background.set_pressed_no_signal(bool(source.get_value(FOWindow.OPTION_FPS_BACKGROUND)))
+	_fps_shown.set_pressed_no_signal(bool(source.get_value(FOWindow.OPTION_FPS_SHOWN)))
+
+
+# A page: a scrolling list in the column; returns the list.
+func _page(column: VBoxContainer) -> VBoxContainer:
+	var list := ScreenKit.list()
+	list.add_theme_constant_override("separation", FOUi.tokens.space_3)
+	var scroll := ScreenKit.scrolling(list)
+	column.add_child(scroll)
+	_pages.push_back(scroll)
+	return list
+
+
+# A setting: its name and what it does on the left, \a control on the right.
+func _setting(list: Control, title_key: String, description_key: String, control: Control) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", FOUi.tokens.space_6)
+	var text := VBoxContainer.new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.add_theme_constant_override("separation", 0)
+	row.add_child(text)
+	text.add_child(ScreenKit.label(tr(title_key)))
+	if not description_key.is_empty():
+		var detail := ScreenKit.label(tr(description_key), "SmallLabel")
+		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.add_child(detail)
+	control.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if control is OptionButton or control is Button and not control is CheckButton:
+		control.custom_minimum_size.x = FOUi.tokens.space_8 * 7
+	row.add_child(control)
+	list.add_child(row)
+
+
+func _build_display(list: VBoxContainer) -> void:
+	list.add_child(ScreenKit.section(tr("OPTIONS_GROUP_WINDOW")))
+	_fullscreen = CheckButton.new()
+	_fullscreen.tooltip_text = FOHotkeys.shown("fullscreen")
+	_fullscreen.toggled.connect(
+		func(on):
+			FOWindow.set_fullscreen(on, source)
+			_status.text = tr("OPTIONS_SAVED_AUTO")
+			_refresh_display()
+	)
+	_setting(list, "OPTIONS_FULLSCREEN", "OPTIONS_FULLSCREEN_DESC", _fullscreen)
+	_window_size = OptionButton.new()
+	_window_size.item_selected.connect(
+		func(i):
+			FOWindow.set_window_size(_window_size.get_item_metadata(i), source)
+			_status.text = tr("OPTIONS_SAVED_AUTO")
+			_refresh_display.call_deferred()
+	)
+	_setting(list, "OPTIONS_WINDOW_SIZE", "OPTIONS_WINDOW_SIZE_DESC", _window_size)
+	_monitor = OptionButton.new()
+	_monitor.item_selected.connect(func(i): FOWindow.set_monitor(i, source))
+	_setting(list, "OPTIONS_MONITOR", "", _monitor)
+	_scale = OptionButton.new()
+	_scale.add_item(tr("OPTIONS_UI_SCALE_AUTO"))
+	for step in SCALE_STEPS:
+		_scale.add_item("%d%%" % roundi(step * 100.0))
+	_scale.item_selected.connect(_on_scale_selected)
+	_setting(list, "OPTIONS_UI_SCALE", "OPTIONS_UI_SCALE_DESC", _scale)
+	list.add_child(ScreenKit.section(tr("OPTIONS_GROUP_FRAME_RATE")))
+	_vsync = CheckButton.new()
+	_vsync.toggled.connect(func(on): _apply(FOWindow.OPTION_VSYNC, on))
+	_setting(list, "OPTIONS_VSYNC", "OPTIONS_VSYNC_DESC", _vsync)
+	_fps_cap = OptionButton.new()
+	for cap: int in FOWindow.FPS_STEPS:
+		_fps_cap.add_item(str(cap) if cap > 0 else tr("OPTIONS_FPS_UNLIMITED"))
+	_fps_cap.item_selected.connect(
+		func(i):
+			var cap: int = FOWindow.FPS_STEPS[i]
+			if cap > 0:
+				source.set_value(FOWindow.OPTION_FPS_MAX, cap)
+			_apply(FOWindow.OPTION_FPS_LIMITED, cap > 0)
+	)
+	_setting(list, "OPTIONS_FPS_CAP", "OPTIONS_FPS_CAP_DESC", _fps_cap)
+	_fps_background = CheckButton.new()
+	_fps_background.toggled.connect(func(on): _apply(FOWindow.OPTION_FPS_BACKGROUND, on))
+	_setting(list, "OPTIONS_FPS_BACKGROUND", "OPTIONS_FPS_BACKGROUND_DESC", _fps_background)
+	_fps_shown = CheckButton.new()
+	_fps_shown.toggled.connect(func(on): _apply(FOWindow.OPTION_FPS_SHOWN, on))
+	_setting(list, "OPTIONS_FPS_SHOWN", "", _fps_shown)
+
+
+func _build_interface(list: VBoxContainer) -> void:
+	_theme = OptionButton.new()
+	for theme_name in THEMES:
+		_theme.add_item(tr("OPTIONS_THEME_" + theme_name.to_upper()))
+	_theme.item_selected.connect(func(i): _apply(FOUi.OPTION_THEME, THEMES[i]))
+	_setting(list, "OPTIONS_UI_THEME", "", _theme)
+	_language = OptionButton.new()
+	_language.item_selected.connect(_on_language_selected)
+	_setting(list, "OPTIONS_LANGUAGE_NAME", "", _language)
+	_motion = CheckButton.new()
+	_motion.tooltip_text = tr("OPTIONS_DB_UI_REDUCE_MOTION")
+	_motion.toggled.connect(func(on): _apply(FOUi.OPTION_REDUCE_MOTION, on))
+	_setting(list, "OPTIONS_REDUCE_MOTION", "OPTIONS_REDUCE_MOTION_DESC", _motion)
+	for entry in LOOK:
+		var look := CheckButton.new()
+		look.toggled.connect(func(on): _apply(entry[0], on))
+		_setting(list, entry[1], entry[1] + "_DESC", look)
+		_look.push_back(look)
+	var hints := Button.new()
+	hints.text = tr("HINT_RESET")
+	hints.pressed.connect(reset_hints)
+	_setting(list, "OPTIONS_HINTS", "", hints)
+
+
+# Master volume, then music and sounds: a switch and a volume each. Volumes
+# change as the slider moves (sounds play a sample as it is let go) and are
+# saved when it is let go.
+func _build_sound(list: VBoxContainer) -> void:
+	_master = _volume_slider(FOAudio.OPTION_MASTER_VOLUME, "")
+	_setting(list, "OPTIONS_MASTER_VOLUME", "", _master.get_parent())
+	for entry in AUDIO:
+		var box := HBoxContainer.new()
+		box.add_theme_constant_override("separation", FOUi.tokens.space_3)
+		var on := CheckButton.new()
+		box.add_child(on)
+		var volume := _volume_slider(entry[1], "click" if entry[1].contains("effects") else "")
+		box.add_child(volume.get_parent())
+		on.toggled.connect(
+			func(pressed: bool):
+				volume.editable = pressed
+				_apply(entry[0], pressed)
+		)
+		_setting(list, entry[2], entry[2] + "_DESC", box)
+		_audio.push_back([on, volume])
+
+
+# A 0-255 volume slider for \a option with its percentage beside it, in a
+# box; \a sample plays as it is let go.
+func _volume_slider(option: String, sample: String) -> HSlider:
+	var box := HBoxContainer.new()
+	var volume := HSlider.new()
+	volume.min_value = 0
+	volume.max_value = 255
+	volume.step = 1
+	volume.custom_minimum_size.x = FOUi.tokens.space_8 * 6
+	volume.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	volume.tooltip_text = tr("OPTIONS_VOLUME")
+	box.add_child(volume)
+	var percent := ScreenKit.label("", "SecondaryLabel")
+	percent.custom_minimum_size.x = FOUi.tokens.space_8 + FOUi.tokens.space_4
+	percent.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	box.add_child(percent)
+	var show := func(v: float): percent.text = "%d%%" % roundi(v / 2.55)
+	volume.value_changed.connect(show)
+	volume.changed.connect(func(): show.call(volume.value))
+	volume.value_changed.connect(func(v): source.set_value(option, int(v)))
+	volume.drag_ended.connect(
+		func(_changed):
+			_apply(option, int(volume.value))
+			if not sample.is_empty():
+				FOAudio.play(sample)
+	)
+	show.call(volume.value)
+	return volume
+
+
+## Show \a page (a Page).
 func show_page(page: int) -> void:
 	if _right_tabs.current_tab != page:
 		_right_tabs.current_tab = page  # calls back here
 		return
-	_gameplay.visible = page == Page.GAMEPLAY
-	_hotkeys.visible = page == Page.HOTKEYS
-	_all_options.visible = page == Page.ADVANCED
+	for i in _pages.size():
+		_pages[i].visible = i == page
 	_capturing = ""
 	_refresh_hotkeys()
 
@@ -518,9 +653,11 @@ func _stance_editor(option: String, value: String) -> OptionButton:
 	return pick
 
 
+# Set \a option to \a value and save it; an invalid value puts \a editor
+# back and says so.
 func _apply(option: String, value: Variant, editor: Control = null) -> void:
 	if source.set_value(option, value):
-		_status.text = tr("OPTIONS_APPLIED").replace("%1%", option)
+		_status.text = tr("OPTIONS_SAVED_AUTO") if source.commit() else tr("OPTIONS_SAVE_FAILED")
 		return
 	_status.text = tr("OPTIONS_INVALID").replace("%1%", option)
 	# Put the editor back to the stored value.
@@ -559,10 +696,6 @@ func _reset(option: String) -> void:
 func _on_scale_selected(index: int) -> void:
 	var setting := "auto" if index == 0 else str(SCALE_STEPS[index - 1])
 	_apply(FOUi.OPTION_SCALE, setting)
-
-
-func _on_save_pressed() -> void:
-	_status.text = tr("OPTIONS_SAVED") if source.commit() else tr("OPTIONS_SAVE_FAILED")
 
 
 func _scale_index(setting: String) -> int:

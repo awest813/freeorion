@@ -106,3 +106,12 @@ func test_music_opens_up_in_war():
 	FOAudio.set_tension(false)
 	await wait_seconds(FOAudio.TENSION_SECONDS + 0.3)
 	assert_false(FOAudio.is_tense(), "settles back in peace")
+
+
+func test_master_volume_sets_the_master_bus():
+	FOAudio._take(FOAudio.OPTION_MASTER_VOLUME, 64)
+	FOAudio._apply_music()
+	assert_almost_eq(AudioServer.get_bus_volume_db(0), FOAudio.volume_db(64), 0.01)
+	FOAudio._take(FOAudio.OPTION_MASTER_VOLUME, 255)
+	FOAudio._apply_music()
+	assert_almost_eq(AudioServer.get_bus_volume_db(0), 0.0, 0.01)

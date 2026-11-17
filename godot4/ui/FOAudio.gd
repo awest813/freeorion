@@ -13,6 +13,10 @@ const OPTION_MUSIC := "audio.music.enabled"
 const OPTION_MUSIC_VOLUME := "audio.music.volume"
 const OPTION_EFFECTS := "audio.effects.enabled"
 const OPTION_EFFECTS_VOLUME := "audio.effects.volume"
+## Everything's volume (the Master bus), 0-255.
+const OPTION_MASTER_VOLUME := "audio.master.volume"
+## Seconds the music takes to come in or go.
+const MUSIC_FADE_SECONDS := 1.5
 const SOUND_DIR := "res://assets/sound/"
 const MUSIC_TRACK := "artificial_intelligence_v3.ogg"
 ## Sound names and their files.
@@ -63,6 +67,7 @@ var effects_enabled := true
 ## 0-255, as the options store them.
 var music_volume := 127
 var effects_volume := 255
+var master_volume := 255
 ## Sounds asked for so far, and the last one (also when nothing is heard).
 var played_count := 0
 var last_sound := ""
@@ -70,6 +75,7 @@ var last_sound := ""
 var audible := false
 
 var _music: AudioStreamPlayer
+var _music_fade: Tween
 var _lowpass: AudioEffectLowPassFilter
 var _effects: Array[AudioStreamPlayer] = []
 var _next_effect := 0
@@ -142,17 +148,29 @@ func set_audible(on: bool) -> void:
 
 
 func _apply_music() -> void:
+	AudioServer.set_bus_volume_db(0, volume_db(master_volume))
+	if _music_fade:
+		_music_fade.kill()
 	if not music_enabled or not audible:
-		_music.stop()
+		# Fades out, rather than cutting off.
+		if _music.playing and audible:
+			_music_fade = create_tween()
+			_music_fade.tween_property(_music, "volume_db", -60.0, MUSIC_FADE_SECONDS)
+			_music_fade.tween_callback(_music.stop)
+		else:
+			_music.stop()
 		return
 	if _music.stream == null:
 		var stream := _stream(MUSIC_TRACK)
 		if stream is AudioStreamOggVorbis:
 			stream.loop = true
 		_music.stream = stream
-	_music.volume_db = volume_db(music_volume)
 	if _music.stream and not _music.playing:
+		# Comes in from silence.
+		_music.volume_db = -60.0
 		_music.play()
+	_music_fade = create_tween()
+	_music_fade.tween_property(_music, "volume_db", volume_db(music_volume), MUSIC_FADE_SECONDS)
 
 
 ## Let the music open up (\a tense: the empire fought in the last turn) or
@@ -272,9 +290,12 @@ func _read_options() -> void:
 	options.add_option(OPTION_MUSIC_VOLUME, "OPTIONS_DB_MUSIC_VOLUME", 127)
 	options.add_option(OPTION_EFFECTS, "OPTIONS_DB_SOUND_ON", true)
 	options.add_option(OPTION_EFFECTS_VOLUME, "OPTIONS_DB_UI_SOUND_VOLUME", 255)
+	options.add_option(OPTION_MASTER_VOLUME, "OPTIONS_DB_MASTER_VOLUME", 255)
 	for option in [OPTION_MUSIC, OPTION_MUSIC_VOLUME, OPTION_EFFECTS, OPTION_EFFECTS_VOLUME]:
 		_take(option, options.get_value(option))
 		options.watch(option)
+	_take(OPTION_MASTER_VOLUME, options.get_value(OPTION_MASTER_VOLUME))
+	options.watch(OPTION_MASTER_VOLUME)
 	options.option_changed.connect(_on_option_changed)
 
 
@@ -294,3 +315,5 @@ func _take(option: String, value: Variant) -> void:
 			effects_enabled = bool(value)
 		OPTION_EFFECTS_VOLUME:
 			effects_volume = int(value)
+		OPTION_MASTER_VOLUME:
+			master_volume = int(value)
