@@ -338,3 +338,9 @@ The bot loaded a turn-40 game and went through every in-game screen, panel and w
 | A fleet between systems with no next stop had a blank Location in the objects list. | "Deep space". |
 
 Checked and fine at both sizes: production, research (list and tree), government, design, objects (each tab), combat, empires (both tabs), the Pedia's tech, species, planet and empire articles, the map with the system, planet, fleet and ship panels, the Messages window, the game menu and dialogs.
+
+### Debugging after the in-game pass
+
+- **An 80-turn warlord game at 1024 × 640** (now drawn at 80%, with fleets fighting from turn 20 on): memory went from 125 to 128 MB and objects stayed around 9,500, nodes around 3,000, with no stray nodes. There were no script errors or warnings beyond the headless machine's audio and vsync. The only "bug" the bot reported was its own turn-1 double click while the research screen was still opening, as before.
+- **Leaks at exit:** the bot's logs end with "ObjectDB instances leaked at exit". A verbose run that loads a game and leaves with the game menu's Exit, as a player does, leaks nothing; the warning comes from the bot stopping the engine mid-game, which no player can do.
+- **Frame time at turn arrival:** the frame a turn arrives on took 300–640 ms, growing as the galaxy fills. Timing each turn listener on a turn-40 save, all of them together take under 15 ms. The frame after them is about 65 ms longer than a quiet one, and a map refresh adds nothing measurable. The rest is the client unpacking the server's turn update (C++), which grows with what the empire knows. No UI change helps there.
