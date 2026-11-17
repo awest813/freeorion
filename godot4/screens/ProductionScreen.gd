@@ -397,6 +397,14 @@ func _queue_row(entry: Dictionary, position: int, count: int) -> Control:
 				_order(source.remove(index))
 				card.accept_event()
 	)
+	# The catalogue's category band (buildings, ships, projects), so an item
+	# looks the same on both sides.
+	var band := catalog_band(entry)
+	card.draw.connect(
+		func():
+			var top := float(FOUi.tokens.chamfer_small)
+			card.draw_rect(Rect2(0, top, FOUi.tokens.space_1, maxf(0.0, card.size.y - top)), band)
+	)
 	var row := HBoxContainer.new()
 	card.add_child(row)
 	row.add_child(ScreenKit.icon(entry.get("icon", "")))

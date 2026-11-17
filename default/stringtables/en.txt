@@ -2256,6 +2256,9 @@ Your systems' industry (left, orange) and research (right, blue); bigger is more
 MAP_MODE_TIP_THREAT
 Strength (structure) of monster fleets and those of empires at war with you, by system.
 
+MINIMAP_TIP
+The whole galaxy: click or drag to move the map there. Halos show each empire's supply.
+
 OPTIONS_DB_UI_MAP_MINIMAP_SHOWN
 Show the minimap of the whole galaxy at the bottom of the map (Ctrl+M)
 

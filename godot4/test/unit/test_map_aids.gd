@@ -65,3 +65,20 @@ func test_minimap_maps_points_both_ways_and_moves_the_camera():
 	click.position = minimap._canvas.position + minimap.to_local(Vector2(1000, 500))
 	minimap._gui_input(click)
 	assert_almost_eq(shell.map_view.map.camera.position, Vector2(1000, 500), Vector2.ONE * 0.5)
+
+
+func test_minimap_shows_supply_and_the_selection_and_says_how_to_use_it():
+	var map := shell.map_view.map
+	var snapshot := {
+		"system_ids": PackedInt32Array([1, 2]),
+		"system_positions": PackedVector2Array([Vector2(0, 0), Vector2(1000, 500)]),
+		"supply_systems": PackedInt32Array([1]),
+		"supply_system_colors": PackedColorArray([Color.BLUE]),
+	}
+	map.set_snapshot(snapshot, PackedStringArray(["A", "B"]), PackedColorArray())
+	map.select_system(1)
+	var overview := map.overview()
+	assert_eq(overview["supply_systems"], PackedInt32Array([1]))
+	assert_eq(overview["supply_colors"], PackedColorArray([Color.BLUE]))
+	assert_eq(overview["selected"], 0, "The selected system's index")
+	assert_eq(shell.minimap.tooltip_text, tr("MINIMAP_TIP"))

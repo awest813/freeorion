@@ -315,7 +315,14 @@ func system_position(system_id: int) -> Vector2:
 
 ## What the minimap draws: {positions, lanes (index pairs), colors}.
 func overview() -> Dictionary:
-	return {"positions": _positions, "lanes": _lanes, "colors": _star_colors}
+	return {
+		"positions": _positions,
+		"lanes": _lanes,
+		"colors": _star_colors,
+		"supply_systems": _supply_systems,
+		"supply_colors": _supply_system_colors,
+		"selected": _selected,
+	}
 
 
 ## Radius of the scale circle: the scale legend's length at this zoom.

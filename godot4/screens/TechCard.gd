@@ -134,8 +134,14 @@ static func rail(card: Control, position: int, count: int, done_turn: int, activ
 			var card_top := card.global_position.y - rail.global_position.y
 			var top := card_top - gap if position > 0 else mark_y
 			var bottom := card_top + card.size.y + gap if position < count - 1 else mark_y
-			if bottom > top:
-				rail.draw_line(Vector2(x, top), Vector2(x, bottom), line, 2.0)
+			# Broken round the turn number, not drawn through it.
+			var label_top := label.position.y - 2.0
+			var label_bottom := label.position.y + label.size.y + 2.0
+			for span: Vector2 in [
+				Vector2(top, minf(bottom, label_top)), Vector2(maxf(top, label_bottom), bottom)
+			]:
+				if span.y > span.x:
+					rail.draw_line(Vector2(x, span.x), Vector2(x, span.y), line, 2.0)
 			var radius := tokens.space_1 * 1.5
 			rail.draw_circle(Vector2(x, mark_y), radius + 2, tokens.surface)
 			if active:
