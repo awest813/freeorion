@@ -131,7 +131,9 @@ static func loading_tip(pick: int) -> String:
 	var link := RegEx.create_from_string("\\[\\[[a-z_]+ ([A-Za-z0-9_]+)\\]\\]")
 	for found in link.search_all(text):
 		text = text.replace(found.get_string(), TranslationServer.translate(found.get_string(1)))
-	return RegEx.create_from_string("^\\d+:\\s*").sub(text, "")
+	# The names links stand for can hold markup of their own
+	# (<encyclopedia ...>Outpost</encyclopedia>): plain text only.
+	return FORichText.plain_text(RegEx.create_from_string("^\\d+:\\s*").sub(text, ""))
 
 
 ## Splash and logo file names for \a date (a Time date dictionary): April

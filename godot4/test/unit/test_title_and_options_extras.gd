@@ -93,3 +93,14 @@ func test_loading_shows_a_spinner_and_a_tip():
 	title.set_busy("")
 	assert_false(title._spinner.visible)
 	assert_true(title._menu.visible)
+
+
+func test_every_loading_tip_is_plain_text():
+	var shown := {}
+	for pick in 100:
+		var tip := TitleScreen.loading_tip(pick)
+		if shown.has(tip):
+			continue
+		shown[tip] = true
+		assert_false(tip.contains("<") or tip.contains("[["), "Markup left in: " + tip.left(80))
+	assert_gt(shown.size(), 5, "Several tips")

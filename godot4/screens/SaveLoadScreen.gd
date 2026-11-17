@@ -30,6 +30,9 @@ var suggested_name := ""
 var defer_load := false
 ## A save asked for here is on its way.
 var saving := false
+## Whose game is running (for "last saved on turn ..." before loading
+## another): () -> String.
+var empire_name := func() -> String: return FOUniverse.get_empire_name(FOUniverse.get_empire_id())
 
 var _title: Label
 var _status: Label
@@ -40,6 +43,7 @@ var _delete: Button
 var _selected_path := ""
 var _saves: Array = []
 var _sort: OptionButton
+var _autos: CheckBox
 
 
 func _init() -> void:
@@ -63,8 +67,11 @@ func refresh() -> void:
 	_selected_path = ""
 	_status.text = ""
 	_saves = source.list_saves()
-	# Saving picks a save to overwrite; autosaves are the game's own.
-	if mode == "save":
+	# Saving picks a save to overwrite; autosaves are the game's own. Loading
+	# lists them unless they are hidden (there is one a turn).
+	var has_autos := _saves.any(func(save): return save.get("auto", false))
+	_autos.visible = mode == "load" and has_autos
+	if mode == "save" or not _autos.button_pressed:
 		_saves = _saves.filter(func(save): return not save.get("auto", false))
 	sort_saves(_saves, SORTS[maxi(_sort.selected, 0)][0])
 	ScreenKit.clear(_list)
@@ -114,6 +121,7 @@ static func galaxy_summary(save: Dictionary) -> String:
 static func galaxy_details(save: Dictionary) -> String:
 	var t := TranslationServer.translate
 	var lines: PackedStringArray = [
+		str(save.get("file", "")),
 		"%s: %s" % [t.call("SAVES_PLAYER"), save.get("player", "")],
 		"%s: %s" % [t.call("SAVES_VERSION"), save.get("version", "")],
 	]
@@ -167,6 +175,13 @@ func _build() -> void:
 	_sort.item_selected.connect(func(_i): refresh())
 	header.add_child(_sort)
 	header.move_child(_sort, 1)
+	_autos = CheckBox.new()
+	_autos.text = tr("SAVES_AUTOSAVES")
+	_autos.tooltip_text = tr("SAVES_AUTOSAVES_TIP")
+	_autos.button_pressed = true
+	_autos.toggled.connect(func(_on): refresh())
+	header.add_child(_autos)
+	header.move_child(_autos, 1)
 	_list = ScreenKit.list()
 	box.add_child(ScreenKit.scrolling(_list))
 	_status = ScreenKit.label("", "SecondaryLabel")
@@ -176,7 +191,7 @@ func _build() -> void:
 	_name = LineEdit.new()
 	_name.placeholder_text = tr("SAVES_NAME")
 	_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_name.text_changed.connect(func(_t): _update_action())
+	_name.text_changed.connect(func(_t): _on_name_changed())
 	_name.text_submitted.connect(func(_t): _on_action())
 	footer.add_child(_name)
 	var spacer := Control.new()
@@ -236,15 +251,28 @@ func _save_card(save: Dictionary) -> Control:
 			)
 		)
 	)
-	var details := "%s · %s" % [save.get("file", ""), format_time(save.get("time", ""))]
-	if save.get("auto", false):
-		details = tr("SAVES_AUTOSAVE") + " · " + details
+	# An autosave's file name is generated and long: the tooltip has it.
+	var details := (
+		"%s · %s"
+		% [
+			tr("SAVES_AUTOSAVE") if save.get("auto", false) else save.get("file", ""),
+			format_time(save.get("time", ""))
+		]
+	)
 	text.add_child(ScreenKit.label(details, "SmallLabel"))
 	var galaxy := galaxy_summary(save)
 	if not galaxy.is_empty():
 		text.add_child(ScreenKit.label(galaxy, "SmallLabel"))
 		card.custom_minimum_size.y += FOUi.tokens.font_size_small + 4
 	card.tooltip_text = galaxy_details(save)
+	# A double click picks it and loads it (or saves over it).
+	card.gui_input.connect(
+		func(event: InputEvent):
+			var click := event as InputEventMouseButton
+			if click and click.double_click and click.button_index == MOUSE_BUTTON_LEFT:
+				_select(save)
+				_on_action()
+	)
 	return card
 
 
@@ -287,9 +315,42 @@ func _delete_save(path: String) -> void:
 	)
 
 
+# Typing the name of a save there already is says that saving replaces it.
+func _on_name_changed() -> void:
+	var existing := existing_save(_name.text)
+	_selected_path = existing.get("path", "")
+	for card: Button in _list.get_children().filter(func(c): return c is Button):
+		card.set_pressed_no_signal(card.get_meta("path") == _selected_path)
+	_status.text = "" if existing.is_empty() else tr("SAVES_OVERWRITE")
+	_update_action()
+
+
+## The listed save (not an autosave) that saving as \a typed would replace,
+## or {}.
+func existing_save(typed: String) -> Dictionary:
+	var stem := file_stem(typed)
+	for save: Dictionary in _saves:
+		if not save.get("auto", false) and str(save.get("file", "")).get_basename() == stem:
+			return save
+	return {}
+
+
+## The file name (without extension) saving as \a typed makes, as FOSaves
+## makes it: a typed extension goes, characters files can't have become _.
+static func file_stem(typed: String) -> String:
+	var stem := typed.strip_edges()
+	for extension in [".sav", ".mps"]:
+		if stem.to_lower().ends_with(extension):
+			stem = stem.left(-extension.length()).strip_edges()
+	var safe := ""
+	for c in stem:
+		safe += "_" if c.unicode_at(0) < 0x20 or c in '/\\:*?"<>|' else c
+	return safe
+
+
 func _update_action() -> void:
 	if mode == "save":
-		_action.disabled = _name.text.strip_edges().is_empty()
+		_action.disabled = file_stem(_name.text).is_empty()
 		_action.tooltip_text = tr("SAVES_NEED_NAME") if _action.disabled else ""
 	else:
 		_action.disabled = _selected_path.is_empty()
@@ -302,18 +363,57 @@ func _update_action() -> void:
 func _on_action() -> void:
 	if _action.disabled:
 		return
-	if mode == "save":
-		var path: String = source.save_game(_name.text.strip_edges())
-		saving = not path.is_empty()
-		_status.text = tr("SAVES_SAVING") if saving else tr("SAVES_FAILED")
-	elif defer_load or source.load_game(_selected_path):
+	var stem := file_stem(_name.text)
+	if mode == "save" and not existing_save(stem).is_empty():
+		# Replacing a save can't be undone: ask.
+		_confirm(
+			tr("SAVES_REPLACE_CONFIRM").replace("%1%", stem),
+			tr("SAVES_REPLACE"),
+			_save_as.bind(stem)
+		)
+	elif mode == "save":
+		_save_as(stem)
+	elif defer_load:
+		# In a game: loading ends it, as quitting does; say what is lost.
+		var path := _selected_path
+		var note := GameMenu.saved_note(SavesSource.newest_for(_saves, empire_name.call()))
+		_confirm(
+			tr("MENU_CONFIRM_LEAVE") + "\n" + note, tr("SAVES_LOAD"), load_started.emit.bind(path)
+		)
+	elif source.load_game(_selected_path):
 		load_started.emit(_selected_path)
 	else:
 		_status.text = tr("SAVES_LOAD_FAILED")
 
 
-## "2026-11-15T10:42:07Z" -> "2026-11-15 10:42".
-static func format_time(iso: String) -> String:
+func _save_as(stem: String) -> void:
+	var path: String = source.save_game(stem)
+	saving = not path.is_empty()
+	_status.text = tr("SAVES_SAVING") if saving else tr("SAVES_FAILED")
+
+
+# Ask before \a action: \a message, its button \a verb, and Cancel.
+func _confirm(message: String, verb: String, action: Callable) -> void:
+	FODialog.open_on(
+		self, _title.text, message, [[verb, "DangerButton", action], [tr("CANCEL"), "GhostButton"]]
+	)
+
+
+## "2026-11-15T10:42:07" -> "2026-11-15 10:42", or "today 10:42" /
+## "yesterday 10:42" when it is \a today (a "YYYY-MM-DD" date; the
+## computer's, by default) or the day before.
+static func format_time(iso: String, today := "") -> String:
 	if iso.length() < 16:
 		return iso
-	return iso.substr(0, 10) + " " + iso.substr(11, 5)
+	if today.is_empty():
+		today = Time.get_date_string_from_system()
+	var day := iso.substr(0, 10)
+	var clock := iso.substr(11, 5)
+	var yesterday := Time.get_date_string_from_unix_time(
+		Time.get_unix_time_from_datetime_string(today) - 86400
+	)
+	if day == today:
+		return TranslationServer.translate("SAVES_TODAY").replace("%1%", clock)
+	if day == yesterday:
+		return TranslationServer.translate("SAVES_YESTERDAY").replace("%1%", clock)
+	return day + " " + clock

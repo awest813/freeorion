@@ -10,6 +10,8 @@ var buttons: Array = []
 var _title: Label
 var _message: Label
 var _row: HBoxContainer
+# What had the focus before the dialog: it gets it back after.
+var _return_focus: WeakRef
 
 
 func _init() -> void:
@@ -25,6 +27,10 @@ func _init() -> void:
 static func open_on(parent: Node, title: String, message: String, choices: Array) -> FODialog:
 	var dialog := FODialog.new()
 	dialog.set_content(title, message, choices)
+	var viewport := parent.get_viewport() if parent.is_inside_tree() else null
+	var focused := viewport.gui_get_focus_owner() if viewport else null
+	if focused:
+		dialog._return_focus = weakref(focused)
 	parent.add_child(dialog)
 	FOUi.fade_in(dialog)
 	var audio := dialog.get_node_or_null("/root/FOAudio")
@@ -72,6 +78,10 @@ func choose(index: int) -> void:
 	var action: Callable = buttons[index][2] if buttons[index].size() > 2 else Callable()
 	queue_free()
 	visible = false
+	# Before the action, which may move the focus on itself.
+	var back: Control = _return_focus.get_ref() if _return_focus else null
+	if is_instance_valid(back) and back.is_visible_in_tree() and back.focus_mode != FOCUS_NONE:
+		back.grab_focus()
 	if action.is_valid():
 		action.call()
 

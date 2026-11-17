@@ -30,6 +30,19 @@ func test_dialog_runs_the_chosen_action_and_closes():
 	assert_eq(_dialogs(host).size(), 0)
 
 
+func test_closing_gives_the_focus_back():
+	var host := VBoxContainer.new()
+	add_child_autofree(host)
+	var opener := Button.new()
+	host.add_child(opener)
+	opener.grab_focus()
+	var dialog := FODialog.open_on(host, "T", "M", [["OK", "PrimaryButton"]])
+	await wait_process_frames(2)
+	assert_ne(get_viewport().gui_get_focus_owner(), opener, "The dialog takes the focus")
+	dialog.choose(0)
+	assert_eq(get_viewport().gui_get_focus_owner(), opener, "Back where it was")
+
+
 func test_escape_presses_the_last_button():
 	var host := Control.new()
 	add_child_autofree(host)

@@ -2463,8 +2463,26 @@ That save couldn't be loaded.
 SAVES_OVERWRITE
 Saving will replace this save.
 
+SAVES_REPLACE
+Replace
+
+SAVES_REPLACE_CONFIRM
+Replace the save %1%? This can't be undone.
+
+SAVES_TODAY
+today %1%
+
+SAVES_YESTERDAY
+yesterday %1%
+
 SAVES_AUTOSAVE
 Autosave
+
+SAVES_AUTOSAVES
+Autosaves
+
+SAVES_AUTOSAVES_TIP
+Show the games saved automatically each turn as well
 
 SAVES_DELETE
 Delete

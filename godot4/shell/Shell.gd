@@ -185,14 +185,18 @@ func _offer_continue() -> void:
 		title.set_can_continue(false)
 		return
 	var save: Dictionary = newest[0]
-	title.set_can_continue(
-		true,
-		(
-			"%s  ·  %s"
-			% [
-				save.get("empire", ""),
-				tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(save.get("turn", 0)))
-			]
+	(
+		title
+		. set_can_continue(
+			true,
+			(
+				"%s  ·  %s  ·  %s"
+				% [
+					save.get("empire", ""),
+					tr("MAP_BTN_TURN_UPDATE").replace("%1%", str(save.get("turn", 0))),
+					SaveLoadScreen.format_time(str(save.get("time", ""))),
+				]
+			)
 		)
 	)
 

@@ -99,6 +99,9 @@ func test_shell_menu_load_leaves_with_the_save():
 	shell.load_screen.refresh()
 	shell.load_screen._select(shell.load_screen._saves[0])
 	shell.load_screen._on_action()
+	assert_signal_not_emitted(shell, "leave_requested", "Asks first: the game would be lost")
+	var dialog: FODialog = shell.load_screen.find_children("*", "FODialog", false, false)[0]
+	dialog.choose(0)
 	assert_signal_emitted_with_parameters(
 		shell, "leave_requested", ["load", "/saves/Terran_Imperium_turn_42.sav"]
 	)
@@ -115,7 +118,9 @@ func test_leaving_says_when_the_game_was_last_saved():
 	assert_eq(newest["turn"], 40, "the newest save of this empire")
 	assert_eq(
 		GameMenu.saved_note(newest),
-		tr("GAME_MENU_LAST_SAVED").replace("%1%", "40").replace("%2%", "2026-11-16 12:25")
+		tr("GAME_MENU_LAST_SAVED").replace("%1%", "40").replace(
+			"%2%", SaveLoadScreen.format_time("2026-11-16T12:25:00")
+		)
 	)
 	assert_eq(GameMenu.saved_note({}), tr("GAME_MENU_NEVER_SAVED"))
 	var menu := GameMenu.new()

@@ -274,3 +274,29 @@ Leaks:
 Not bugs:
 - The bot's "Evacuate Planet didn't queue" was the confirmation the game asks for before a destructive item.
 - "A research row didn't queue" was a double-click while the screen was still opening, as before.
+
+## Menus and saving / loading
+
+The bot loaded a turn-40 game and then:
+- opened the game menu and saved under a new name;
+- saved again under the same name typed in, picked an existing save to save over, and saved under the names "../weird:name/.sav" and "with extension.sav";
+- opened Load, sorted it, picked a save and asked to delete it, then moved through the list with the arrow keys;
+- asked to quit to the title, then loaded its own save from inside the game;
+- went back to the title, with its Continue line and its Load screen.
+
+A separate script loaded a save from inside a game twice (turn 40 to 25, and turn 25 to 40, from a save this client made) to check that loading during a game lands in the chosen game. It does: the bot's earlier turn-1 result was its own click on a scrolled-away card.
+
+| Found | Fix |
+|-------|-----|
+| The loading screen's tip showed markup: "<encyclopedia OUTPOSTS_TITLE>Outpost</encyclopedia> … <metertype METER_SUPPLY>…". A tip's links were replaced by the names they stand for, and those names hold markup of their own. | Tips are plain text. A test reads every tip. |
+| Typing the name of an existing save and pressing Save replaced it without a word. Only picking its card said "Saving will replace this save". | Typing an existing name picks its card and says so. Saving over a save, typed or picked, asks first ("Replace the save Audit save? This can't be undone.", with Cancel focused). |
+| A name typed with its extension was saved as "name.sav.sav"; "../weird:name/.sav" became ".._weird_name_.sav.sav". | A typed ".sav" (or ".mps") is dropped before saving. The screen works out the file name the same way the save code does, so the name it checks for is the name that gets written. |
+| Loading another game from inside a game ended the running one at once, though Quit to title asks first. | It asks the same question and says when the game was last saved. |
+| Cancelling a dialog (Delete's, say) left nothing focused: the arrow keys did nothing until a click. | Dialogs give the focus back to what had it. |
+| Times read "2026-11-17 01:47" even for a save made a minute ago. | "today 01:47" and "yesterday 23:41", then the date. The same in the quit confirmation ("Last saved on turn 40, today 02:02.") and on the title's Continue line, which now says when as well ("Terran Imperium · Turn 40 · today 02:02"). |
+| Autosave cards showed their generated file name ("Autosave · FreeOrion_Human_Player_Terran_0002_20261117_014259.sav · …"). With an autosave a turn, they pushed named saves down the list. | "Autosave · today 02:01", with the file name in the tooltip (every card's tooltip starts with its file). An **Autosaves** toggle in the Load screen's header hides them; it only shows when there are autosaves. |
+| A save could only be loaded by picking it and then pressing Load. | A double click loads it (or, when saving, saves over it, after asking). |
+
+Checked and fine:
+- Saving closes the screen with "Saved Audit save.sav.".
+- The game menu's buttons, sort orders, the delete confirmation, the empty Load state and the multiplayer server listing were already in order.
