@@ -369,3 +369,25 @@ Checked and fine:
 - **Diplomacy:** a proposal turns its button into "Withdraw proposal" and the line into "You proposed peace". The AIs here left the proposals unanswered, which is theirs to do.
 - **Settings:** every page lays out cleanly.
 - **Sound:** clicks, opening and closing screens, and the new-turn chime all play; the music plays throughout.
+
+## Graphics
+
+The bot loaded a turn-40 game at 1280 × 800 and at 2560 × 1600 (133% automatic scale) and captured:
+- the galaxy framed whole, then at zooms 0.5, 1, 2, 4 and 8 and at both limits;
+- each map mode (political, supply, detection, resources, threat);
+- the system, planet, fleet and ship panels;
+- the designer, research, the Pedia's species, hull and tech articles, and the title screen.
+
+Crops at native size checked icon and text sharpness at 200%.
+
+| Found | Fix |
+|-------|-----|
+| The planet panel drew its planet as an oval, taller than wide, at every size. The sphere filled its view, which the panel row stretched taller than its width. | The sphere is drawn in the view's centred square, so a stretched view keeps it round. A test checks the square for tall and wide views. |
+
+Checked and left as they are:
+- **Scanlines** over fields out of sight are the original client's sign for a field not currently seen.
+- **An orange sliver** inside a blue outline is a gap in the empire's supply range, the nebula showing untinted through it.
+- **Zooming out** stops at half the framed galaxy, by design: room to see past its edges.
+- **Zooming all the way in** fills the view with a blurred field texture: the field's art is meant for the system scale, not the planets'.
+- **Sharpness:** stars, lanes, supply and detection ranges, orbits, labels, map modes and their captions, hull art, part and tech icons, species portraits and the top bar's icons are all clean at both sizes; at 200% the UI icons are drawn at the UI scale and are sharp.
+- **Robotic Hull's "Where it can be built"** shows the content's raw condition text ("[ that is a Planet, and that belongs to source's owner empire … ]"): the game's own description, as the original client shows it.

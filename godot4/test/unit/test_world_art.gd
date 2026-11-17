@@ -44,3 +44,8 @@ func test_galaxy_previews_follow_the_shape():
 	preview.systems = 1000
 	assert_eq(preview._points.size(), GalaxyPreview.STARS_MAX)
 	preview.free()
+
+
+func test_a_stretched_planet_view_keeps_the_planet_round():
+	assert_eq(PlanetView.sphere_rect(Vector2(48, 80)), Rect2(0, 16, 48, 48), "Tall: centred square")
+	assert_eq(PlanetView.sphere_rect(Vector2(90, 30)), Rect2(30, 0, 30, 30), "Wide too")

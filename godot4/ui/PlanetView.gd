@@ -111,4 +111,11 @@ static func surface_texture(planet_type: String, seed: int) -> Texture2D:
 
 func _draw() -> void:
 	if material != null:
-		draw_rect(Rect2(Vector2.ZERO, size), Color.WHITE)
+		draw_rect(sphere_rect(size), Color.WHITE)
+
+
+## Where the sphere goes in a view of \a view_size: the centred square, so a
+## view stretched by its container (a tall panel row) keeps it round.
+static func sphere_rect(view_size: Vector2) -> Rect2:
+	var side := minf(view_size.x, view_size.y)
+	return Rect2((view_size - Vector2(side, side)) / 2.0, Vector2(side, side))
