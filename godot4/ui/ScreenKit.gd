@@ -279,7 +279,7 @@ static func first_focusable(root: Node, text_ok := false) -> Control:
 
 ## Give keyboard focus to \a root's first focusable control (if any).
 static func focus_first(root: Node) -> void:
-	if not is_instance_valid(root):
+	if not is_instance_valid(root) or not root.is_inside_tree():
 		return
 	var target := first_focusable(root)
 	if target == null:

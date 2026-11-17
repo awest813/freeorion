@@ -57,6 +57,8 @@ func draw(layer: CanvasItem, map: GalaxyMap, font: Font) -> void:
 	var viewport := Rect2(Vector2.ZERO, map.get_viewport_rect().size)
 	var area: Rect2 = free_area.call() if free_area.is_valid() else viewport
 	area = area.grow(-MARGIN_PX)
+	if area.size.x <= 0.0 or area.size.y <= 0.0:
+		return  # no room (a tiny window)
 	var placed: Array[Rect2] = []
 	for target: Array in targets(map):
 		var at := map.camera.world_to_screen(target[0])

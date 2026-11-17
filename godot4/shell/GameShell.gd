@@ -553,8 +553,13 @@ func show_screen(screen_name: String) -> void:
 		top_bar.set_badge("combat", 0)
 	FOUi.slide_in(screens[screen_name])
 	# Keyboard users start in the screen, not on the map behind it.
-	var screen: Control = screens[screen_name]
-	(func(): ScreenKit.focus_first(screen)).call_deferred()
+	_focus_screen.call_deferred()
+
+
+func _focus_screen() -> void:  # once it shows, the screen takes the focus
+	var screen: Control = _screens().get(active_screen)
+	if screen and screen.is_visible_in_tree():
+		ScreenKit.focus_first(screen)
 
 
 func _screens() -> Dictionary:

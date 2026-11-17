@@ -131,7 +131,7 @@ func _check_home_system_panel() -> void:
 	_test.assert_ne(home_id, -1, "Player owns a planet")
 	var data := SystemPanel.from_universe(home_id)
 	_test.assert_false(data.is_empty(), "Home system data")
-	var own_planets: Array = data["planets"].filter(func(p): return p["own"])
+	var own_planets: Array = data.get("planets", []).filter(func(p): return p["own"])
 	_test.assert_gt(own_planets.size(), 0, "Panel lists an own planet")
 	if not own_planets.is_empty():
 		_test.assert_gt(own_planets[0]["population"], 0.0, "Own planet has population")

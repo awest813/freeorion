@@ -161,3 +161,20 @@ The bot played the same screen tour in the high-contrast theme and in a 1024×64
 | Sliders and links | Godot's faint default focus ring. | The theme's focus ring, as on every other control. |
 
 Tests cover the screen focus, the menu and dialog wrapping both ways, and Tab staying off the map.
+
+# Debugging
+
+Five bots played 30 turns each (newcomer, warlord, economist, explorer and auto end turn; about 150 turns in all), and the test suite's log was combed for anything printed, not just failures.
+
+**Fixed**
+- The new deferred focus calls captured screens that tests could free first ("Lambda capture … was freed", four times a run). They now look the screen up when they run.
+- A screen could try to grab focus after leaving the tree. The off-screen pointers measured a negative area in a tiny window ("Rect2 size is negative"). Both are guarded.
+- An integration check crashed on an empty panel instead of failing cleanly.
+
+The suite now runs with no errors in its log, beyond the engine's usual leak report at exit.
+
+**Investigated, not bugs**
+- In the long games: no script errors, engine errors or crashes. The only warnings are the container's missing audio device and vsync.
+- "Right-click didn't send the colony ship": the bot right-clicked systems that sat under the side panels. With the target in clear map, the order goes through, as a dedicated check showed.
+- "Double-clicking a research row didn't queue it" (turn 1 only): the bot clicks while the screen is still opening. A real double-click on a tech card queues it.
+- The 18 anchor warnings in the tests come from tests sizing the game before adding it to the tree.

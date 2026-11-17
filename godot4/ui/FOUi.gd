@@ -215,7 +215,13 @@ func top_modal() -> Control:
 func _keep_focus_in_modal(focused: Control) -> void:
 	var modal := top_modal()
 	if modal and focused and not modal.is_ancestor_of(focused):
-		(func(): ScreenKit.focus_first(modal)).call_deferred()
+		_refocus_modal.call_deferred()
+
+
+func _refocus_modal() -> void:
+	var modal := top_modal()
+	if modal:
+		ScreenKit.focus_first(modal)
 
 
 ## Where Tab moves now: the modal on top; else an open screen with the top
