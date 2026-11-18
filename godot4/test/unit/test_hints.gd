@@ -150,3 +150,74 @@ func test_screen_hint_keeps_clear_of_the_screen_controls():
 		card.intersects(add.get_global_rect()), "The hint leaves the Add button free: %s" % card
 	)
 	assert_gt(card.end.y, 600.0, "Still along the bottom")
+
+
+func test_a_screen_hint_waiting_to_show_takes_no_clicks():
+	coach.screen_shown("production")
+	assert_eq(coach.current, "production")
+	assert_false(coach._card.visible, "Hidden, not just see-through, while the screen settles")
+	await wait_seconds(FOUi.tokens.motion + HintCoach.SETTLE_SECONDS + 0.1)
+	assert_true(coach._card.visible)
+
+
+func test_a_screen_hint_stays_inside_the_screen():
+	# A screen below a 90 px top bar, its bottom full of buttons.
+	var screen := Control.new()
+	coach.add_child(screen)
+	screen.position = Vector2(0, 90)
+	screen.size = Vector2(1280, 710)
+	var row := Button.new()
+	screen.add_child(row)
+	row.position = Vector2(0, 500)
+	row.size = Vector2(1280, 210)
+	coach.screen_shown("design", screen)
+	await wait_seconds(FOUi.tokens.motion + HintCoach.SETTLE_SECONDS + 0.1)
+	var card: Rect2 = coach._card.get_global_rect()
+	assert_gt(card.position.y, 90.0, "Not over the top bar: %s" % card)
+	assert_false(card.intersects(row.get_global_rect()))
+
+
+func test_a_crowded_screen_hint_finds_the_empty_middle():
+	var area := Rect2(0, 0, 1000, 800)
+	var card := Vector2(300, 150)
+	# Controls in all four corners, the middle free.
+	var busy := [
+		Rect2(0, 0, 400, 300),
+		Rect2(600, 0, 400, 300),
+		Rect2(0, 500, 400, 300),
+		Rect2(600, 500, 400, 300)
+	]
+	var at := HintCoach.quiet_corner(area, card, busy)
+	var placed := Rect2(at, card)
+	for rect in busy:
+		assert_false(placed.intersects(rect), "%s clear of %s" % [placed, rect])
+	# Only a sliver in each corner's way: a corner still beats the middle.
+	var slivers := [
+		Rect2(990, 790, 10, 10), Rect2(0, 790, 10, 10), Rect2(990, 0, 10, 10), Rect2(0, 0, 10, 10)
+	]
+	assert_eq(HintCoach.quiet_corner(area, card, slivers), Vector2(700, 650))
+
+
+func test_a_list_is_busy_only_down_to_its_last_row():
+	var tree := Tree.new()
+	add_child_autofree(tree)
+	tree.position = Vector2.ZERO
+	tree.size = Vector2(800, 600)
+	tree.hide_root = true
+	var top := tree.create_item()
+	for i in 3:
+		tree.create_item(top).set_text(0, "row")
+	await wait_process_frames(2)
+	var filled := HintCoach.filled_height(tree)
+	assert_gt(filled, 0.0)
+	assert_lt(filled, 200.0, "Three rows, not the whole 600 px")
+	var rects := HintCoach.busy_rects(self_control(tree), Rect2(0, 0, 1280, 800))
+	assert_eq(rects.size(), 1)
+	assert_almost_eq(rects[0].size.y, filled, 0.5)
+
+
+func self_control(child: Control) -> Control:
+	var holder := Control.new()
+	add_child_autofree(holder)
+	child.reparent(holder)
+	return holder

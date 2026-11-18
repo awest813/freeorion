@@ -32,6 +32,10 @@ const WIDTH := 340
 const SETTLE_SECONDS := 0.15
 ## Controls a screen's hint keeps clear of when it picks its corner.
 const BUSY_CLASSES := ["BaseButton", "LineEdit", "TextEdit", "Range", "ItemList", "Tree", "TabBar"]
+## Spots a screen's hint tries: a grid of this many steps each way.
+const GRID_STEPS := 4
+## What leaving the corners costs, as a share of the card's area covered.
+const OFF_CORNER_COST := 0.15
 
 ## Hints are kept in the options; tests turn this off.
 var persist := true
@@ -49,6 +53,8 @@ var _screen_node: Control
 var _card: PanelContainer
 var _text: Label
 var _placing := false
+## Counts hints shown: a delayed show checks it is still the latest.
+var _shows := 0
 
 
 func _init() -> void:
@@ -187,13 +193,18 @@ func _show_next() -> void:
 		_card.visible = true
 		# A screen just opened lays out and slides in first: its hint finds
 		# its corner once the screen has settled.
+		# Hidden meanwhile: a see-through card would still take clicks.
 		if not current in MAP_HINTS and is_inside_tree() and not FOUi.reduce_motion:
-			_card.modulate.a = 0.0
-			var shown := current
+			_card.visible = false
+			_shows += 1
+			var show := _shows
 			get_tree().create_timer(FOUi.tokens.motion + SETTLE_SECONDS).timeout.connect(
 				func():
-					if current == shown:
+					if show == _shows and not current.is_empty() and not _card.visible:
+						_card.visible = true
 						_place()
+						# Again once its text has wrapped to the card's width.
+						_place.call_deferred()
 						FOUi.fade_in(_card)
 			)
 			return
@@ -218,9 +229,13 @@ func _place() -> void:
 	# player is meant to try (a hint over the Add buttons blocks them).
 	if not current in MAP_HINTS:
 		var busy: Array = []
+		var area := Rect2(Vector2.ZERO, size)
+		# Inside the screen: above it is the top bar.
 		if is_instance_valid(_screen_node) and _screen_node.is_visible_in_tree():
 			busy = busy_rects(_screen_node, get_global_rect())
-		var area := Rect2(Vector2.ZERO, size).grow(-gap * 2.0)
+			var inside := _screen_node.get_global_rect()
+			area = area.intersection(Rect2(inside.position - global_position, inside.size))
+		area = area.grow(-gap * 2.0)
 		position = quiet_corner(
 			area, card_size, busy.map(func(r): return Rect2(r.position - global_position, r.size))
 		)
@@ -245,17 +260,26 @@ func _place() -> void:
 
 
 ## Where in \a area a card of \a card_size covers the least of the \a busy
-## rects: a corner, bottom right, bottom left, top right then top left on a
-## tie.
+## rects. Corners first (bottom right, bottom left, top right, top left);
+## a spot along an edge or further in only when it is clearly emptier, on a
+## screen with controls in every corner.
 static func quiet_corner(area: Rect2, card_size: Vector2, busy: Array) -> Vector2:
+	var spots: Array = [Vector2(1, 1), Vector2(0, 1), Vector2(1, 0), Vector2(0, 0)]
+	for y in GRID_STEPS + 1:
+		for x in GRID_STEPS + 1:
+			var spot := Vector2(x, y) / GRID_STEPS
+			if not spot in spots:
+				spots.push_back(spot)
 	var best := Vector2.ZERO
 	var least := INF
-	for corner in [Vector2(1, 1), Vector2(0, 1), Vector2(1, 0), Vector2(0, 0)]:
-		var at: Vector2 = area.position + (area.size - card_size) * corner
+	for spot in spots:
+		var at: Vector2 = area.position + (area.size - card_size).max(Vector2.ZERO) * spot
 		var card := Rect2(at, card_size)
 		var covered := 0.0
 		for rect in busy:
 			covered += card.intersection(rect).get_area()
+		if spot.x != round(spot.x) or spot.y != round(spot.y):
+			covered += card.get_area() * OFF_CORNER_COST
 		if covered < least - 0.5:
 			least = covered
 			best = at
@@ -270,9 +294,15 @@ static func busy_rects(node: Control, clip: Rect2) -> Array:
 		var control := child as Control
 		if not BUSY_CLASSES.any(func(c): return control.is_class(c)):
 			continue
+		# A list's scroll bar is a thin strip along its edge.
+		if control is ScrollBar:
+			continue
 		if not control.is_visible_in_tree():
 			continue
-		var rect := control.get_global_rect().intersection(clip)
+		var rect := control.get_global_rect()
+		# A list is busy only down to its last row: below is empty space.
+		rect.end.y = minf(rect.end.y, rect.position.y + filled_height(control))
+		rect = rect.intersection(clip)
 		var parent := control.get_parent()
 		while parent:
 			if parent is ScrollContainer:
@@ -281,6 +311,25 @@ static func busy_rects(node: Control, clip: Rect2) -> Array:
 		if rect.has_area():
 			rects.push_back(rect)
 	return rects
+
+
+## How far down \a control is filled: a tree or item list to its last row
+## (scaled as drawn), anything else all the way.
+static func filled_height(control: Control) -> float:
+	var scale := control.get_global_transform().get_scale().y
+	if control is Tree:
+		var tree := control as Tree
+		var last := tree.get_root()
+		while last and last.get_next_visible():
+			last = last.get_next_visible()
+		# The item's area counts the column titles above it.
+		return tree.get_item_area_rect(last).end.y * scale if last else 0.0
+	if control is ItemList:
+		var list := control as ItemList
+		if list.item_count == 0:
+			return 0.0
+		return list.get_item_rect(list.item_count - 1).end.y * scale
+	return control.size.y * scale
 
 
 func _save() -> void:
