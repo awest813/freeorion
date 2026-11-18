@@ -445,3 +445,4 @@ Checked and not bugs:
 - **Tab from in-game Options reaches the top bar:** in-game Options is an overlay below the top bar, not a modal, so Tab moves on to the bar's screen buttons, as it does from Production or Research.
 - **The title splash 1–6 px off screen:** this is its slow drift, on purpose.
 - **"The game has ended" in the tour run:** a debug script started alongside the run stopped its server.
+- **Turn-1 production double-click, after the tip fix:** at the moment of the click, Research was open. One of the bot's own research steps had switched screens between picking the row and clicking it. On turns 3 and 4 and on the turn-40 save, the double-click queues the item.
