@@ -537,11 +537,11 @@ func show_screen(screen_name: String) -> void:
 		map_modes.cancel_placement()
 	active_screen = screen_name
 	top_bar.set_active_screen(screen_name)
-	hints.screen_shown(screen_name)
 	var screens := _screens()
 	for key in screens:
 		screens[key].visible = key == screen_name
 		screens[key].add_to_group(FOUi.SCREEN_GROUP)
+	hints.screen_shown(screen_name, screens.get(screen_name))
 	if not screens.has(screen_name):
 		# Back on the map: queues and focus may have changed what's spent.
 		top_bar.refresh_resources()

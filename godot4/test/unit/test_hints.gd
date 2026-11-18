@@ -100,7 +100,53 @@ func test_map_hints_wait_while_a_screen_is_open():
 func test_screen_hints_sit_in_the_bottom_right():
 	coach.size = Vector2(1280, 800)
 	coach.screen_shown("production")
-	await wait_process_frames(2)
+	await wait_seconds(FOUi.tokens.motion + HintCoach.SETTLE_SECONDS + 0.1)
 	var card: Rect2 = coach._card.get_rect()
 	assert_gt(card.position.y, 400.0, "Clear of the screen's top rows")
 	assert_gt(card.position.x, 640.0)
+
+
+func test_screen_hint_takes_the_quietest_corner():
+	var area := Rect2(0, 0, 1000, 800)
+	var card := Vector2(300, 150)
+	assert_eq(
+		HintCoach.quiet_corner(area, card, []),
+		Vector2(700, 650),
+		"Bottom right when nothing is in the way"
+	)
+	# Add buttons down the right side: the bottom left is clear.
+	var buttons := [Rect2(900, 100, 80, 700)]
+	assert_eq(HintCoach.quiet_corner(area, card, buttons), Vector2(0, 650))
+	# Everything along the bottom: a top corner.
+	assert_eq(HintCoach.quiet_corner(area, card, [Rect2(0, 600, 1000, 200)]), Vector2(700, 0))
+
+
+func test_screen_hint_keeps_clear_of_the_screen_controls():
+	var screen := Control.new()
+	coach.add_child(screen)
+	screen.position = Vector2.ZERO
+	screen.size = coach.size
+	var add := Button.new()
+	add.text = "Add"
+	screen.add_child(add)
+	add.position = Vector2(1100, 700)
+	add.size = Vector2(120, 60)
+	# Scrolled out of its list: no longer in the way.
+	var scroll := ScrollContainer.new()
+	screen.add_child(scroll)
+	scroll.position = Vector2(0, 0)
+	scroll.size = Vector2(200, 100)
+	var hidden := Button.new()
+	scroll.add_child(hidden)
+	hidden.custom_minimum_size = Vector2(200, 600)
+	var rects := HintCoach.busy_rects(screen, Rect2(Vector2.ZERO, coach.size))
+	assert_eq(rects.size(), 2)
+	assert_true(rects.all(func(r): return r.end.y <= 100.0 or r.position.x >= 1100.0), str(rects))
+	coach.screen_shown("production", screen)
+	await wait_seconds(FOUi.tokens.motion + HintCoach.SETTLE_SECONDS + 0.1)
+	assert_eq(coach.current, "production")
+	var card: Rect2 = coach._card.get_global_rect()
+	assert_false(
+		card.intersects(add.get_global_rect()), "The hint leaves the Add button free: %s" % card
+	)
+	assert_gt(card.end.y, 600.0, "Still along the bottom")

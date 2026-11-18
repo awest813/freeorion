@@ -428,3 +428,20 @@ Checked and not bugs:
 - **Research double-click on turn 1:** the bot reported "double-clicking a research row didn't queue it" in every game. A script double-clicking a real card, 12 frames after the screen opened and again later, queued it both times: the bot had picked a card already queued (its filter compared the wrong label). The bot now picks a card whose button says Add.
 - **Production double-click:** the same check queues an item. Evacuate Planet asks for confirmation first, as it should.
 - **Fleet moves:** "right-click didn't set the destination" happened where the bot had to pan to an off-screen target, and its click then went nowhere. Ordering every one of the explorer's fleets to its nearest free system on the final save raised no problem; refused moves say why (`MoveOrders.move_refusal_text`).
+
+## Regression sweep
+
+Four personas were run against the turn-40 save after the recent passes:
+- ux, at 1024 × 640 and 80 % scale;
+- widgets;
+- keys;
+- tour.
+
+| Found | Fix |
+|-------|-----|
+| On a screen's first visit its tip sat in the bottom right corner, over the catalogue's Add buttons: on Production the tip covered the last three rows, and double-clicking Outpost Ship there hit the tip instead. The earlier "production double-click works" check had turned tips off, so it missed this. | A screen's tip takes the corner that covers the fewest of the screen's buttons, fields and lists (`HintCoach.quiet_corner`, `busy_rects`). It ignores controls scrolled out of view, and still prefers the bottom right. It picks its corner once the screen has slid in and laid out; measured any earlier, every row's buttons are still stacked at the left. On Production it now sits over the empty queue side. |
+
+Checked and not bugs:
+- **Tab from in-game Options reaches the top bar:** in-game Options is an overlay below the top bar, not a modal, so Tab moves on to the bar's screen buttons, as it does from Production or Research.
+- **The title splash 1–6 px off screen:** this is its slow drift, on purpose.
+- **"The game has ended" in the tour run:** a debug script started alongside the run stopped its server.

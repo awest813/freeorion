@@ -28,6 +28,10 @@ const MAP_HINTS := ["map", "end_turn", "fleet", "planet"]
 ## Hotkeys hints name, filled in for %1%.
 const HINT_HOTKEYS := {"end_turn": "end_turn"}
 const WIDTH := 340
+## How long after a screen's slide-in its hint shows.
+const SETTLE_SECONDS := 0.15
+## Controls a screen's hint keeps clear of when it picks its corner.
+const BUSY_CLASSES := ["BaseButton", "LineEdit", "TextEdit", "Range", "ItemList", "Tree", "TabBar"]
 
 ## Hints are kept in the options; tests turn this off.
 var persist := true
@@ -40,6 +44,8 @@ var current := ""
 var screen := ""
 var _queue: Array = []
 var _anchor: Control
+## The full screen open, whose controls a screen's hint keeps clear of.
+var _screen_node: Control
 var _card: PanelContainer
 var _text: Label
 var _placing := false
@@ -113,10 +119,11 @@ func offer(id: String, anchor: Control = null) -> void:
 		_show_next()
 
 
-## The full screen \a screen_name opened ("" for back to the map): hints
-## for elsewhere step aside, and the screen's own hint comes first.
-func screen_shown(screen_name: String) -> void:
+## The full screen \a screen_name (\a node) opened ("" for back to the
+## map): hints for elsewhere step aside, and the screen's own hint comes first.
+func screen_shown(screen_name: String, node: Control = null) -> void:
 	screen = screen_name
+	_screen_node = node
 	if not current.is_empty() and not _fits(current):
 		_queue.push_front([current, _anchor])
 		current = ""
@@ -178,13 +185,26 @@ func _show_next() -> void:
 		)
 		_card.size = Vector2(WIDTH, 0)
 		_card.visible = true
+		# A screen just opened lays out and slides in first: its hint finds
+		# its corner once the screen has settled.
+		if not current in MAP_HINTS and is_inside_tree() and not FOUi.reduce_motion:
+			_card.modulate.a = 0.0
+			var shown := current
+			get_tree().create_timer(FOUi.tokens.motion + SETTLE_SECONDS).timeout.connect(
+				func():
+					if current == shown:
+						_place()
+						FOUi.fade_in(_card)
+			)
+			return
 		FOUi.fade_in(_card)
 		_place.call_deferred()
 		return
 
 
 # Below the anchor if there's room, else above it; near the top middle
-# without one (a screen's hint: its bottom right). Always inside the screen.
+# without one (a screen's hint: the corner covering the fewest of its
+# controls, bottom right first). Always inside the screen.
 func _place() -> void:
 	if not _card.visible or _placing:
 		return
@@ -194,10 +214,16 @@ func _place() -> void:
 	var card_size := _card.size
 	var gap := FOUi.tokens.space_2
 	var position := Vector2((size.x - card_size.x) / 2.0, size.y * 0.15)
-	# A screen's hint sits in its bottom right corner, clear of the filters
-	# and pickers along the top.
+	# A screen's hint sits in a corner, clear of the buttons and lists the
+	# player is meant to try (a hint over the Add buttons blocks them).
 	if not current in MAP_HINTS:
-		position = size - card_size - Vector2.ONE * gap * 2.0
+		var busy: Array = []
+		if is_instance_valid(_screen_node) and _screen_node.is_visible_in_tree():
+			busy = busy_rects(_screen_node, get_global_rect())
+		var area := Rect2(Vector2.ZERO, size).grow(-gap * 2.0)
+		position = quiet_corner(
+			area, card_size, busy.map(func(r): return Rect2(r.position - global_position, r.size))
+		)
 	if _anchor and _anchor.is_visible_in_tree():
 		var rect := _anchor.get_global_rect()
 		var local := rect.position - global_position
@@ -216,6 +242,45 @@ func _place() -> void:
 	position.y = clampf(position.y, gap, maxf(gap, size.y - card_size.y - gap))
 	_card.position = position
 	_placing = false
+
+
+## Where in \a area a card of \a card_size covers the least of the \a busy
+## rects: a corner, bottom right, bottom left, top right then top left on a
+## tie.
+static func quiet_corner(area: Rect2, card_size: Vector2, busy: Array) -> Vector2:
+	var best := Vector2.ZERO
+	var least := INF
+	for corner in [Vector2(1, 1), Vector2(0, 1), Vector2(1, 0), Vector2(0, 0)]:
+		var at: Vector2 = area.position + (area.size - card_size) * corner
+		var card := Rect2(at, card_size)
+		var covered := 0.0
+		for rect in busy:
+			covered += card.intersection(rect).get_area()
+		if covered < least - 0.5:
+			least = covered
+			best = at
+	return best
+
+
+## The global rects of \a node's visible controls a player clicks or types
+## in, cut to what their scrolling list shows and to \a clip.
+static func busy_rects(node: Control, clip: Rect2) -> Array:
+	var rects: Array = []
+	for child in node.find_children("*", "Control", true, false):
+		var control := child as Control
+		if not BUSY_CLASSES.any(func(c): return control.is_class(c)):
+			continue
+		if not control.is_visible_in_tree():
+			continue
+		var rect := control.get_global_rect().intersection(clip)
+		var parent := control.get_parent()
+		while parent:
+			if parent is ScrollContainer:
+				rect = rect.intersection((parent as Control).get_global_rect())
+			parent = parent.get_parent()
+		if rect.has_area():
+			rects.push_back(rect)
+	return rects
 
 
 func _save() -> void:
